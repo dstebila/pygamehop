@@ -18,13 +18,13 @@ class Scheme(SE.Scheme):
     def __init__(self, se: SE.Scheme, mac: MAC.Scheme) -> None:
         self.se = se
         self.mac = mac
-    def Encrypt(self, k: SE.SecretKey, msg: SE.Message) -> Ciphertext:
-        ct = self.se.Encrypt(cast(SecretKey, k).sk_enc, msg)
-        tag = self.mac.MAC(cast(SecretKey, k).sk_mac, cast(MAC.Message, ct))
+    def Encrypt(self, k: SecretKey, msg: SE.Message) -> Ciphertext: # type: ignore[override]
+        ct = self.se.Encrypt(k.sk_enc, msg)
+        tag = self.mac.MAC(k.sk_mac, cast(MAC.Message, ct))
         return Ciphertext(ct, tag)
-    def Decrypt(self, k: SE.SecretKey, ct_in: SE.Ciphertext) -> Union[SE.Message, SE.Reject]:
-        tagprime = self.mac.MAC(cast(SecretKey, k).sk_mac, cast(MAC.Message, cast(Ciphertext, ct_in).ct))
-        if tagprime != cast(Ciphertext, ct_in).tag: return SE.Reject()
-        msg = self.se.Decrypt(cast(SecretKey, k).sk_enc, cast(Ciphertext, ct_in).ct)
+    def Decrypt(self, k: SecretKey, ct: Ciphertext) -> Union[SE.Message, SE.Reject]: # type: ignore[override]
+        tagprime = self.mac.MAC(k.sk_mac, cast(MAC.Message, ct.ct))
+        if tagprime != ct.tag: return SE.Reject()
+        msg = self.se.Decrypt(k.sk_enc, ct.ct)
         if isinstance(msg, SE.Reject): return msg
         else: return msg
