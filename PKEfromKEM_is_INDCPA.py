@@ -29,7 +29,8 @@ class R01(KEM.INDCPA_adversary):
         self.pke_adversary = pke_adversary
 
     def guess(self, pk: KEM.PublicKey, ct_in: KEM.Ciphertext, ss_in: KEM.SharedSecret) -> Crypto.Bit:
-        (m0, m1) = self.pke_adversary.challenge(PKEfromKEM.PublicKey(pk))
+        (pkepk, pkesk)  = (PKEfromKEM.PublicKey(pk), PKEfromKEM.SecretKey(sk))
+        (m0, m1) = self.pke_adversary.challenge(pkepk)
         (v2, v3) = (ct_in, ss_in)
         v4 = self.kdf.F(v3, "")
         v5 = v4 ^ cast(Crypto.ByteString, m0)
@@ -42,7 +43,8 @@ def KEM_INDCPAreal_R01(kem: KEM.Scheme, kdf: KDF.Scheme, pke_adversary: PKE.INDC
     (pk, sk) = kem.KeyGen()
     (ct, ss_real) = kem.Encaps(pk)
     # manually inline return adversary.guess(pk, ct, ss_real)
-    (m0, m1) = pke_adversary.challenge(PKEfromKEM.PublicKey(pk))
+    (pkepk, pkesk)  = (PKEfromKEM.PublicKey(pk), PKEfromKEM.SecretKey(sk))
+    (m0, m1) = pke_adversary.challenge(pkepk)
     v4 = kdf.F(ss_real, "")
     v5 = v4 ^ cast(Crypto.ByteString, m0)
     ct_pke = PKEfromKEM.Ciphertext(ct, v5)
