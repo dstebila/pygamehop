@@ -1,16 +1,49 @@
 import ast
+import copy
 import inspect
 import random
 import re
 
-from typing import Callable
+from typing import Callable, List, Union
 
-class RenameVariables(ast.NodeTransformer):
+def findallvariables(fdef: ast.FunctionDef) -> List[str]:
+    vars = list()
+    # function arguments
+    args = fdef.args
+    if len(args.posonlyargs) > 0: raise NotImplementedError()
+    if len(args.kwonlyargs) > 0: raise NotImplementedError()
+    if len(args.kw_defaults) > 0: raise NotImplementedError()
+    if len(args.defaults) > 0: raise NotImplementedError()
+    for arg in args.args:
+        vars.append(arg.arg)
+    # find all assigned variables
+    for stmt in fdef.body:
+        if isinstance(stmt, ast.Assign):
+            for target in stmt.targets:
+                if isinstance(target, ast.Name):
+                    if target.id not in vars: vars.append(target.id)
+                elif isinstance(target, ast.Tuple) or isinstance(target, ast.List):
+                    for elt in target.elts:
+                        if elt.id not in mappings_tmp:  vars.append(elt.id)
+                else: raise NotImplementedError()
+    return vars
+
+class NameRenamer(ast.NodeTransformer):
     def __init__(self, mappings):
         self.mappings = mappings
     def visit_Name(self, node):
         if node.id in self.mappings: return ast.Name(id=self.mappings[node.id], ctx=node.ctx)
         else: return node
+
+def renamevariables(fdef: ast.FunctionDef, mappings: dict) -> ast.FunctionDef:
+    retvalue = copy.deepcopy(fdef)
+    for arg in retvalue.args.args:
+        if arg.arg in mappings: arg.arg = mappings[arg.arg]
+    newbody = list()
+    for stmt in retvalue.body:
+        newbody.append(NameRenamer(mappings).visit(stmt))
+    retvalue.body = newbody
+    return retvalue
 
 def canonicalize_return(f: ast.FunctionDef) -> None:
     class ReturnExpander(ast.NodeTransformer):
@@ -38,46 +71,29 @@ def canonicalize_return(f: ast.FunctionDef) -> None:
     f.body = fprime.body
     ast.fix_missing_locations(f)
 
-def canonicalize_functionname(f: ast.FunctionDef) -> None:
-    f.name = "f"
+def canonicalize_functionname(f: ast.FunctionDef, name = 'f') -> None:
+    f.name = name
     ast.fix_missing_locations(f)
 
-def canonicalize_variablenames(f: ast.FunctionDef) -> None:
+def canonicalize_variablenames(f: ast.FunctionDef, prefix = 'v') -> None:
     # first rename everything to a random string followed by a counter
     # then rename them to v0, v1, v2, ...
-    mappings_tmp = dict()
-    mappings = dict()
     tmpname = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r' ,'s', 't', 'u', 'v', 'w', 'x', 'y', 'z']
     random.shuffle(tmpname)
     tmpname = ''.join(tmpname)
-    # canonicalize arguments in the given order
-    args = f.args
-    if len(args.posonlyargs) > 0: raise NotImplementedError()
-    if len(args.kwonlyargs) > 0: raise NotImplementedError()
-    if len(args.kw_defaults) > 0: raise NotImplementedError()
-    if len(args.defaults) > 0: raise NotImplementedError()
-    for arg in args.args:
-        mappings_tmp[arg.arg] = "{:s}{:d}".format(tmpname, len(mappings))
-        mappings[mappings_tmp[arg.arg]] = "v{:d}".format(len(mappings))
-        arg.arg = mappings[mappings_tmp[arg.arg]]
-    # find all assigned variables
-    for stmt in f.body:
-        if isinstance(stmt, ast.Assign):
-            for target in stmt.targets:
-                if isinstance(target, ast.Name):
-                    if target.id not in mappings_tmp: 
-                        mappings_tmp[target.id] = "{:s}{:d}".format(tmpname, len(mappings))
-                        mappings[mappings_tmp[target.id]] = "v{:d}".format(len(mappings))
-                elif isinstance(target, ast.Tuple) or isinstance(target, ast.List):
-                    for elt in target.elts:
-                        if elt.id not in mappings_tmp: 
-                            mappings_tmp[elt.id] = "{:s}{:d}".format(tmpname, len(mappings))
-                            mappings[mappings_tmp[elt.id]] = "v{:d}".format(len(mappings))
-                else: raise NotImplementedError()
-    # rename all variables per the mapping
-    fprime = RenameVariables(mappings_tmp).visit(f)
-    fprime = RenameVariables(mappings).visit(fprime)
-    f.body = fprime.body
+    # set up the mappings
+    vars = findallvariables(f)
+    mappings_1stpass = dict()
+    mappings_2ndpass = dict()
+    for i in range(len(vars)):
+        mappings_1stpass[vars[i]] = '{:s}{:d}'.format(tmpname, i)
+        mappings_2ndpass[mappings_1stpass[vars[i]]] = '{:s}{:d}'.format(prefix, i)
+    # rename to temporary names, then output names
+    f_1stpass = renamevariables(f, mappings_1stpass)
+    f_2ndpass = renamevariables(f_1stpass, mappings_2ndpass)
+    # save results in place
+    f.args = f_2ndpass.args
+    f.body = f_2ndpass.body
     ast.fix_missing_locations(f)
 
 class FindVariableDependencies(ast.NodeVisitor):
@@ -144,8 +160,10 @@ def canonicalize_lineorder(f: ast.FunctionDef) -> None:
     f.body = output
     ast.fix_missing_locations(f)
 
-def canonicalize(f: Callable) -> str:
-    t = ast.parse(inspect.getsource(f))
+def canonicalize(f: Union[Callable, str]) -> str:
+    if isinstance(f, Callable): t = ast.parse(inspect.getsource(f))
+    elif isinstance(f, str): t = ast.parse(f)
+    else: raise TypeError()
     functionDef = t.body[0]
     assert isinstance(functionDef, ast.FunctionDef)
     canonicalize_return(functionDef)
@@ -154,3 +172,41 @@ def canonicalize(f: Callable) -> str:
     canonicalize_lineorder(functionDef)
     canonicalize_variablenames(functionDef)
     return ast.unparse(ast.fix_missing_locations(t))
+
+def inlinefunction(fdest, farg):
+    # parse the functions
+    tdest = ast.parse(inspect.getsource(fdest))
+    targ = ast.parse(inspect.getsource(farg))
+    # get the function definition
+    fdest_def = tdest.body[0]
+    assert isinstance(fdest_def, ast.FunctionDef)
+    farg_def = targ.body[0]
+    assert isinstance(farg_def, ast.FunctionDef)
+    
+    class Inliner(ast.NodeTransformer):
+        def __init__(self, farg_def):
+            self.farg_def = farg_def
+            self.replacement_count = 0
+        def visit_Assign(self, stmt):
+            if isinstance(stmt.value, ast.Call) and stmt.value.func.id == self.farg_def.name:
+                self.replacement_count += 1
+                # prefix all variables in inlinand
+                vars = findallvariables(self.farg_def)
+                mappings = dict()
+                for var in vars: mappings[var] = 'v_{:s}_{:d}_{:s}'.format(self.farg_def.name, self.replacement_count, var)
+                newfarg_def = renamevariables(farg_def, mappings)
+                # map the parameters onto the arguments
+                assert len(stmt.value.args) == len(newfarg_def.args.args)
+                mappings = dict()
+                for i in range(len(stmt.value.args)):
+                    mappings[newfarg_def.args.args[i].arg] = stmt.value.args[i].id
+                newfarg_def = renamevariables(newfarg_def, mappings)
+                # turn the final return statement into an assignment
+                assert isinstance(newfarg_def.body[-1], ast.Return)
+                newret = ast.Assign(targets=stmt.targets, value=newfarg_def.body[-1].value)
+                newfarg_def.body[-1] = newret
+                # output is the inlined function body
+                return newfarg_def.body
+            else: return stmt
+    newfdest_def = Inliner(farg_def).visit(fdest_def)
+    return ast.unparse(ast.fix_missing_locations(newfdest_def))
