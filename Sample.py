@@ -20,11 +20,15 @@ def function3(w: int, b: int) -> int:
     u = w + 9
     return u + d
 
-import Verification
+# import ast
+# import inspect
+# t1 = ast.parse(inspect.getsource(function1))
+# print(ast.dump(t1, indent=2))
 
-f1 = Verification.canonicalize(function1)
-f2 = Verification.canonicalize(function2)
-f3 = Verification.inlinefunction(function3, addseven)
-f3 = Verification.canonicalize(f3)
-assert f1 == f2
-assert f2 == f3
+import Verification
+f1 = Verification.canonicalize_function(function1)
+print(f1)
+f2 = Verification.canonicalize_function(function2)
+f3 = Verification.inline_function(function3, addseven)
+f3 = Verification.canonicalize_function(f3)
+print((f1 == f2) and (f2 == f3))

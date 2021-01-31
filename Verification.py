@@ -7,6 +7,7 @@ import re
 from typing import Callable, List, Union
 
 def findallvariables(fdef: ast.FunctionDef) -> List[str]:
+    """Return a list of all variables in the function, including function parameters."""
     vars = list()
     # function arguments
     args = fdef.args
@@ -29,53 +30,62 @@ def findallvariables(fdef: ast.FunctionDef) -> List[str]:
     return vars
 
 class NameRenamer(ast.NodeTransformer):
-    def __init__(self, mappings):
-        self.mappings = mappings
+    """Replaces ids in Name nodes based on the provided mapping."""
+    def __init__(self, mapping):
+        self.mapping = mapping
     def visit_Name(self, node):
-        if node.id in self.mappings: return ast.Name(id=self.mappings[node.id], ctx=node.ctx)
+        if node.id in self.mapping: return ast.Name(id=self.mapping[node.id], ctx=node.ctx)
         else: return node
 
-def renamevariables(fdef: ast.FunctionDef, mappings: dict) -> ast.FunctionDef:
+def renamevariables(fdef: ast.FunctionDef, mapping: dict) -> ast.FunctionDef:
+    """Returns a copy of the function definition node with all the variables in the given function definition renamed based on the provided mapping."""
     retvalue = copy.deepcopy(fdef)
     for arg in retvalue.args.args:
-        if arg.arg in mappings: arg.arg = mappings[arg.arg]
+        if arg.arg in mapping: arg.arg = mapping[arg.arg]
     newbody = list()
     for stmt in retvalue.body:
-        newbody.append(NameRenamer(mappings).visit(stmt))
+        newbody.append(NameRenamer(mapping).visit(stmt))
     retvalue.body = newbody
     return retvalue
 
 def canonicalize_return(f: ast.FunctionDef) -> None:
+    """Modify (in place) the given function definition to simplify its return statement to be either a constant or a single variable."""
     class ReturnExpander(ast.NodeTransformer):
-        def __init__(self):
-            self.variables = set()
-        def visit_Name(self, node):
-            self.variables.add(node.id)
-            return node
+        def __init__(self, vars, prefix = 'ret'):
+            self.vars = vars
+            self.prefix = prefix
         def visit_Return(self, node):
-            i = 0
-            while 'myreturnvariable{:d}'.format(i) in self.variables: i += 1
             # if it directly returns a constant or variable, consider that canonical
             if isinstance(node.value, ast.Constant): return node
             if isinstance(node.value, ast.Name): return node
             # otherwise, make a new assignment for that return value and then return the newly assigned variable
+            # find a unique name for the return value
+            i = 0
+            retname = '{:s}{:d}'.format(self.prefix, i)
+            while retname in self.vars:
+                i += 1
+                retname = '{:s}{:d}'.format(self.prefix, i)
+            self.vars.append(retname)
             assign = ast.Assign(
-                targets = [ast.Name(id='myreturnvariable{:d}'.format(i), ctx=ast.Store())],
+                targets = [ast.Name(id=retname, ctx=ast.Store())],
                 value = node.value
             )
             ret = ast.Return(
-                value = ast.Name(id='myreturnvariable{:d}'.format(i), ctx=ast.Load())
+                value = ast.Name(id=retname, ctx=ast.Load())
             )
             return [assign, ret]
-    fprime = ReturnExpander().visit(f)
+    vars = findallvariables(f)
+    fprime = ReturnExpander(vars).visit(f)
     f.body = fprime.body
     ast.fix_missing_locations(f)
 
 def canonicalize_functionname(f: ast.FunctionDef, name = 'f') -> None:
+    """Modify (in place) the given function definition to have a canonical name."""
     f.name = name
     ast.fix_missing_locations(f)
 
 def canonicalize_variablenames(f: ast.FunctionDef, prefix = 'v') -> None:
+    """Modify (in place) the given function definition to give variables canonical names."""
     # first rename everything to a random string followed by a counter
     # then rename them to v0, v1, v2, ...
     tmpname = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r' ,'s', 't', 'u', 'v', 'w', 'x', 'y', 'z']
@@ -97,6 +107,7 @@ def canonicalize_variablenames(f: ast.FunctionDef, prefix = 'v') -> None:
     ast.fix_missing_locations(f)
 
 class FindVariableDependencies(ast.NodeVisitor):
+    """Find all the variables a node depends on."""
     def __init__(self):
         self.loads = list()
         self.stores = list()
@@ -105,12 +116,13 @@ class FindVariableDependencies(ast.NodeVisitor):
         if isinstance(node.ctx, ast.Store) and node.id not in self.stores: self.stores.append(node.id)
 
 def canonicalize_lineorder(f: ast.FunctionDef) -> None:
-    # find the level of every line
-    # algorithm idea:
-    # 1. The level of a line is 1 more than the max level of (the level of the last line where each variable the line in question depends on)
-    # 2. Determine the level of each line, and put it in a list of lines for that level
-    # 3. For each level, sort the lines based on the string representation of their right hand side
-    # 4. Return the lines in order by level
+    """Modify (in place) the given function definition so that its lines are in a canonical order.
+    
+    The idea of the canonicalization is as follows.  Each line is to be assigned a "level" based on how deep it is in the variable dependency tree.  All lines at level i are independent of each other, and are dependent on a variable assigned in level i-1.  For each level, sort the lines based on the string representation of their right-hand side.
+    
+    This algorithm is very limited for now.  It assumes:
+    - the function consists solely of assignment and return statements
+    - functions have no side effects, and in particular do not modify their inputs"""
     line_levels = dict()
     variable_levels = dict()
     # level of all function arguments is 0
@@ -160,29 +172,51 @@ def canonicalize_lineorder(f: ast.FunctionDef) -> None:
     f.body = output
     ast.fix_missing_locations(f)
 
-def canonicalize(f: Union[Callable, str]) -> str:
+def canonicalize_function(f: Union[Callable, str]) -> str:
+    """Returns a string representing a canonicalized version of the given function.
+    
+    It applies the following canonicalizations:
+    - return statements only return a single variable or a constant
+    - function name is 'f'
+    - variable names are 'v0', 'v1', ...
+    - lines are reordered based on variable dependencies"""
+    # parse the function
     if isinstance(f, Callable): t = ast.parse(inspect.getsource(f))
     elif isinstance(f, str): t = ast.parse(f)
     else: raise TypeError()
+    # make sure it is a single function
     functionDef = t.body[0]
     assert isinstance(functionDef, ast.FunctionDef)
+    # canonicalize return statement
     canonicalize_return(functionDef)
+    # canonicalize function name
     canonicalize_functionname(functionDef)
-    canonicalize_variablenames(functionDef)
-    canonicalize_lineorder(functionDef)
-    canonicalize_variablenames(functionDef)
-    return ast.unparse(ast.fix_missing_locations(t))
+    # canonicalize variables and line numbers
+    # one pass of canonicalizing variable names allows for canonicalizing the order of
+    # lines at the next "level", so we have to repeat until all levels have been canonicalized
+    # and the source stops changing
+    oldstring = None
+    newstring = ast.unparse(ast.fix_missing_locations(t))
+    while oldstring != newstring:
+        oldstring = newstring
+        canonicalize_variablenames(functionDef)
+        canonicalize_lineorder(functionDef)
+        newstring = ast.unparse(ast.fix_missing_locations(t))
+    return newstring
 
-def inlinefunction(fdest, farg):
+def inline_function(fdest: Callable, farg: Callable):
+    """Returns a string representing the second function inlined into the first.
+    
+    Only works on calls to the function in an Assign statement."""
     # parse the functions
     tdest = ast.parse(inspect.getsource(fdest))
     targ = ast.parse(inspect.getsource(farg))
-    # get the function definition
+    # get the function definitions
     fdest_def = tdest.body[0]
     assert isinstance(fdest_def, ast.FunctionDef)
     farg_def = targ.body[0]
     assert isinstance(farg_def, ast.FunctionDef)
-    
+    # define the inliner which will do the replacements
     class Inliner(ast.NodeTransformer):
         def __init__(self, farg_def):
             self.farg_def = farg_def
@@ -208,5 +242,6 @@ def inlinefunction(fdest, farg):
                 # output is the inlined function body
                 return newfarg_def.body
             else: return stmt
+    # run the inliner
     newfdest_def = Inliner(farg_def).visit(fdest_def)
     return ast.unparse(ast.fix_missing_locations(newfdest_def))

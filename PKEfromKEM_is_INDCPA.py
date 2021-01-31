@@ -245,14 +245,16 @@ def G5(kem: KEM.Scheme, kdf: KDF.Scheme, adversary: PKE.INDCPA_adversary) -> Cry
     ct = PKEfromKEM.Ciphertext(v2, v5)
     return adversary.guess(ct)
 
-import ast
-import inspect
-t1 = ast.parse(inspect.getsource(G0))
-print(ast.dump(t1, indent=2))
+# import ast
+# import inspect
+# t1 = ast.parse(inspect.getsource(G0))
+# print(ast.dump(t1, indent=2))
 
 import Verification
-f1 = Verification.canonicalize(G0)
-f2 = Verification.canonicalize(KEM_INDCPAreal_R01)
+f1 = Verification.canonicalize_function(G0)
+f2 = Verification.canonicalize_function(KEM_INDCPAreal_R01)
 print(f1)
 print(f2)
 print(f1 == f2)
+# TODO: Inlining R01 into KEM.INDCPA_real needs more work; so far I've only written inline_function
+# but this will requiring a class
