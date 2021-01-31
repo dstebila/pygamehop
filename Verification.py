@@ -24,7 +24,7 @@ def findallvariables(fdef: ast.FunctionDef) -> List[str]:
                     if target.id not in vars: vars.append(target.id)
                 elif isinstance(target, ast.Tuple) or isinstance(target, ast.List):
                     for elt in target.elts:
-                        if elt.id not in mappings_tmp:  vars.append(elt.id)
+                        if elt.id not in vars: vars.append(elt.id)
                 else: raise NotImplementedError()
     return vars
 
