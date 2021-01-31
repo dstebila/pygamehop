@@ -8,8 +8,7 @@ class Tag(ABC): pass
 class Message(ABC): pass
 
 class Scheme(ABC):
-    @staticmethod
-    def MAC(k: SecretKey, m: Message) -> Tag: pass
+    def MAC(self, k: SecretKey, m: Message) -> Tag: pass
 
 class EUFCMA_adversary(ABC):
     def setkey(self) -> SecretKey: pass
