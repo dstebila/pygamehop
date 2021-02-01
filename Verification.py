@@ -4,7 +4,7 @@ import inspect
 import random
 import re
 
-from typing import Callable, List, Union
+from typing import Any, Callable, List, Union
 
 def findallvariables(fdef: ast.FunctionDef) -> List[str]:
     """Return a list of all variables in the function, including function parameters."""
@@ -245,3 +245,87 @@ def inline_function(fdest: Callable, farg: Callable):
     # run the inliner
     newfdest_def = Inliner(farg_def).visit(fdest_def)
     return ast.unparse(ast.fix_missing_locations(newfdest_def))
+
+class ConstantReplacer(ast.NodeTransformer):
+    """Replaces a Name node with a constant value."""
+    def __init__(self, id, val):
+        self.id = id
+        self.val = val
+    def visit_Name(self, node):
+        if node.id == self.id:
+            if isinstance(node.ctx, ast.Load): return ast.Constant(value=self.val)
+            elif isinstance(node.ctx, ast.Store): raise NotImplementedError()
+        else: return node
+
+# expands the Inliner class inside inline_function above; those two could probably be unified somehow
+class ClassInliner(ast.NodeTransformer):
+    def __init__(self, inlinand_name, inlinand_value):
+        self.inlinand_name = inlinand_name
+        self.inlinand_value = inlinand_value
+        self.replacement_count = 0
+    def visit_Assign(self, stmt):
+        # is this assign a call to the thing we're supposed to replace?
+        if isinstance(stmt.value, ast.Call) and isinstance(stmt.value.func, ast.Attribute) and         stmt.value.func.value.id == self.inlinand_name:
+            # get the ClassDef of the class we're inlining
+            inlinand_classdef = ast.parse(inspect.getsource(self.inlinand_value)).body[0]
+            assert isinstance(inlinand_classdef, ast.ClassDef)
+            # find the method that we're supposed to inline
+            methoddef = None
+            for member in inlinand_classdef.body:
+                if not isinstance(member, ast.FunctionDef): raise NotImplementedError()
+                if member.name == stmt.value.func.attr:
+                    methoddef = member
+                    break
+            if methoddef == None: raise LookupError()
+            self.replacement_count += 1
+            # prefix all variables in inlinand
+            vars = findallvariables(methoddef)
+            mappings = dict()
+            for var in vars: mappings[var] = 'v_{:s}_{:s}_{:d}_{:s}'.format(self.inlinand_name, methoddef.name, self.replacement_count, var)
+            newmethoddef = renamevariables(methoddef, mappings)
+            # map the parameters onto the arguments
+            assert len(stmt.value.args) == len(methoddef.args.args) - 1 # offset by 1 due to self
+            mappings = dict()
+            for i in range(len(stmt.value.args)):
+                mappings[newmethoddef.args.args[i + 1].arg] = stmt.value.args[i].id
+            newmethoddef = renamevariables(newmethoddef, mappings)
+            # turn the final return statement into an assignment
+            assert isinstance(newmethoddef.body[-1], ast.Return)
+            newret = ast.Assign(targets=stmt.targets, value=newmethoddef.body[-1].value)
+            newmethoddef.body[-1] = newret
+            # output is the inlined function body
+            return newmethoddef.body
+        else: return stmt
+
+def inline_argument(f: Union[Callable, str], arg: str, val: Any):
+    """Returns a string representing the provided function with the given argument inlined to the given value.  Works on integers, strings, and classes."""
+    # parse the function
+    if isinstance(f, Callable): t = ast.parse(inspect.getsource(f))
+    elif isinstance(f, str): t = ast.parse(f)
+    else: raise TypeError()
+    # get the function definition
+    fdef = t.body[0]
+    assert isinstance(fdef, ast.FunctionDef)
+    # find out what type of argument we're supposed to be replacing
+    typeofarg = None
+    for a in fdef.args.args:
+        if a.arg == arg:
+            typeofarg = a.annotation.id
+            break
+    # didn't find it
+    if typeofarg == None: raise LookupError()
+    # replace constants like integers or strings
+    if typeofarg == 'int' or typeofarg == 'str':
+        newfdef = ConstantReplacer(arg, val).visit(fdef)
+    # replace class methods
+    elif typeofarg == val.__name__:
+        newfdef = ClassInliner(arg, val).visit(fdef)
+    # unrecognized type
+    else: raise NotImplementedError()
+    # remove the argument from the arguments list
+    for a in newfdef.args.args: 
+        if a.arg == arg: 
+            newfdef.args.args.remove(a)
+            break
+    # return the resulting function
+    return ast.unparse(ast.fix_missing_locations(newfdef))
