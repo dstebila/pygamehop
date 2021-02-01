@@ -4,7 +4,7 @@ import inspect
 import random
 import re
 
-from typing import Any, Callable, List, Union
+from typing import Any, Callable, List, Set, Union
 
 def findallvariables(fdef: ast.FunctionDef) -> List[str]:
     """Return a list of all variables in the function, including function parameters."""
@@ -213,6 +213,61 @@ def collapse_useless_assigns(f: ast.FunctionDef):
                 keep_going = True
                 break
 
+class ReturnVariables(ast.NodeVisitor):
+    """Find all the variables that are part of a return statement within this node"""
+    def __init__(self):
+        self.found = set()
+    def visit_Return(self, node):
+        if not isinstance(node.value, ast.Name): raise NotImplementedError()
+        self.found.add(node.value.id)
+
+class ReverseTaintAnalysisOneLevel(ast.NodeVisitor):
+    """Given a set of variables, find all variables that directly depend on these variables"""
+    def __init__(self, targets: Set):
+        self.targets = targets
+        self.found = set()
+    def visit_Assign(self, node):
+        # what variables are assigned by this statement?
+        assign_targets = set([t.id for t in node.targets])
+        # is one of our variables of interest assigned in this statement?
+        if not self.targets.isdisjoint(assign_targets):
+            # if so, find all the variables in the right hand side and add them to found
+            finder = FindVariableDependencies()
+            finder.visit(node.value)
+            self.found |= set(finder.loads)
+
+def remove_useless_statements(f: ast.FunctionDef):
+    """Modify (in place) the given function definition to remove all assign statements that set variables that do not affect the output of the return statement."""
+    # find the return variable(s)
+    retvars_finder = ReturnVariables()
+    retvars_finder.visit(f)
+    # find all variables that the return variables depend on
+    # each iteration finds one more level of variables that taint the return variables
+    # keep iterating until we've found them all
+    retvarsdeps_old = set()
+    retvarsdeps_finder = ReverseTaintAnalysisOneLevel(retvars_finder.found)
+    retvarsdeps_finder.visit(f)
+    retvarsdeps_new = retvarsdeps_finder.targets | retvarsdeps_finder.found
+    while retvarsdeps_old != retvarsdeps_new:
+        retvarsdeps_old = retvarsdeps_new
+        retvarsdeps_finder = ReverseTaintAnalysisOneLevel(retvarsdeps_new)
+        retvarsdeps_finder.visit(f)
+        retvarsdeps_new = retvarsdeps_finder.targets | retvarsdeps_finder.found
+    retvarsdeps = retvarsdeps_new
+    # NodeTransformer that will remove all assign statements not assigning to a useful variable
+    class RemoveUselessStatements(ast.NodeTransformer):
+        def __init__(self, useful_variables: Set):
+            self.useful_variables = useful_variables
+        def visit_Assign(self, node):
+            # what variables are assigned by this statement?
+            assign_targets = set([t.id for t in node.targets]) ## TODO: FIXME: doesn't handle tuples
+            # are all the variables assigned in this statement useless?
+            if assign_targets.isdisjoint(self.useful_variables): return []
+            else: return node
+    fprime = RemoveUselessStatements(retvarsdeps).visit(f)
+    f.body = fprime.body
+    ast.fix_missing_locations(f)
+
 def canonicalize_function(f: Union[Callable, str]) -> str:
     """Returns a string representing a canonicalized version of the given function.
     
@@ -232,15 +287,17 @@ def canonicalize_function(f: Union[Callable, str]) -> str:
     canonicalize_return(functionDef)
     # canonicalize function name
     canonicalize_functionname(functionDef)
-    collapse_useless_assigns(functionDef)
-    # canonicalize variables and line numbers
+    # canonicalize variables and line numbers and remove useless assignments and statements
     # one pass of canonicalizing variable names allows for canonicalizing the order of
     # lines at the next "level", so we have to repeat until all levels have been canonicalized
-    # and the source stops changing
+    # and the source stops changing; also removing a useless assignment or statement might make
+    # another assignment or statement useless, so we keep iterating on those
     oldstring = None
     newstring = ast.unparse(ast.fix_missing_locations(t))
     while oldstring != newstring:
         oldstring = newstring
+        collapse_useless_assigns(functionDef)
+        remove_useless_statements(functionDef)
         canonicalize_variablenames(functionDef)
         canonicalize_lineorder(functionDef)
         newstring = ast.unparse(ast.fix_missing_locations(t))

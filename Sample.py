@@ -3,12 +3,26 @@ import Verification
 # Some test cases for inlinining and canonicalization
 
 # A basic function
-def function1(a: int, b: int) -> int:
- message = "Hello"
+def function0(a: int, b: int) -> int:
  c = a + 9
  d = b + 7
  e = c + d
  return e
+
+# A basic function with some useless statements
+def function1(a: int, b: int) -> int:
+ message = "Hello"
+ x = len(message)
+ y = 17 * x
+ z = x + y
+ c = a + 9
+ d = b + 7
+ e = c + d
+ return e
+
+f0 = Verification.canonicalize_function(function0)
+f1 = Verification.canonicalize_function(function1)
+assert f0 == f1
 
 # same as function1, but with lines in a different order and returning a result directly rather than a variable
 def function2(w: int, b: int) -> int:
@@ -17,7 +31,6 @@ def function2(w: int, b: int) -> int:
     u = w + 9
     return u + d
 
-f1 = Verification.canonicalize_function(function1)
 f2 = Verification.canonicalize_function(function2)
 assert f1 == f2
 
