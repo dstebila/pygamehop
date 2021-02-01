@@ -52,4 +52,17 @@ f4 = Verification.inline_argument(f4, 'doer', Doer)
 f4 = Verification.canonicalize_function(f4)
 assert f1 == f4
 
+# same as function1, but with some useless assigns
+def function5(a: int, b: int) -> int:
+ message = "Hello"
+ x = a
+ c = x + 9
+ x = b
+ d = x + 7
+ e = c + d
+ return e
+
+f5 = Verification.canonicalize_function(function5)
+assert f1 == f5
+
 print("All tests passed")
