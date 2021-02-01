@@ -115,6 +115,15 @@ class FindVariableDependencies(ast.NodeVisitor):
         if isinstance(node.ctx, ast.Load) and node.id not in self.loads: self.loads.append(node.id)
         if isinstance(node.ctx, ast.Store) and node.id not in self.stores: self.stores.append(node.id)
 
+def contains_name(node: Union[ast.AST, List], name: str) -> bool:
+    if isinstance(node, ast.AST): searchin = [node]
+    else: searchin = node
+    for element in searchin:
+        var_deps = FindVariableDependencies()
+        var_deps.visit(element)
+        if name in var_deps.stores or name in var_deps.loads: return True
+    return False
+
 def canonicalize_lineorder(f: ast.FunctionDef) -> None:
     """Modify (in place) the given function definition so that its lines are in a canonical order.
     
@@ -172,6 +181,30 @@ def canonicalize_lineorder(f: ast.FunctionDef) -> None:
     f.body = output
     ast.fix_missing_locations(f)
 
+def collapse_useless_assigns(f: ast.FunctionDef):
+    keep_going = True
+    while keep_going:
+        keep_going = False
+        for i in range(len(f.body)):
+            stmt = f.body[i]
+            if isinstance(stmt, ast.Assign) and len(stmt.targets) == 1 and isinstance(stmt.targets[0], ast.Name) and isinstance(stmt.value, ast.Name):
+                arg = stmt.targets[0].id
+                val = stmt.value.id
+                for j in range(i + 1, len(f.body)):
+                    stmtprime = f.body[j]
+                    if isinstance(stmtprime, ast.Assign):
+                        # replace arg with val in the right hand side
+                        stmtprime.value = NameRenamer({arg: val}).visit(stmtprime.value)
+                        # stop if arg is in the left
+                        if contains_name(stmtprime.targets, arg): break
+                    else:
+                        # replace arg with val in whole statement
+                        f.body[j] = NameRenamer({arg, val}).visit(stmtprime)
+                # remove from the body and start over
+                del f.body[i]
+                keep_going = True
+                break
+
 def canonicalize_function(f: Union[Callable, str]) -> str:
     """Returns a string representing a canonicalized version of the given function.
     
@@ -191,6 +224,7 @@ def canonicalize_function(f: Union[Callable, str]) -> str:
     canonicalize_return(functionDef)
     # canonicalize function name
     canonicalize_functionname(functionDef)
+    collapse_useless_assigns(functionDef)
     # canonicalize variables and line numbers
     # one pass of canonicalizing variable names allows for canonicalizing the order of
     # lines at the next "level", so we have to repeat until all levels have been canonicalized
