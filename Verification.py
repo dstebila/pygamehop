@@ -352,10 +352,11 @@ def inline_argument(f: Union[Callable, str], arg: str, val: Any):
     if typeofarg == 'int' or typeofarg == 'str':
         newfdef = ConstantReplacer(arg, val).visit(fdef)
     # replace class methods
-    elif typeofarg == val.__name__:
+    # elif typeofarg == val.__name__: ## TODO: FIXME: the old line of code doesn't work with the generics approach yet
+    elif True:
         newfdef = ClassInliner(arg, val).visit(fdef)
     # unrecognized type
-    else: raise NotImplementedError()
+    else: raise NotImplementedError('type of argument: {:s}, class of value: {:s}'.format(typeofarg, val.__name__))
     # remove the argument from the arguments list
     for a in newfdef.args.args: 
         if a.arg == arg: 

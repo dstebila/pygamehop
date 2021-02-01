@@ -12,7 +12,7 @@ KEM_INDCPA_adversary = KEM.INDCPA_adversary[PKE.PublicKey, PKE.SecretKey, PKE.Ci
 # G0 should equal KEM.INDCPA_real with KEMfromPKE inlined
 # but we need to include the pke as a parameter
 # and specify all the type parameters
-def G0(kem: KEM_Scheme, adversary: KEM_INDCPA_adversary, pke: PKE.Scheme) -> Crypto.Bit:
+def G0(adversary: KEM_INDCPA_adversary, pke: PKE.Scheme) -> Crypto.Bit:
     #First need to inline the scheme constructor
     # inlined from KEMfromPKE.py __init__()
     kem_self_pke = pke
@@ -27,6 +27,16 @@ def G0(kem: KEM_Scheme, adversary: KEM_INDCPA_adversary, pke: PKE.Scheme) -> Cry
 
     return adversary.guess(pk, ct, ss_real)
 
+import sys
+sys.path.append("..") # Adds higher directory to python modules path.
+import Verification
+
+import ast
+print(Verification.canonicalize_function(G0))
+# print(ast.dump(ast.parse(Verification.canonicalize_function(G0)), indent=2))
+test1 = Verification.inline_argument(KEM.INDCPA_real, 'kem', KEMfromPKE.Scheme)
+# print(test1)
+print(Verification.canonicalize_function(test1))
 
 # G1 should be KEM.INDCPA_random with KEMfromPKE inlined
 def G1(kem: KEM_Scheme, adversary: KEM_INDCPA_adversary, pke: PKE.Scheme) -> Crypto.Bit:
