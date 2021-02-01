@@ -116,6 +116,7 @@ class FindVariableDependencies(ast.NodeVisitor):
         if isinstance(node.ctx, ast.Store) and node.id not in self.stores: self.stores.append(node.id)
 
 def contains_name(node: Union[ast.AST, List], name: str) -> bool:
+    """Determines whether the given node (or list of nodes) contains a variable with the given name."""
     if isinstance(node, ast.AST): searchin = [node]
     else: searchin = node
     for element in searchin:
@@ -182,14 +183,21 @@ def canonicalize_lineorder(f: ast.FunctionDef) -> None:
     ast.fix_missing_locations(f)
 
 def collapse_useless_assigns(f: ast.FunctionDef):
+    """Modify (in place) the given function definition to remove all lines containing tautological/useless assignments. For example, if the code contains a line "x = a" followed by a line "y = x + b", it replaces all subsequent instances of x with a, yielding the single line "y = a + b", up until x is set in another assignment statement.
+    
+    Doesn't handle tuples.  Doesn't handle any kind of logic involving if statements or loops."""
+    # keep looping until we don't remove any statements within a loop of the execution
     keep_going = True
     while keep_going:
         keep_going = False
+        # let's start at the very beginning, a very good place to start
         for i in range(len(f.body)):
             stmt = f.body[i]
+            # if the statement is an assignment of a single variable to another variable, e.g., x = a
             if isinstance(stmt, ast.Assign) and len(stmt.targets) == 1 and isinstance(stmt.targets[0], ast.Name) and isinstance(stmt.value, ast.Name):
                 arg = stmt.targets[0].id
                 val = stmt.value.id
+                # go through all subsequent statements and replace x with a until x is set anew
                 for j in range(i + 1, len(f.body)):
                     stmtprime = f.body[j]
                     if isinstance(stmtprime, ast.Assign):
