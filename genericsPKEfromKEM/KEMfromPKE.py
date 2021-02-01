@@ -9,7 +9,6 @@ class Scheme(Generic[PKE.Message, PKE.PublicKey, PKE.SecretKey, PKE.Ciphertext],
         self.pke = pke
     def KeyGen(self) -> Tuple[PKE.PublicKey, PKE.SecretKey]:
         return self.pke.KeyGen()
-
     def Encaps(self, pk: PKE.PublicKey) -> Tuple[PKE.Ciphertext, Crypto.ByteString]:
         ss = Crypto.UniformlyRandomByteString()
         ct = self.pke.Encrypt(pk, self.pke.ByteStringToMessage(ss))
@@ -18,3 +17,5 @@ class Scheme(Generic[PKE.Message, PKE.PublicKey, PKE.SecretKey, PKE.Ciphertext],
         ss = self.pke.Decrypt(sk, ct)
         if isinstance(ss, Crypto.Reject): return ss
         else: return self.pke.MessageToByteString(ss)
+    def RandomSharedSecret(self):
+        return Crypto.UniformlyRandomByteString()
