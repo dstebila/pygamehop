@@ -66,9 +66,9 @@ class R01(PKE.INDCPA_adversary):
 
 # When we inline R01 in PKE.INDCPA0, we should get G0
 # Let's try doing that manually and see how close we get
-def PKE_INDCPA0_R01(pke: PKE.Scheme, kem_adversary: KEM_INDCPA_adversary) -> Crypto.Bit:
+def PKE_INDCPA0_R01(pke: PKE.Scheme, adversary: KEM_INDCPA_adversary) -> Crypto.Bit:
     # First need to inline scheme constructor
-    r01_self.kem_adversary = kem_adversary
+    r01_self.kem_adversary = adversary
     r01_self.pke = pke
 
     (pk, sk) = pke.KeyGen()
@@ -83,16 +83,16 @@ def PKE_INDCPA0_R01(pke: PKE.Scheme, kem_adversary: KEM_INDCPA_adversary) -> Cry
     ct = pke.Encrypt(pk, m0)
 
     #inlined from R01.guess()
-    return r01_self.kem_adversary.guess(r01_self.pk, r01_self.ct, r01_self.m1)
+    return r01_self.adversary.guess(r01_self.pk, r01_self.ct, r01_self.m1)
 
 
 
 
 # When we inline R01 in PKE.INDCPA1, we should get G1
 # Let's try doing that manually and see how close we get
-def PKE_INDCPA1_R01(pke: PKE.Scheme, kem_adversary: KEM_INDCPA_adversary) -> Crypto.Bit:
+def PKE_INDCPA1_R01(pke: PKE.Scheme, adversary: KEM_INDCPA_adversary) -> Crypto.Bit:
     # First need to inline scheme constructor
-    r01_self.kem_adversary = kem_adversary
+    r01_self.kem_adversary = adversary
     r01_self.pke = pke
 
     (pk, sk) = pke.KeyGen()
@@ -107,4 +107,4 @@ def PKE_INDCPA1_R01(pke: PKE.Scheme, kem_adversary: KEM_INDCPA_adversary) -> Cry
     ct = pke.Encrypt(pk, m1)
 
     #inlined from R01.guess()
-    return r01_self.kem_adversary.guess(r01_self.pk, r01_self.ct, r01_self.m1)
+    return r01_self.adversary.guess(r01_self.pk, r01_self.ct, r01_self.m1)
