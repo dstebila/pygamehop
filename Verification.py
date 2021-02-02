@@ -127,9 +127,9 @@ def contains_name(node: Union[ast.AST, List], name: str) -> bool:
 
 def canonicalize_lineorder(f: ast.FunctionDef) -> None:
     """Modify (in place) the given function definition so that its lines are in a canonical order.
-    
+
     The idea of the canonicalization is as follows.  Each line is to be assigned a "level" based on how deep it is in the variable dependency tree.  All lines at level i are independent of each other, and are dependent on a variable assigned in level i-1.  For each level, sort the lines based on the string representation of their right-hand side.
-    
+
     This algorithm is very limited for now.  It assumes:
     - the function consists solely of assignment and return statements
     - functions have no side effects, and in particular do not modify their inputs"""
@@ -184,7 +184,7 @@ def canonicalize_lineorder(f: ast.FunctionDef) -> None:
 
 def collapse_useless_assigns(f: ast.FunctionDef):
     """Modify (in place) the given function definition to remove all lines containing tautological/useless assignments. For example, if the code contains a line "x = a" followed by a line "y = x + b", it replaces all subsequent instances of x with a, yielding the single line "y = a + b", up until x is set in another assignment statement.
-    
+
     Doesn't handle tuples.  Doesn't handle any kind of logic involving if statements or loops."""
     # keep looping until we don't remove any statements within a loop of the execution
     keep_going = True
@@ -278,7 +278,7 @@ def remove_useless_statements(f: ast.FunctionDef):
 
 def canonicalize_function(f: Union[Callable, str]) -> str:
     """Returns a string representing a canonicalized version of the given function.
-    
+
     It applies the following canonicalizations:
     - return statements only return a single variable or a constant
     - function name is 'f'
@@ -313,7 +313,7 @@ def canonicalize_function(f: Union[Callable, str]) -> str:
 
 def inline_function(fdest: Callable, farg: Callable):
     """Returns a string representing the second function inlined into the first.
-    
+
     Only works on calls to the function in an Assign statement."""
     # parse the functions
     tdest = ast.parse(inspect.getsource(fdest))
@@ -372,7 +372,7 @@ class AttributeInliner(ast.NodeTransformer):
     def visit_Attribute(self, node):
         if isinstance(node.value, ast.Name) and node.value.id == self.basename:
             return ast.Name(id=self.formatstring.format(node.attr), ctx=node.ctx)
-        elif isinstance(node.value, ast.Attribute): 
+        elif isinstance(node.value, ast.Attribute):
             node.value = self.visit_Attribute(node.value)
             return node
         else: return node
@@ -459,9 +459,19 @@ def inline_argument(f: Union[Callable, str], arg: str, val: Any):
     # unrecognized type
     else: raise NotImplementedError('type of argument: {:s}, class of value: {:s}'.format(typeofarg, val.__name__))
     # remove the argument from the arguments list
-    for a in newfdef.args.args: 
-        if a.arg == arg: 
+    for a in newfdef.args.args:
+        if a.arg == arg:
             newfdef.args.args.remove(a)
             break
     # return the resulting function
     return ast.unparse(ast.fix_missing_locations(newfdef))
+
+
+import difflib
+
+def stringDiff(a,b):
+    differences = difflib.ndiff(a.splitlines(keepends=True), b.splitlines(keepends=True))
+    diffl = []
+    for difference in differences:
+        diffl.append(difference)
+    print(''.join(diffl), end="\n")

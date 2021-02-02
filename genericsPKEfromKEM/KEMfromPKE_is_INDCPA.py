@@ -12,7 +12,7 @@ INDCPA_adversary = KEM.INDCPA_adversary[PKE.PublicKey, PKE.SecretKey, PKE.Cipher
 # G0 should equal KEM.INDCPA_real with KEMfromPKE inlined
 # but we need to include the pke as a parameter
 # and specify all the type parameters
-def G0(pke: PKE.Scheme, adversary: INDCPA_adversary) -> Crypto.Bit:
+def G0(adversary: INDCPA_adversary, pke: PKE.Scheme) -> Crypto.Bit:
     #First need to inline the scheme constructor
     # inlined from KEMfromPKE.py __init__()
     kem_self_pke = pke
@@ -32,14 +32,19 @@ sys.path.append("..") # Adds higher directory to python modules path.
 import Verification
 
 import ast
-print(Verification.canonicalize_function(G0))
+s1 = Verification.canonicalize_function(G0)
+print(s1)
 # print(ast.dump(ast.parse(Verification.canonicalize_function(G0)), indent=2))
 test1 = Verification.inline_argument(KEM.INDCPA_real, 'kem', KEMfromPKE.Scheme)
-print(test1) 
-print(Verification.canonicalize_function(test1))
+#print(test1)
+s2 = Verification.canonicalize_function(test1)
+print(s2)
+print("---------------Diff-----------------")
+Verification.stringDiff(s1, s2)
+print("------------------------------------")
 
 # G1 should be KEM.INDCPA_random with KEMfromPKE inlined
-def G1(kem: KEM_Scheme, adversary: INDCPA_adversary, pke: PKE.Scheme) -> Crypto.Bit:
+def G1(adversary: INDCPA_adversary, pke: PKE.Scheme) -> Crypto.Bit:
     #First need to inline the scheme constructor
     # inlined from KEMfromPKE.py __init__()
     kem_self_pke = pke
@@ -52,9 +57,20 @@ def G1(kem: KEM_Scheme, adversary: INDCPA_adversary, pke: PKE.Scheme) -> Crypto.
     kem_lv_ct = kem_self_pke.Encrypt(pk, kem_lv_ss)
     (ct, _) = (kem_lv_ct, kem_lv_ss)
 
-    ss_rand =  Crypto.UniformlySample(kem.SharedSecretSet)
+    ss_rand =  Crypto.UniformlySample(kem_self_pke.MessageSet)
     return adversary.guess(pk, ct, ss_rand)
 
+
+s1 = Verification.canonicalize_function(G1)
+print(s1)
+# print(ast.dump(ast.parse(Verification.canonicalize_function(G0)), indent=2))
+test1 = Verification.inline_argument(KEM.INDCPA_random, 'kem', KEMfromPKE.Scheme)
+#print(test1)
+s2 = Verification.canonicalize_function(test1)
+print(s2)
+print("---------------Diff-----------------")
+Verification.stringDiff(s1, s2)
+print("------------------------------------")
 
 # Game hop from G0 to G1
 # Proven by constructing reduction from distinguishing G0 and G1 to distinguishing PKE.INDCPA0 from PKE.INDCPA1
