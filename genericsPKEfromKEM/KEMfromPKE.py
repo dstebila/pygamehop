@@ -11,7 +11,7 @@ KEM_Scheme = KEM.Scheme[PKE.PublicKey, PKE.SecretKey, PKE.Ciphertext, PKE.Messag
 class Scheme(Generic[PKE.PublicKey, PKE.SecretKey, PKE.Ciphertext, PKE.Message], KEM_Scheme):
     def __init__(self, pke: PKE.Scheme) -> None:
         self.pke = pke
-        SharedSecretSet = self.pke.MessageSet
+        self.SharedSecretSet = self.pke.MessageSet
     def KeyGen(self) -> Tuple[PKE.PublicKey, PKE.SecretKey]:
         return self.pke.KeyGen()
     def Encaps(self, pk: PKE.PublicKey) -> Tuple[PKE.Ciphertext, PKE.Message]:

@@ -14,7 +14,7 @@ class Scheme(Generic[Ciphertext, PublicKey, SecretKey, Message, Reject]):
     def KeyGen(self) -> Tuple[PublicKey, SecretKey]: pass
     def Encrypt(self, pk: PublicKey, msg: Message) -> Ciphertext: pass
     def Decrypt(self, sk: SecretKey, ct: Ciphertext) -> Union[Message, Reject]: pass
-    MessageSet = set[Message]()
+    MessageSet: Set[Message] = set()
 
 
 class INDCPA_adversary(Generic[Ciphertext, PublicKey, SecretKey, Message, Reject]):

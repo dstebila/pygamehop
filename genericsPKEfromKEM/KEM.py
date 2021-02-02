@@ -13,7 +13,7 @@ class Scheme(Generic[PublicKey, SecretKey, Ciphertext, SharedSecret, Reject]):
     def KeyGen(self) -> Tuple[PublicKey, SecretKey]: pass
     def Encaps(self, pk: PublicKey) -> Tuple[Ciphertext, SharedSecret]: pass
     def Decaps(self, sk: SecretKey, ct: Ciphertext) -> Union[SharedSecret, Reject]: pass
-    SharedSecretSet = set[SharedSecret]()
+    SharedSecretSet: Set[SharedSecret] = set()
 
 
 class INDCPA_adversary(Generic[PublicKey, SecretKey, Ciphertext, SharedSecret, Reject]):
