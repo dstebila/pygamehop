@@ -5,8 +5,8 @@ import KEM
 import PKE
 import KEMfromPKE
 
-KEM_Scheme = KEM.Scheme[PKE.PublicKey, PKE.SecretKey, PKE.Ciphertext, Crypto.ByteString, Crypto.Reject]
-KEM_INDCPA_adversary = KEM.INDCPA_adversary[PKE.PublicKey, PKE.SecretKey, PKE.Ciphertext, Crypto.ByteString, Crypto.Reject]
+KEM_Scheme = KEM.Scheme[PKE.PublicKey, PKE.SecretKey, PKE.Ciphertext, Crypto.Reject]
+KEM_INDCPA_adversary = KEM.INDCPA_adversary[PKE.PublicKey, PKE.SecretKey, PKE.Ciphertext, Crypto.Reject]
 
 
 # G0 should equal KEM.INDCPA_real with KEMfromPKE inlined
@@ -22,7 +22,7 @@ def G0(adversary: KEM_INDCPA_adversary, pke: PKE.Scheme) -> Crypto.Bit:
 
     # inlined from KEMfromPKE.py
     kem_lv_ss = Crypto.UniformlyRandomByteString()
-    kem_lv_ct = kem_self_pke.Encrypt(pk, kem_self_pke.ByteStringToMessage(kem_lv_ss))
+    kem_lv_ct = kem_self_pke.Encrypt(pk, kem_lv_ss)
     (ct, ss_real) = (kem_lv_ct, kem_lv_ss)
 
     return adversary.guess(pk, ct, ss_real)
@@ -49,10 +49,10 @@ def G1(kem: KEM_Scheme, adversary: KEM_INDCPA_adversary, pke: PKE.Scheme) -> Cry
 
     # inlined from KEMfromPKE.py
     kem_lv_ss = Crypto.UniformlyRandomByteString()
-    kem_lv_ct = kem_self_pke.Encrypt(pk, kem_self_pke.ByteStringToMessage(kem_lv_ss))
+    kem_lv_ct = kem_self_pke.Encrypt(pk, kem_lv_ss)
     (ct, _) = (kem_lv_ct, kem_lv_ss)
 
-    ss_rand = kem.RandomSharedSecret()
+    ss_rand = Crypto.UninformlyRandomSharedSecretKey()
     return adversary.guess(pk, ct, ss_rand)
 
 
@@ -67,17 +67,17 @@ class R01(PKE.INDCPA_adversary):
         self.pk = pk
 
         self.ss0 = Crypto.UniformlyRandomByteString()
-        self.ct0 = self.pke.Encrypt(pk, self.pke.ByteStringToMessage(self.ss0))
-        self.m0 = self.pke.ByteStringToMessage(self.ss0)
+        self.ct0 = self.pke.Encrypt(pk, self.ss0)
+        self.m0 = self.ss0
 
         self.ss1 = Crypto.UniformlyRandomByteString()
-        self.ct1 = self.pke.Encrypt(pk, self.pke.ByteStringToMessage(self.ss1))
-        self.m1 = self.pke.ByteStringToMessage(self.ss1)
+        self.ct1 = self.pke.Encrypt(pk, self.ss1)
+        self.m1 = self.ss1
 
         return (self.m0, self.m1)
 
     def guess(self, ct: PKE.Ciphertext) -> Crypto.Bit:
-        return self.kem_adversary.guess(self.pk, ct, self.pke.MessageToByteString(self.m0))
+        return self.kem_adversary.guess(self.pk, ct, self.m0)
 
 
 
@@ -94,19 +94,19 @@ def PKE_INDCPA0_R01(pke: PKE.Scheme, adversary: KEM_INDCPA_adversary) -> Crypto.
     r01_self_pk = pk
 
     r01_self_ss0 = Crypto.UniformlyRandomByteString()
-    r01_self_ct0 = r01_self_pke.Encrypt(pk, r01_self_pke.ByteStringToMessage(r01_self_ss0))
-    r01_self_m0 = r01_self_pke.ByteStringToMessage(r01_self_ss0)
+    r01_self_ct0 = r01_self_pke.Encrypt(pk, r01_self_ss0)
+    r01_self_m0 = r01_self_ss0
 
     r01_self_ss1 = Crypto.UniformlyRandomByteString()
-    r01_self_ct1 = r01_self_pke.Encrypt(pk, r01_self_pke.ByteStringToMessage(r01_self_ss1))
-    r01_self_m1 = r01_self_pke.ByteStringToMessage(r01_self_ss1)
+    r01_self_ct1 = r01_self_pke.Encrypt(pk, r01_self_ss1)
+    r01_self_m1 = r01_self_ss1
 
     (m0, m1) =  (r01_self_m0, r01_self_m1)
 
     ct = pke.Encrypt(pk, m0)
 
     #inlined from R01.guess()
-    return r01_self_kem_adversary.guess(r01_self_pk, ct, r01_self_pke.MessageToByteString(r01_self_m0))
+    return r01_self_kem_adversary.guess(r01_self_pk, ct, r01_self_m0)
 
 
 
@@ -124,16 +124,16 @@ def PKE_INDCPA1_R01(pke: PKE.Scheme, adversary: KEM_INDCPA_adversary) -> Crypto.
     r01_self_pk = pk
 
     r01_self_ss0 = Crypto.UniformlyRandomByteString()
-    r01_self_ct0 = r01_self_pke.Encrypt(pk, r01_self_pke.ByteStringToMessage(r01_self_ss0))
-    r01_self_m0 = r01_self_pke.ByteStringToMessage(r01_self_ss0)
+    r01_self_ct0 = r01_self_pke.Encrypt(pk, r01_self_ss0)
+    r01_self_m0 = r01_self_ss0
 
     r01_self_ss1 = Crypto.UniformlyRandomByteString()
-    r01_self_ct1 = r01_self_pke.Encrypt(pk, r01_self_pke.ByteStringToMessage(r01_self_ss1))
-    r01_self_m1 = r01_self_pke.ByteStringToMessage(r01_self_ss1)
+    r01_self_ct1 = r01_self_pke.Encrypt(pk, r01_self_ss1)
+    r01_self_m1 = r01_self_ss1
 
     (m0, m1) =  (r01_self_m0, r01_self_m1)
 
     ct = pke.Encrypt(pk, m1)
 
     #inlined from R01.guess()
-    return r01_self_kem_adversary.guess(r01_self_pk, ct, r01_self_pke.MessageToByteString(r01_self_m0))
+    return r01_self_kem_adversary.guess(r01_self_pk, ct, r01_self_m0)

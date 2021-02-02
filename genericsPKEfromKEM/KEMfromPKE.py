@@ -4,18 +4,19 @@ import Crypto
 import KEM
 import PKE
 
-class Scheme(Generic[PKE.Message, PKE.PublicKey, PKE.SecretKey, PKE.Ciphertext], KEM.Scheme[PKE.PublicKey, PKE.SecretKey, PKE.Ciphertext, Crypto.ByteString, Crypto.Reject]):
+SharedSecretKey = Crypto.SharedSecretKey
+KEM_Scheme = KEM.Scheme[PKE.PublicKey, PKE.SecretKey, PKE.Ciphertext, Crypto.Reject]
+
+class Scheme(Generic[PKE.PublicKey, PKE.SecretKey, PKE.Ciphertext], KEM_Scheme):
     def __init__(self, pke: PKE.Scheme) -> None:
         self.pke = pke
     def KeyGen(self) -> Tuple[PKE.PublicKey, PKE.SecretKey]:
         return self.pke.KeyGen()
-    def Encaps(self, pk: PKE.PublicKey) -> Tuple[PKE.Ciphertext, Crypto.ByteString]:
-        ss = Crypto.UniformlyRandomByteString()
-        ct = self.pke.Encrypt(pk, self.pke.ByteStringToMessage(ss))
+    def Encaps(self, pk: PKE.PublicKey) -> Tuple[PKE.Ciphertext, SharedSecretKey]:
+        ss = SharedSecretKey()
+        ct = self.pke.Encrypt(pk, ss)
         return (ct, ss)
-    def Decaps(self, sk: PKE.SecretKey, ct: PKE.Ciphertext) -> Union[Crypto.ByteString, Crypto.Reject]:
+    def Decaps(self, sk: PKE.SecretKey, ct: PKE.Ciphertext) -> Union[SharedSecretKey, Crypto.Reject]:
         ss = self.pke.Decrypt(sk, ct)
         if isinstance(ss, Crypto.Reject): return ss
-        else: return self.pke.MessageToByteString(ss)
-    def RandomSharedSecret(self):
-        return Crypto.UniformlyRandomByteString()
+        else: return ss

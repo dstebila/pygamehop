@@ -11,3 +11,8 @@ class ByteString(ABC):
     def __xor__(self, other): pass
 
 class UniformlyRandomByteString(UniformlyRandom, ByteString): pass
+
+class SecretKey(ByteString): pass
+
+SharedSecretKey = ByteString
+class UninformlyRandomSharedSecretKey(SharedSecretKey, UniformlyRandom ): pass
