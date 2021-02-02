@@ -1,6 +1,6 @@
 from abc import ABC
 
-from typing import Any
+from typing import Any, TypeVar, Generic, Set, Annotated
 
 class Bit(int): pass
 class UniformlyRandom(ABC): pass
@@ -12,7 +12,6 @@ class ByteString(ABC):
 
 class UniformlyRandomByteString(UniformlyRandom, ByteString): pass
 
-class SecretKey(ByteString): pass
-
-SharedSecretKey = ByteString
-class UninformlyRandomSharedSecretKey(SharedSecretKey, UniformlyRandom ): pass
+T = TypeVar('T')
+UniformlyRandomT = Annotated[T, UniformlyRandom]
+def UniformlySample(s : Set[T]) -> UniformlyRandomT[T]: pass
