@@ -1,8 +1,6 @@
 from typing import Tuple
 
-import Crypto
-import KEM
-import PKE
+from gamehop.primitives import Crypto, KEM, PKE
 import KEMfromPKE
 
 KEM_Scheme = KEM.Scheme[PKE.PublicKey, PKE.SecretKey, PKE.Ciphertext, PKE.Message, Crypto.Reject]
@@ -29,18 +27,18 @@ def G0(adversary: INDCPA_adversary, pke: PKE.Scheme) -> Crypto.Bit:
 
 import sys
 sys.path.append("..") # Adds higher directory to python modules path.
-import Verification
+import gamehop.verification
 
 import ast
-s1 = Verification.canonicalize_function(G0)
+s1 = gamehop.verification.canonicalize_function(G0)
 print(s1)
-# print(ast.dump(ast.parse(Verification.canonicalize_function(G0)), indent=2))
-test1 = Verification.inline_argument(KEM.INDCPA_real, 'kem', KEMfromPKE.Scheme)
+# print(ast.dump(ast.parse(gamehop.verification.canonicalize_function(G0)), indent=2))
+test1 = gamehop.verification.inline_argument(KEM.INDCPA_real, 'kem', KEMfromPKE.Scheme)
 #print(test1)
-s2 = Verification.canonicalize_function(test1)
+s2 = gamehop.verification.canonicalize_function(test1)
 print(s2)
 print("---------------Diff-----------------")
-Verification.stringDiff(s1, s2)
+gamehop.verification.stringDiff(s1, s2)
 print("------------------------------------")
 
 # G1 should be KEM.INDCPA_random with KEMfromPKE inlined
@@ -61,15 +59,15 @@ def G1(adversary: INDCPA_adversary, pke: PKE.Scheme) -> Crypto.Bit:
     return adversary.guess(pk, ct, ss_rand)
 
 
-s1 = Verification.canonicalize_function(G1)
+s1 = gamehop.verification.canonicalize_function(G1)
 print(s1)
-# print(ast.dump(ast.parse(Verification.canonicalize_function(G0)), indent=2))
-test1 = Verification.inline_argument(KEM.INDCPA_random, 'kem', KEMfromPKE.Scheme)
+# print(ast.dump(ast.parse(gamehop.verification.canonicalize_function(G0)), indent=2))
+test1 = gamehop.verification.inline_argument(KEM.INDCPA_random, 'kem', KEMfromPKE.Scheme)
 #print(test1)
-s2 = Verification.canonicalize_function(test1)
+s2 = gamehop.verification.canonicalize_function(test1)
 print(s2)
 print("---------------Diff-----------------")
-Verification.stringDiff(s1, s2)
+gamehop.verification.stringDiff(s1, s2)
 print("------------------------------------")
 
 # Game hop from G0 to G1

@@ -1,7 +1,6 @@
-from abc import ABC
 from typing import Tuple, Union, TypeVar, Generic, Set
 
-import Crypto
+from . import Crypto
 
 PublicKey = TypeVar('PublicKey')
 SecretKey = TypeVar('SecretKey')
@@ -29,5 +28,3 @@ def INDCPA_random(kem: Scheme, adversary: INDCPA_adversary) -> Crypto.Bit:
     (ct, _) = kem.Encaps(pk)
     ss_rand = Crypto.UniformlySample(kem.SharedSecretSet)
     return adversary.guess(pk, ct, ss_rand)
-
-# not sure about the shared secret type. i think needs to be some union somewhere...

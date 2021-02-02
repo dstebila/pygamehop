@@ -1,7 +1,6 @@
-from abc import ABC
 from typing import Tuple, Union, TypeVar, Generic, Set
 
-import Crypto
+from . import Crypto
 
 Ciphertext = TypeVar('Ciphertext')
 PublicKey = TypeVar('PublicKey')

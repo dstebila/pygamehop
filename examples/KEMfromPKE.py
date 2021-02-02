@@ -1,10 +1,6 @@
 from typing import Tuple, Union, Generic, Set
 
-import Crypto
-import KEM
-import PKE
-
-
+from gamehop.primitives import Crypto, KEM, PKE
 
 KEM_Scheme = KEM.Scheme[PKE.PublicKey, PKE.SecretKey, PKE.Ciphertext, PKE.Message, Crypto.Reject]
 
