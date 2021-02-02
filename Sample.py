@@ -1,4 +1,4 @@
-import Verification
+import gamehop.verification
 
 # Some test cases for inlinining and canonicalization
 
@@ -20,8 +20,8 @@ def function1(a: int, b: int) -> int:
  e = c + d
  return e
 
-f0 = Verification.canonicalize_function(function0)
-f1 = Verification.canonicalize_function(function1)
+f0 = gamehop.verification.canonicalize_function(function0)
+f1 = gamehop.verification.canonicalize_function(function1)
 assert f0 == f1
 
 # same as function1, but with lines in a different order and returning a result directly rather than a variable
@@ -31,7 +31,7 @@ def function2(w: int, b: int) -> int:
     u = w + 9
     return u + d
 
-f2 = Verification.canonicalize_function(function2)
+f2 = gamehop.verification.canonicalize_function(function2)
 assert f1 == f2
 
 # same as function1, but with part of it via inlining from another function
@@ -44,8 +44,8 @@ def function3(w: int, b: int) -> int:
     u = w + 9
     return u + d
 
-f3 = Verification.inline_function(function3, addseven)
-f3 = Verification.canonicalize_function(f3)
+f3 = gamehop.verification.inline_function(function3, addseven)
+f3 = gamehop.verification.canonicalize_function(f3)
 assert f1 == f3
 
 # same as function1, but with part of it via inlining from arguments to the function
@@ -60,9 +60,9 @@ def function4(a: int, b: int, doer: Doer, seven: int) -> int:
  e = c + d
  return e
 
-f4 = Verification.inline_argument(function4, 'seven', 7)
-f4 = Verification.inline_argument(f4, 'doer', Doer)
-f4 = Verification.canonicalize_function(f4)
+f4 = gamehop.verification.inline_argument(function4, 'seven', 7)
+f4 = gamehop.verification.inline_argument(f4, 'doer', Doer)
+f4 = gamehop.verification.canonicalize_function(f4)
 assert f1 == f4
 
 # same as function1, but with some useless assigns
@@ -75,7 +75,7 @@ def function5(a: int, b: int) -> int:
  e = c + d
  return e
 
-f5 = Verification.canonicalize_function(function5)
+f5 = gamehop.verification.canonicalize_function(function5)
 assert f1 == f5
 
 print("All tests passed")
