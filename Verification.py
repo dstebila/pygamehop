@@ -364,11 +364,25 @@ class ConstantReplacer(ast.NodeTransformer):
             elif isinstance(node.ctx, ast.Store): raise NotImplementedError()
         else: return node
 
+class AttributeInliner(ast.NodeTransformer):
+    """Replaces basename.whatever with formatstring.format(whatever)."""
+    def __init__(self, basename: str, formatstring: str):
+        self.basename = basename
+        self.formatstring = formatstring
+    def visit_Attribute(self, node):
+        if isinstance(node.value, ast.Name) and node.value.id == self.basename:
+            return ast.Name(id=self.formatstring.format(node.attr), ctx=node.ctx)
+        elif isinstance(node.value, ast.Attribute): 
+            node.value = self.visit_Attribute(node.value)
+            return node
+        else: return node
+
 # expands the Inliner class inside inline_function above; those two could probably be unified somehow
 class ClassInliner(ast.NodeTransformer):
-    def __init__(self, inlinand_name, inlinand_value):
+    def __init__(self, inlinand_name, inlinand_value, selfformatstring):
         self.inlinand_name = inlinand_name
         self.inlinand_value = inlinand_value
+        self.selfformatstring = selfformatstring
         self.replacement_count = 0
     def visit_Assign(self, stmt):
         # is this assign a call to the thing we're supposed to replace?
@@ -390,6 +404,7 @@ class ClassInliner(ast.NodeTransformer):
             mappings = dict()
             for var in vars: mappings[var] = 'v_{:s}_{:s}_{:d}_{:s}'.format(self.inlinand_name, methoddef.name, self.replacement_count, var)
             newmethoddef = renamevariables(methoddef, mappings)
+            selfmapped = mappings[methoddef.args.args[0].arg]
             # map the parameters onto the arguments
             assert len(stmt.value.args) == len(methoddef.args.args) - 1 # offset by 1 due to self
             mappings = dict()
@@ -400,6 +415,8 @@ class ClassInliner(ast.NodeTransformer):
             assert isinstance(newmethoddef.body[-1], ast.Return)
             newret = ast.Assign(targets=stmt.targets, value=newmethoddef.body[-1].value)
             newmethoddef.body[-1] = newret
+            # inline self.whatever
+            newmethoddef = AttributeInliner(selfmapped, self.selfformatstring).visit(newmethoddef)
             # output is the inlined function body
             return newmethoddef.body
         else: return stmt
@@ -427,7 +444,18 @@ def inline_argument(f: Union[Callable, str], arg: str, val: Any):
     # replace class methods
     # elif typeofarg == val.__name__: ## TODO: FIXME: the old line of code doesn't work with the generics approach yet
     elif True:
-        newfdef = ClassInliner(arg, val).visit(fdef)
+        selfformatstring = 'v_{:s}_self_'.format(arg) + '{:s}'
+        newfdef = ClassInliner(arg, val, selfformatstring).visit(fdef)
+        # need to take unresolved arguments from the inlinand __init__ and make them arguments of the newfdef
+        inlinand_classdef = ast.parse(inspect.getsource(val)).body[0]
+        for s in inlinand_classdef.body:
+            if isinstance(s, ast.FunctionDef) and s.name == '__init__':
+                for init_arg in range(1, len(s.args.args)):
+                    newfdef.args.args.append(s.args.args[init_arg])
+                # need to take the body of the __init__ of the inlinand and put it at the start of the newfdef body
+                initprime = AttributeInliner(s.args.args[0].arg, selfformatstring).visit(s)
+                initprime.body.extend(newfdef.body)
+                newfdef.body = initprime.body
     # unrecognized type
     else: raise NotImplementedError('type of argument: {:s}, class of value: {:s}'.format(typeofarg, val.__name__))
     # remove the argument from the arguments list
