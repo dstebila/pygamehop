@@ -3,6 +3,8 @@ import inspect
 import types
 from typing import Any, Callable, Union
 
+from . import internal
+
 __all__ = ['inline_argument']
 
 class NameNodeReplacer(ast.NodeTransformer):
@@ -21,15 +23,9 @@ class IsNameNodeEverAssignedTo(ast.NodeVisitor):
     def visit_Name(self, node):
         if node.id == self.id and isinstance(node.ctx, ast.Store): self.isassignedto = True
 
-def inline_argument(f: Union[Callable, str], arg: str, val: Any):
+def inline_argument(f: Union[Callable, str], arg: str, val: Union[bool, float, int, str]) -> str:
     """Returns a string representing the provided function with the given argument inlined to the given value.  Works on values of type bool, float, int, or str.  Cannot handle cases where the variable to be inlined is assigned to."""
-    # parse the function
-    if isinstance(f, types.FunctionType): t = ast.parse(inspect.getsource(f))
-    elif isinstance(f, str): t = ast.parse(f)
-    else: raise TypeError("Cannot handle functions provided as {:s}".format(type(f).__name__))
-    # get the function definition
-    fdef = t.body[0]
-    assert isinstance(fdef, ast.FunctionDef)
+    fdef = internal.get_function_def(f)
     checkusage = IsNameNodeEverAssignedTo(arg)
     checkusage.visit(fdef)
     if checkusage.isassignedto: raise NotImplementedError("Cannot handle cases where the inlined variabled is assigned to")
