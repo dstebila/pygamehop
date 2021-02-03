@@ -2,13 +2,14 @@ import ast
 import copy
 import inspect
 import types
-from typing import Callable, Union
+from typing import Callable, Set, Union
 
-def get_function_def(f: Union[Callable, str]) -> ast.FunctionDef:
+def get_function_def(f: Union[Callable, str, ast.FunctionDef]) -> ast.FunctionDef:
     """Gets the ast.FunctionDef for a function that is given as a function or as a string."""
     # parse the function
     if isinstance(f, types.FunctionType): t = ast.parse(inspect.getsource(f))
     elif isinstance(f, str): t = ast.parse(f)
+    elif isinstance(f, ast.FunctionDef): return f
     else: raise TypeError("Cannot handle functions provided as {:s}".format(type(f).__name__))
     # get the function definition
     fdef = t.body[0]
@@ -24,9 +25,9 @@ class NameRenamer(ast.NodeTransformer):
         if node.id in self.mapping: return ast.Name(id=self.mapping[node.id], ctx=node.ctx)
         else: return node
 
-def rename_variables(fdef: ast.FunctionDef, mapping: dict) -> ast.FunctionDef:
-    """Returns a copy of the function definition node with all the variables in the given function definition renamed based on the provided mapping.  Raises a ValueError if the new name is already used in the function."""
-    retvalue = copy.deepcopy(fdef)
+def rename_variables(f: Union[Callable, str, ast.FunctionDef], mapping: dict) -> ast.FunctionDef:
+    """Returns a copy of the function with all the variables in the given function definition renamed based on the provided mapping.  Raises a ValueError if the new name is already used in the function."""
+    retvalue = copy.deepcopy(get_function_def(f))
     # rename any relevant variables in the function arguments
     for arg in retvalue.args.args:
         if arg.arg in mapping.values(): raise ValueError("New name '{:s}' already exists in function".format(arg.arg))
@@ -37,3 +38,28 @@ def rename_variables(fdef: ast.FunctionDef, mapping: dict) -> ast.FunctionDef:
         newbody.append(NameRenamer(mapping).visit(stmt))
     retvalue.body = newbody
     return retvalue
+
+def find_all_variables(f: Union[Callable, str, ast.FunctionDef]) -> Set[str]:
+    """Return a set of all variables in the function, including function parameters."""
+    fdef = get_function_def(f)
+    vars = set()
+    # function arguments
+    args = fdef.args
+    if len(args.posonlyargs) > 0: raise NotImplementedError("No support for position-only variables")
+    if len(args.kwonlyargs) > 0: raise NotImplementedError("No support for keyword-only variables")
+    if len(args.kw_defaults) > 0: raise NotImplementedError("No support for keyword defaults")
+    if len(args.defaults) > 0: raise NotImplementedError("No support for argument defaults")
+    for arg in args.args:
+        vars.add(arg.arg)
+    # find all assigned variables
+    for stmt in fdef.body:
+        if isinstance(stmt, ast.Assign):
+            for target in stmt.targets:
+                if isinstance(target, ast.Name):
+                    vars.add(target.id)
+                elif isinstance(target, ast.Tuple) or isinstance(target, ast.List):
+                    for elt in target.elts:
+                        if isinstance(elt, ast.Name): vars.add(elt.id)
+                else:
+                    raise NotImplementedError("Can't deal with assignment target type " + str(type(target)))
+    return vars

@@ -24,19 +24,15 @@ def expected_result(f):
 
 class TestRenameVariables(unittest.TestCase):
     def test_basic(self):
-        fdef = gamehop.inlining.internal.get_function_def(f_basic)
         mappings = {'x': 'v_1', 'y': 'v_2', 'a': 'v_3'}
-        result = gamehop.inlining.internal.rename_variables(fdef, mappings)
         self.assertEqual(
-            ast.unparse(result),
+            ast.unparse(gamehop.inlining.internal.rename_variables(f_basic, mappings)),
             expected_result(f_basic_expected_result))
     def test_name_collision_in_body(self):
-        fdef = gamehop.inlining.internal.get_function_def(f_basic)
         mappings = {'x': 'a'}
         with self.assertRaises(ValueError):
-            gamehop.inlining.internal.rename_variables(fdef, mappings)
+            gamehop.inlining.internal.rename_variables(f_basic, mappings)
     def test_name_collision_in_args(self):
-        fdef = gamehop.inlining.internal.get_function_def(f_basic)
         mappings = {'x': 'y'}
         with self.assertRaises(ValueError):
-            gamehop.inlining.internal.rename_variables(fdef, mappings)
+            gamehop.inlining.internal.rename_variables(f_basic, mappings)
