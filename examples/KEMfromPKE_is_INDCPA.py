@@ -30,16 +30,16 @@ sys.path.append("..") # Adds higher directory to python modules path.
 import gamehop.verification
 
 import ast
-s1 = gamehop.verification.canonicalize_function(G0)
-print(s1)
-# print(ast.dump(ast.parse(gamehop.verification.canonicalize_function(G0)), indent=2))
-test1 = gamehop.verification.inline_argument(KEM.INDCPA_real, 'kem', KEMfromPKE.Scheme)
-#print(test1)
-s2 = gamehop.verification.canonicalize_function(test1)
-print(s2)
-print("---------------Diff-----------------")
-gamehop.verification.stringDiff(s1, s2)
-print("------------------------------------")
+# s1 = gamehop.verification.canonicalize_function(G0)
+# print(s1)
+# # print(ast.dump(ast.parse(gamehop.verification.canonicalize_function(G0)), indent=2))
+# test1 = gamehop.verification.inline_argument(KEM.INDCPA_real, 'kem', KEMfromPKE.Scheme)
+# #print(test1)
+# s2 = gamehop.verification.canonicalize_function(test1)
+# print(s2)
+# print("---------------Diff-----------------")
+# gamehop.verification.stringDiff(s1, s2)
+# print("------------------------------------")
 
 # G1 should be KEM.INDCPA_random with KEMfromPKE inlined
 def G1(adversary: INDCPA_adversary, pke: PKE.Scheme) -> Crypto.Bit:
@@ -59,23 +59,23 @@ def G1(adversary: INDCPA_adversary, pke: PKE.Scheme) -> Crypto.Bit:
     return adversary.guess(pk, ct, ss_rand)
 
 
-s1 = gamehop.verification.canonicalize_function(G1)
-print(s1)
-# print(ast.dump(ast.parse(gamehop.verification.canonicalize_function(G0)), indent=2))
-test1 = gamehop.verification.inline_argument(KEM.INDCPA_random, 'kem', KEMfromPKE.Scheme)
-#print(test1)
-s2 = gamehop.verification.canonicalize_function(test1)
-print(s2)
-print("---------------Diff-----------------")
-gamehop.verification.stringDiff(s1, s2)
-print("------------------------------------")
+# s1 = gamehop.verification.canonicalize_function(G1)
+# print(s1)
+# # print(ast.dump(ast.parse(gamehop.verification.canonicalize_function(G0)), indent=2))
+# test1 = gamehop.verification.inline_argument(KEM.INDCPA_random, 'kem', KEMfromPKE.Scheme)
+# #print(test1)
+# s2 = gamehop.verification.canonicalize_function(test1)
+# print(s2)
+# print("---------------Diff-----------------")
+# gamehop.verification.stringDiff(s1, s2)
+# print("------------------------------------")
 
 # Game hop from G0 to G1
 # Proven by constructing reduction from distinguishing G0 and G1 to distinguishing PKE.INDCPA0 from PKE.INDCPA1
 class R01(PKE.INDCPA_adversary):
-    def __init__(self, pke: PKE.Scheme, kem_adversary: INDCPA_adversary):
+    def __init__(self, pke2: PKE.Scheme, kem_adversary: INDCPA_adversary) -> None:
         self.kem_adversary = kem_adversary
-        self.pke = pke
+        self.pke = pke2
 
     def challenge(self, pk: PKE.PublicKey) -> Tuple[PKE.Message, PKE.Message]:
         self.pk = pk
@@ -120,7 +120,8 @@ def PKE_INDCPA0_R01(pke: PKE.Scheme, adversary: INDCPA_adversary) -> Crypto.Bit:
     ct = pke.Encrypt(pk, m0)
 
     #inlined from R01.guess()
-    return r01_self_kem_adversary.guess(r01_self_pk, ct, r01_self_m0)
+    r = r01_self_kem_adversary.guess(r01_self_pk, ct, r01_self_m0)
+    return r
 
 
 
@@ -151,3 +152,17 @@ def PKE_INDCPA1_R01(pke: PKE.Scheme, adversary: INDCPA_adversary) -> Crypto.Bit:
 
     #inlined from R01.guess()
     return r01_self_kem_adversary.guess(r01_self_pk, ct, r01_self_m0)
+
+
+
+
+s1 = gamehop.verification.canonicalize_function(PKE_INDCPA0_R01)
+print(s1)
+# print(ast.dump(ast.parse(gamehop.verification.canonicalize_function(G0)), indent=2))
+test1 = gamehop.verification.inline_argument(PKE.INDCPA0, 'adversary', R01)
+print(test1)
+s2 = gamehop.verification.canonicalize_function(test1)
+print(s2)
+print("---------------Diff-----------------")
+gamehop.verification.stringDiff(s1, s2)
+print("------------------------------------")
