@@ -4,23 +4,6 @@ import unittest
 
 import gamehop.inlining
 
-class myClassWithAMethod():
-    def __init__(self):
-        self.myarg = 0
-    def m(self, y: int):
-        self.myarg = y
-
-def f1(x: myClassWithAMethod, y: int) -> int:
-    x.m(y)
-    return x.myarg
-
-target1 = """def f1(x: myClassWithAMethod, y: int) -> int:
-    prefix_self_myarg = 0
-    prefix_self_myarg = y
-    return prefix_self_myarg"""
-
-
-
 class myClassWithNoInit():
     def m(self, y: int):
         self.myarg = y
@@ -48,17 +31,6 @@ target3 = """def f3(x: myClassWithMethodWithoutArgument) -> int:
 
 
 class TestClassInlining(unittest.TestCase):
-    def test_classWithNoMethods(self):
-        self.assertEqual(
-            target0,
-            gamehop.inlining.inline_class(f0, 'x', myClassWithNoMethods)
-        )
-    def test_classWithAMethod(self):
-        self.assertEqual(
-            target1,
-            gamehop.inlining.inline_class(f1, 'x', myClassWithAMethod)
-        )
-
     def test_classWithNoInit(self):
         self.assertEqual(
             target2,
@@ -69,6 +41,3 @@ class TestClassInlining(unittest.TestCase):
             target3,
             gamehop.inlining.inline_class(f3, 'x', myClassWithMethodWithoutArgument)
         )
-
-print(gamehop.inlining.inline_class(f0, 'x', myClassWithNoMethods))
-TestClassInlining().test_classWithNoMethods()

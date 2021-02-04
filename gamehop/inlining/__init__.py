@@ -54,14 +54,18 @@ def inline_argument(f: Union[Callable, str, ast.FunctionDef], arg: str, val: Uni
     # return the resulting function
     return ast.unparse(ast.fix_missing_locations(newfdef))
 
-def inline_function_helper_lines_of_inlined_function(prefix: str, call: ast.Call, inlinand_def: ast.FunctionDef):
-    """Gets the lines of the body that result from expanding the call to 'call', with every local variable prefixed by prefix."""
+def inline_function_helper_lines_of_inlined_function(prefix: str, call: ast.Call, inlinand_def: ast.FunctionDef, self_prefix="") -> list:
+    """Gets the lines of the body that result from expanding the call to 'call', with every local variable prefixed by prefix. If self_prefix is specified, variables starting with SELF will be renamed using self_prefix instead of prefix."""
+    newinlinand_def = copy.deepcopy(inlinand_def)
     variables_in_inlinand = internal.find_all_variables(inlinand_def)
     # prefix all variables in inlinand
     mappings = dict()
     for var in variables_in_inlinand: 
-        mappings[var] = '{:s}_{:s}'.format(prefix, var)
-    newinlinand_def = internal.rename_variables(inlinand_def, mappings)
+        if self_prefix != "" and var.startswith('SELF'): 
+            mappings[var] = '{:s}_{:s}'.format(self_prefix, var[4:])
+        else:
+            mappings[var] = '{:s}_{:s}'.format(prefix, var)
+    newinlinand_def = internal.rename_variables(newinlinand_def, mappings)
     # map the parameters onto the arguments
     assert len(call.args) == len(newinlinand_def.args.args)
     for i in range(len(call.args)):
@@ -74,11 +78,13 @@ def inline_function_helper_lines_of_inlined_function(prefix: str, call: ast.Call
         else: raise NotImplementedError("Don't know how to inline calls whose arguments are of type {:s}".format(type(arg).__name__))
     return newinlinand_def.body
 
-def inline_function(inlinee: Union[Callable, str, ast.FunctionDef], inlinand: Union[Callable, str, ast.FunctionDef]) -> str:
-    """Returns a string representing (almost) all instances of the second function inlined into the first.  Only works on calls to bare assignments (y = f(x)) or bare calls (f(x))."""
+def inline_function(inlinee: Union[Callable, str, ast.FunctionDef], inlinand: Union[Callable, str, ast.FunctionDef], search_function_name=None, dest_function_name=None, self_prefix="") -> str:
+    """Returns a string representing (almost) all instances of the second function inlined into the first.  Only works on calls to bare assignments (y = f(x)) or bare calls (f(x)). Normally uses the inlinand's name as the name to search for and the name from which to build prefixes, but can be overridden by search_function_name and dest_function_name. If self_prefix is specified, variables starting with SELF will be renamed using self_prefix instead of prefix."""
     # get the function definitions
     inlinee_def = copy.deepcopy(internal.get_function_def(inlinee))
     inlinand_def = copy.deepcopy(internal.get_function_def(inlinand))
+    if search_function_name == None: search_function_name = inlinand_def.name
+    if dest_function_name == None: dest_function_name = inlinand_def.name
     # check that there are no return statements anywhere in the inlinand other than the last line
     class ContainsReturn(ast.NodeVisitor):
         def visit_Return(self, node):
@@ -99,19 +105,19 @@ def inline_function(inlinee: Union[Callable, str, ast.FunctionDef], inlinand: Un
     replacement_count = 0
     for stmt in inlinee_def.body:
         # replace y = f(x)
-        if isinstance(stmt, ast.Assign) and isinstance(stmt.value, ast.Call) and isinstance(stmt.value.func, ast.Name) and stmt.value.func.id == inlinand_def.name:
+        if isinstance(stmt, ast.Assign) and isinstance(stmt.value, ast.Call) and isinstance(stmt.value.func, ast.Name) and stmt.value.func.id == search_function_name:
             if not inlinand_has_return: raise ValueError("Trying to inline a function without a return statement into an assignment")
             # copy the expanded lines
             replacement_count += 1
-            newinlinee_body.extend(inline_function_helper_lines_of_inlined_function('v_{:s}_{:d}'.format(inlinand_def.name, replacement_count), stmt.value, inlinand_def))
+            newinlinee_body.extend(inline_function_helper_lines_of_inlined_function('v_{:s}_{:d}'.format(dest_function_name, replacement_count), stmt.value, inlinand_def, self_prefix))
             # append an assignment for the return value
-            newinlinee_body.append(ast.Assign(targets = stmt.targets, value = ast.Name(id='v_{:s}_{:d}_v_retval'.format(inlinand_def.name, replacement_count), ctx=ast.Load())))
+            newinlinee_body.append(ast.Assign(targets = stmt.targets, value = ast.Name(id='v_{:s}_{:d}_v_retval'.format(dest_function_name, replacement_count), ctx=ast.Load())))
         # replace f(x)
-        elif isinstance(stmt, ast.Expr) and isinstance(stmt.value, ast.Call) and isinstance(stmt.value.func, ast.Name) and stmt.value.func.id == inlinand_def.name:
+        elif isinstance(stmt, ast.Expr) and isinstance(stmt.value, ast.Call) and isinstance(stmt.value.func, ast.Name) and stmt.value.func.id == search_function_name:
             if inlinand_has_return: raise ValueError("Trying to inline a function with a return statement into a standalone statement")
             # copy the expanded lines
             replacement_count += 1
-            newinlinee_body.extend(inline_function_helper_lines_of_inlined_function('v_{:s}_{:d}'.format(inlinand_def.name, replacement_count), stmt.value, inlinand_def))
+            newinlinee_body.extend(inline_function_helper_lines_of_inlined_function('v_{:s}_{:d}'.format(dest_function_name, replacement_count), stmt.value, inlinand_def, self_prefix))
         else:
             newinlinee_body.append(stmt)
     inlinee_def.body = newinlinee_body
@@ -121,7 +127,7 @@ def inline_function(inlinee: Union[Callable, str, ast.FunctionDef], inlinand: Un
             self.funcname = funcname
         def visit_Call(self, node):
             if node.func.id == self.funcname: raise NotImplementedError("Can't inline functions that are called on anything other than as a solitary assignment line, e.g., y = f(x)")
-    ContainsCall(inlinand_def.name).visit(inlinee_def)
+    ContainsCall(search_function_name).visit(inlinee_def)
     return ast.unparse(ast.fix_missing_locations(inlinee_def))
 
 def inline_class(inlinee: Union[Callable, str, ast.FunctionDef], arg: str, inlinand: Union[object, str, ast.ClassDef], inline_init = True) -> str:
@@ -135,7 +141,7 @@ def inline_class(inlinee: Union[Callable, str, ast.FunctionDef], arg: str, inlin
             if isinstance(f, ast.FunctionDef) and f.name == '__init__':
                 initdef = copy.deepcopy(f)
                 # dereference self.whatever in __init__
-                formatstr = 'v_{:s}_self_'.format(arg) + '{:s}'
+                formatstr = 'v_{:s}_'.format(arg) + '{:s}'
                 selfname = initdef.args.args[0].arg
                 initdef = internal.get_function_def(internal.dereference_attribute(initdef, selfname, formatstr))
                 # rename any of __init__'s (non-self) parameters and add them to inlinee's list of arguments
@@ -148,8 +154,21 @@ def inline_class(inlinee: Union[Callable, str, ast.FunctionDef], arg: str, inlin
                 # copy the body of __init__ to the start of the inlinee body
                 inlinee_def.body = initdef.body + inlinee_def.body
     # dereference attribute calls in the new body
-    formatstr = 'v_{:s}_self_'.format(arg) + '{:s}'
+    formatstr = 'v_{:s}_'.format(arg) + '{:s}'
     inlinee_def = internal.get_function_def(internal.dereference_attribute(inlinee_def, arg, formatstr))
+    # inline all remaining methods
+    for f in inlinand_def.body:
+        if isinstance(f, ast.FunctionDef) and f.name != '__init__':
+            fdef = copy.deepcopy(f)
+            # dereference self.whatever in the function
+            # formatstr = 'v_{:s}_'.format(arg) + '{:s}'
+            formatstr = 'SELF{:s}'
+            selfname = fdef.args.args[0].arg
+            fdef = internal.get_function_def(internal.dereference_attribute(fdef, selfname, formatstr))
+            del fdef.args.args[0]
+            # rename the inlinand's function name
+            # inline the method; we've already done the prefixing so we tell inline_function not to add its own prefixes
+            inlinee_def = internal.get_function_def(inline_function(inlinee_def, fdef, search_function_name='v_{:s}_{:s}'.format(arg, fdef.name), dest_function_name='{:s}_{:s}'.format(arg, fdef.name), self_prefix='v_{:s}'.format(arg)))
     # remove the inlined argument from the inlinee's list of argments
     for a in inlinee_def.args.args:
         if a.arg == arg: inlinee_def.args.args.remove(a)
