@@ -81,7 +81,7 @@ def inline_function(inlinee: Union[Callable, str], inlinand: Union[Callable, str
                 self.replacement_count += 1
                 # prefix all variables in inlinand
                 mappings = dict()
-                for var in self.variables_in_inlinand: 
+                for var in self.variables_in_inlinand:
                     mappings[var] = 'v_{:s}_{:d}_{:s}'.format(self.inlinand_def.name, self.replacement_count, var)
                 newinlinand_def = internal.rename_variables(self.inlinand_def, mappings)
                 # map the parameters onto the arguments
@@ -111,3 +111,7 @@ def inline_function(inlinee: Union[Callable, str], inlinand: Union[Callable, str
             if node.func.id == self.funcname: raise NotImplementedError("Can't inline functions that are called on anything other than as a solitary assignment line, e.g., y = f(x)")
     ContainsCall(inlinand_def.name).visit(newinlinee_def)
     return ast.unparse(ast.fix_missing_locations(newinlinee_def))
+
+def inline_class(inlinee: Union[Callable, str], arg: str, inlinand: Union[object, str]) -> str:
+    """Returns a string representing the given class definition inlined into an argument of the given function.."""
+    pass
