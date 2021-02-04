@@ -4,9 +4,9 @@ import unittest
 
 import gamehop.inlining
 
-def bool_f(x):
+def bool_f(x, y):
     print(x)
-def bool_f_expected_result():
+def bool_f_expected_result(y):
     print(True)
 def float_f(x):
     print(x)
@@ -50,7 +50,7 @@ class TestInlineArgument(unittest.TestCase):
         with self.assertRaisesRegex(NotImplementedError, "No support yet for inlining arguments of type tuple"):
             gamehop.inlining.inline_argument(bool_f, 'x', (1, 2, 3))
     def test_f_as_string(self):
-        str_bool_f = "def bool_f(x): print(x)"
+        str_bool_f = "def bool_f(x, y): print(x)"
         self.assertEqual(
             gamehop.inlining.inline_argument(str_bool_f, 'x', True),
             expected_result(bool_f_expected_result))
