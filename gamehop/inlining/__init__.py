@@ -124,6 +124,34 @@ def inline_function(inlinee: Union[Callable, str, ast.FunctionDef], inlinand: Un
     ContainsCall(inlinand_def.name).visit(inlinee_def)
     return ast.unparse(ast.fix_missing_locations(inlinee_def))
 
-def inline_class(inlinee: Union[Callable, str], arg: str, inlinand: Union[object, str]) -> str:
+def inline_class(inlinee: Union[Callable, str, ast.FunctionDef], arg: str, inlinand: Union[object, str, ast.ClassDef], inline_init = True) -> str:
     """Returns a string representing the given class definition inlined into an argument of the given function.."""
-    pass
+    # get the function definitions
+    inlinee_def = copy.deepcopy(internal.get_function_def(inlinee))
+    inlinand_def = copy.deepcopy(internal.get_class_def(inlinand))
+    # inline the __init__ method
+    if inline_init:
+        for f in inlinand_def.body:
+            if isinstance(f, ast.FunctionDef) and f.name == '__init__':
+                initdef = copy.deepcopy(f)
+                # dereference self.whatever in __init__
+                formatstr = 'v_{:s}_self_'.format(arg) + '{:s}'
+                selfname = initdef.args.args[0].arg
+                initdef = internal.get_function_def(internal.dereference_attribute(initdef, selfname, formatstr))
+                # rename any of __init__'s (non-self) parameters and add them to inlinee's list of arguments
+                for a in initdef.args.args[1:]:
+                    newname = 'v_{:s}_init_{:s}'.format(arg, a.arg)
+                    initdef = internal.rename_variables(initdef, {a.arg: newname})
+                    newarg = copy.deepcopy(a)
+                    newarg.arg = newname
+                    inlinee_def.args.args.append(newarg)
+                # copy the body of __init__ to the start of the inlinee body
+                inlinee_def.body = initdef.body + inlinee_def.body
+    # dereference attribute calls in the new body
+    formatstr = 'v_{:s}_self_'.format(arg) + '{:s}'
+    inlinee_def = internal.get_function_def(internal.dereference_attribute(inlinee_def, arg, formatstr))
+    # remove the inlined argument from the inlinee's list of argments
+    for a in inlinee_def.args.args:
+        if a.arg == arg: inlinee_def.args.args.remove(a)
+        break
+    return ast.unparse(ast.fix_missing_locations(inlinee_def))

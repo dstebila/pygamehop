@@ -2,7 +2,7 @@ import ast
 import copy
 import inspect
 import types
-from typing import Callable, Set, Union
+from typing import Any, Callable, Set, Union
 
 def get_function_def(f: Union[Callable, str, ast.FunctionDef]) -> ast.FunctionDef:
     """Gets the ast.FunctionDef for a function that is given as a function or as a string."""
@@ -15,6 +15,18 @@ def get_function_def(f: Union[Callable, str, ast.FunctionDef]) -> ast.FunctionDe
     fdef = t.body[0]
     assert isinstance(fdef, ast.FunctionDef)
     return fdef
+
+def get_class_def(c: Union[Any, str, ast.ClassDef]) -> ast.ClassDef:
+    """Gets the ast.ClassDef for a class that is given as a class or as a string."""
+    # parse the function
+    if isinstance(c, str): t = ast.parse(c)
+    elif isinstance(c, ast.ClassDef): return c
+    elif inspect.isclass(c): t = ast.parse(inspect.getsource(c))
+    else: raise TypeError("Cannot handle classes provided as {:s}".format(type(c).__name__))
+    # get the class definition
+    cdef = t.body[0]
+    assert isinstance(cdef, ast.ClassDef)
+    return cdef
 
 class NameRenamer(ast.NodeTransformer):
     """Replaces ids in Name nodes based on the provided mapping.  Raises a ValueError if the new name is already used in the function."""
