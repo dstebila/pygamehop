@@ -2,7 +2,7 @@ import ast
 import inspect
 import unittest
 
-import gamehop.inlining
+import gamehop.inlining.internal
 
 def f_basic(x):
     y = x.z
@@ -27,17 +27,17 @@ def expected_result(f):
 class TestDereferenceAttribute(unittest.TestCase):
     def test_basic(self):
         self.assertEqual(
-            gamehop.inlining.dereference_attribute(f_basic, 'x', 'x_{:s}'),
+            gamehop.inlining.internal.dereference_attribute(f_basic, 'x', 'x_{:s}'),
             expected_result(f_basic_expected_result))
     def test_nested(self):
         self.assertEqual(
-            gamehop.inlining.dereference_attribute(f_nested, 'x', 'x_{:s}'),
+            gamehop.inlining.internal.dereference_attribute(f_nested, 'x', 'x_{:s}'),
             expected_result(f_nested_expected_result))
     def test_not_actually_nested(self):
         self.assertEqual(
-            gamehop.inlining.dereference_attribute(f_not_actually_nested, 'x', 'x_{:s}'),
+            gamehop.inlining.internal.dereference_attribute(f_not_actually_nested, 'x', 'x_{:s}'),
             expected_result(f_not_actually_nested))
     def test_not_actually_nested_2(self):
         self.assertEqual(
-            gamehop.inlining.dereference_attribute(f_not_actually_nested_2, 'x', 'x_{:s}'),
+            gamehop.inlining.internal.dereference_attribute(f_not_actually_nested_2, 'x', 'x_{:s}'),
             expected_result(f_not_actually_nested_2))

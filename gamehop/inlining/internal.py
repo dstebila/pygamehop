@@ -59,3 +59,24 @@ def find_all_variables(f: Union[Callable, str, ast.FunctionDef]) -> Set[str]:
                 else:
                     raise NotImplementedError("Can't deal with assignment target type " + str(type(target)))
     return vars
+
+def dereference_attribute(f: Union[Callable, str, ast.FunctionDef], name: str, formatstr: str) -> str:
+    """Returns a string representing a function with all references to 'name.whatever' replaced with formatstr.format(whatever) (e.g., with 'name_whatever').  Only replaces top-level calls (a.b.c -> a_b.c) but not within (w.a.b does not go to w.a_b)."""
+    fdef = copy.deepcopy(get_function_def(f))
+    # fortunately a.b.c is parsed as ((a.b).c)
+    # and we only want to replace the a.b
+    class AttributeDereferencer(ast.NodeTransformer):
+        def __init__(self, name, formatstr):
+            self.name = name
+            self.formatstr = formatstr
+        def visit_Attribute(self, node):
+            # replace a.b
+            if isinstance(node.value, ast.Name) and node.value.id == self.name:
+                return ast.Name(id=formatstr.format(node.attr), ctx=node.ctx)
+            # else if we're at the (a.b).c level,  we need to recurse into (a.b), 
+            # replace there if needed, and then add the attribute c
+            elif isinstance(node.value, ast.Attribute):
+                return ast.Attribute(value=self.visit(node.value), attr=node.attr, ctx=node.ctx)
+            # else: nothing to change
+            else: return node
+    return ast.unparse(ast.fix_missing_locations(AttributeDereferencer(name, formatstr).visit(fdef)))
