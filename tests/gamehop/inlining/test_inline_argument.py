@@ -20,6 +20,10 @@ def str_f(x):
     print(x)
 def str_f_expected_result():
     print("potato")
+def tuple_f(x, y):
+    print(x)
+def tuple_f_expected_result(y):
+    print((1, 2, 3))
 def assigned_f(x):
     print(x)
     x = 123
@@ -47,13 +51,19 @@ class TestInlineArgument(unittest.TestCase):
             gamehop.inlining.inline_argument(str_f, 'x', 'potato'),
             expected_result(str_f_expected_result))
     def test_tuple(self):
-        with self.assertRaisesRegex(NotImplementedError, "No support yet for inlining arguments of type tuple"):
-            gamehop.inlining.inline_argument(bool_f, 'x', (1, 2, 3))
+        self.assertEqual(
+            gamehop.inlining.inline_argument(tuple_f, 'x', (1, 2, 3)),
+            expected_result(tuple_f_expected_result))
+    def test_tuple_ast(self):
+        tupleast = ast.Tuple([ast.Constant(1), ast.Constant(2), ast.Constant(3)], ctx=ast.Load())
+        self.assertEqual(
+            gamehop.inlining.inline_argument(tuple_f, 'x', tupleast),
+            expected_result(tuple_f_expected_result))
     def test_f_as_string(self):
         str_bool_f = "def bool_f(x, y): print(x)"
         self.assertEqual(
             gamehop.inlining.inline_argument(str_bool_f, 'x', True),
             expected_result(bool_f_expected_result))
     def test_assigned(self):
-        with self.assertRaisesRegex(NotImplementedError, "Cannot handle cases where the inlined variabled is assigned to"):
+        with self.assertRaisesRegex(NotImplementedError, "Cannot handle cases where the inlined variable is assigned to"):
             gamehop.inlining.inline_argument(assigned_f, 'x', True)

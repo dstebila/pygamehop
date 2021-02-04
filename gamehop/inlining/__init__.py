@@ -24,16 +24,27 @@ class IsNameNodeEverAssignedTo(ast.NodeVisitor):
     def visit_Name(self, node):
         if node.id == self.id and isinstance(node.ctx, ast.Store): self.isassignedto = True
 
-def inline_argument(f: Union[Callable, str], arg: str, val: Union[bool, float, int, str]) -> str:
-    """Returns a string representing the provided function with the given argument inlined to the given value.  Works on values of type bool, float, int, or str.  Cannot handle cases where the variable to be inlined is assigned to."""
+def ast_from_literal(x: Union[bool, float, int, str, tuple, list, set]) -> ast.AST:
+    if isinstance(x, bool) or isinstance(x, float) or isinstance(x, int) or isinstance(x, str):
+        return ast.Constant(value=x)
+    elif isinstance(x, tuple):
+        return ast.Tuple(elts=[ast_from_literal(y) for y in x], ctx=ast.Load())
+    elif isinstance(x, list):
+        return ast.List(elts=[ast_from_literal(y) for y in x], ctx=ast.Load())
+    elif isinstance(x, set):
+        return ast.Set(elts=[ast_from_literal(y) for y in x], ctx=ast.Load())
+
+def inline_argument(f: Union[Callable, str], arg: str, val: Union[bool, float, int, str, tuple, list, set, ast.AST]) -> str:
+    """Returns a string representing the provided function with the given argument inlined to the given value.  Works on values of type bool, float, int, str, tuple, list, set, or an AST object.  Cannot handle cases where the variable to be inlined is assigned to."""
     fdef = internal.get_function_def(f)
     checkusage = IsNameNodeEverAssignedTo(arg)
     checkusage.visit(fdef)
-    if checkusage.isassignedto: raise NotImplementedError("Cannot handle cases where the inlined variabled is assigned to")
+    if checkusage.isassignedto: raise NotImplementedError("Cannot handle cases where the inlined variable is assigned to")
     # construct the new node
-    if isinstance(val, bool) or isinstance(val, float) or isinstance(val, int) or isinstance(val, str):
-        newnode = ast.Constant(value=val)
-    else: raise NotImplementedError("No support yet for inlining arguments of type {:s}".format(type(val).__name__))
+    if isinstance(val, bool) or isinstance(val, float) or isinstance(val, int) or isinstance(val, str) or isinstance(val, tuple) or isinstance(val, list) or isinstance(val, set):
+        newnode = ast_from_literal(val)
+    else:
+        newnode = val
     newfdef = NameNodeReplacer(arg, newnode).visit(fdef)
     # remove the argument from the arguments list
     for a in newfdef.args.args:
