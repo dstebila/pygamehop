@@ -123,24 +123,3 @@ def inline_function(inlinee: Union[Callable, str, ast.FunctionDef], inlinand: Un
             if node.func.id == self.funcname: raise NotImplementedError("Can't inline functions that are called on anything other than as a solitary assignment line, e.g., y = f(x)")
     ContainsCall(inlinand_def.name).visit(inlinee_def)
     return ast.unparse(ast.fix_missing_locations(inlinee_def))
-
-def dereference_attribute(f: Union[Callable, str, ast.FunctionDef], name: str, formatstr: str) -> str:
-    """Returns a string representing a function with all references to 'name.whatever' replaced with formatstr.format(whatever) (e.g., with 'name_whatever').  Only replaces top-level calls (a.b.c -> a_b.c) but not within (w.a.b does not go to w.a_b)."""
-    fdef = copy.deepcopy(internal.get_function_def(f))
-    # fortunately a.b.c is parsed as ((a.b).c)
-    # and we only want to replace the a.b
-    class AttributeDereferencer(ast.NodeTransformer):
-        def __init__(self, name, formatstr):
-            self.name = name
-            self.formatstr = formatstr
-        def visit_Attribute(self, node):
-            # replace a.b
-            if isinstance(node.value, ast.Name) and node.value.id == self.name:
-                return ast.Name(id=formatstr.format(node.attr), ctx=node.ctx)
-            # else if we're at the (a.b).c level,  we need to recurse into (a.b), 
-            # replace there if needed, and then add the attribute c
-            elif isinstance(node.value, ast.Attribute):
-                return ast.Attribute(value=self.visit(node.value), attr=node.attr, ctx=node.ctx)
-            # else: nothing to change
-            else: return node
-    return ast.unparse(ast.fix_missing_locations(AttributeDereferencer(name, formatstr).visit(fdef)))
