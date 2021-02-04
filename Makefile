@@ -13,3 +13,6 @@ typecheck_library:
 
 unittest_library:
 	env PYTHONPATH=. $(PYTEST) -v
+
+devtest:
+	env PYTHONPATH=. $(PYTEST) -v devtests/*
