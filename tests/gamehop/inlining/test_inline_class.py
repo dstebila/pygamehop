@@ -74,6 +74,18 @@ def f_inlines_same_class_twice_expected_result(y: int) -> int:
     v_z_m_1_a = 2
     return v_x_myarg
 
+def f_calls_method_twice(x: class_with_a_method, y: int) -> int:
+    x.m(y)
+    x.m(7)
+    return x.myarg
+def f_calls_method_twice_expected_result(y: int) -> int:
+    v_x_myarg = 0
+    v_x_myarg = y
+    v_x_m_1_a = 2
+    v_x_myarg = 7
+    v_x_m_2_a = 2
+    return v_x_myarg
+
 
 def expected_result(f):
     s = inspect.getsource(f)
@@ -108,3 +120,7 @@ class TestInlineClass(unittest.TestCase):
         self.assertEqual(
             f,
             expected_result(f_inlines_same_class_twice_expected_result))
+    def test_calls_method_twice(self):
+        self.assertEqual(
+            gamehop.inlining.inline_class(f_calls_method_twice, 'x', class_with_a_method),
+            expected_result(f_calls_method_twice_expected_result))
