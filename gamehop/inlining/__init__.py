@@ -126,7 +126,8 @@ def inline_function(inlinee: Union[Callable, str, ast.FunctionDef], inlinand: Un
         def __init__(self, funcname):
             self.funcname = funcname
         def visit_Call(self, node):
-            if node.func.id == self.funcname: raise NotImplementedError("Can't inline functions that are called on anything other than as a solitary assignment line, e.g., y = f(x)")
+            if isinstance(node.func, ast.Name) and node.func.id == self.funcname: 
+                raise NotImplementedError("Can't inline functions that are called on anything other than as a solitary assignment line, e.g., y = f(x)")
     ContainsCall(search_function_name).visit(inlinee_def)
     return ast.unparse(ast.fix_missing_locations(inlinee_def))
 
@@ -170,7 +171,9 @@ def inline_class(inlinee: Union[Callable, str, ast.FunctionDef], arg: str, inlin
             # inline the method; we've already done the prefixing so we tell inline_function not to add its own prefixes
             inlinee_def = internal.get_function_def(inline_function(inlinee_def, fdef, search_function_name='v_{:s}_{:s}'.format(arg, fdef.name), dest_function_name='{:s}_{:s}'.format(arg, fdef.name), self_prefix='v_{:s}'.format(arg)))
     # remove the inlined argument from the inlinee's list of argments
-    for a in inlinee_def.args.args:
-        if a.arg == arg: inlinee_def.args.args.remove(a)
-        break
+    newargs = list()
+    for i in range(len(inlinee_def.args.args)):
+        if inlinee_def.args.args[i].arg != arg: 
+            newargs.append(inlinee_def.args.args[i])
+    inlinee_def.args.args = newargs
     return ast.unparse(ast.fix_missing_locations(inlinee_def))
