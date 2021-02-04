@@ -74,7 +74,7 @@ def inline_function_helper_lines_of_inlined_function(prefix: str, call: ast.Call
         else: raise NotImplementedError("Don't know how to inline calls whose arguments are of type {:s}".format(type(arg).__name__))
     return newinlinand_def.body
 
-def inline_function(inlinee: Union[Callable, str], inlinand: Union[Callable, str]) -> str:
+def inline_function(inlinee: Union[Callable, str, ast.FunctionDef], inlinand: Union[Callable, str, ast.FunctionDef]) -> str:
     """Returns a string representing (almost) all instances of the second function inlined into the first.  Only works on calls to bare assignments (y = f(x)) or bare calls (f(x))."""
     # get the function definitions
     inlinee_def = copy.deepcopy(internal.get_function_def(inlinee))
@@ -98,16 +98,18 @@ def inline_function(inlinee: Union[Callable, str], inlinand: Union[Callable, str
     newinlinee_body = []
     replacement_count = 0
     for stmt in inlinee_def.body:
-        print(ast.dump(stmt))
         # replace y = f(x)
         if isinstance(stmt, ast.Assign) and isinstance(stmt.value, ast.Call) and isinstance(stmt.value.func, ast.Name) and stmt.value.func.id == inlinand_def.name:
             if not inlinand_has_return: raise ValueError("Trying to inline a function without a return statement into an assignment")
+            # copy the expanded lines
             replacement_count += 1
             newinlinee_body.extend(inline_function_helper_lines_of_inlined_function('v_{:s}_{:d}'.format(inlinand_def.name, replacement_count), stmt.value, inlinand_def))
+            # append an assignment for the return value
             newinlinee_body.append(ast.Assign(targets = stmt.targets, value = ast.Name(id='v_{:s}_{:d}_v_retval'.format(inlinand_def.name, replacement_count), ctx=ast.Load())))
         # replace f(x)
         elif isinstance(stmt, ast.Expr) and isinstance(stmt.value, ast.Call) and isinstance(stmt.value.func, ast.Name) and stmt.value.func.id == inlinand_def.name:
             if inlinand_has_return: raise ValueError("Trying to inline a function with a return statement into a standalone statement")
+            # copy the expanded lines
             replacement_count += 1
             newinlinee_body.extend(inline_function_helper_lines_of_inlined_function('v_{:s}_{:d}'.format(inlinand_def.name, replacement_count), stmt.value, inlinand_def))
         else:
