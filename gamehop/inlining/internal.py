@@ -28,16 +28,11 @@ class NameRenamer(ast.NodeTransformer):
 
 def rename_variables(f: Union[Callable, str, ast.FunctionDef], mapping: dict, error_if_exists = True) -> ast.FunctionDef:
     """Returns a copy of the function with all the variables in the given function definition renamed based on the provided mapping.  Raises a ValueError if the new name is already used in the function."""
-    retvalue = copy.deepcopy(get_function_def(f))
+    retvalue = NameRenamer(mapping, error_if_exists).visit(get_function_def(f))
     # rename any relevant variables in the function arguments
     for arg in retvalue.args.args:
         if error_if_exists and (arg.arg in mapping.values()): raise ValueError("New name '{:s}' already exists in function".format(arg.arg))
         if arg.arg in mapping: arg.arg = mapping[arg.arg]
-    # rename any relevant variables in the function body
-    newbody = list()
-    for stmt in retvalue.body:
-        newbody.append(NameRenamer(mapping, error_if_exists).visit(stmt))
-    retvalue.body = newbody
     return retvalue
 
 def find_all_variables(f: Union[Callable, str, ast.FunctionDef]) -> Set[str]:
