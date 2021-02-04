@@ -22,31 +22,26 @@ def f_variable(x):
     z = 2
 def f_variable_expected_result(x):
     v_inlinand_1_c = x + x
-    v_inlinand_1_v_retval = v_inlinand_1_c
-    y = v_inlinand_1_v_retval
+    y = v_inlinand_1_c
     z = 2
 def f_constant(x):
     y = inlinand(x, 3)
 def f_constant_expected_result(x):
     v_inlinand_1_c = x + 3
-    v_inlinand_1_v_retval = v_inlinand_1_c
-    y = v_inlinand_1_v_retval
+    y = v_inlinand_1_c
 def f_several_calls(x):
     w = inlinand(x, x)
     y = inlinand(x, x)
 def f_several_calls_expected_result(x):
     v_inlinand_1_c = x + x
-    v_inlinand_1_v_retval = v_inlinand_1_c
-    w = v_inlinand_1_v_retval
+    w = v_inlinand_1_c
     v_inlinand_2_c = x + x
-    v_inlinand_2_v_retval = v_inlinand_2_c
-    y = v_inlinand_2_v_retval
+    y = v_inlinand_2_c
 def f_compound_return(x):
     y = inlinand_compound_return(x, 3)
 def f_compound_return_expected_result(x):
     v_inlinand_compound_return_1_c = x + 3
-    v_inlinand_compound_return_1_v_retval = v_inlinand_compound_return_1_c + 7
-    y = v_inlinand_compound_return_1_v_retval
+    y = v_inlinand_compound_return_1_c + 7
 def f_inlinand_nested(x):
     y = inlinand(inlinand(x, 3), 4)
 def f_inlinand_in_operation(x):

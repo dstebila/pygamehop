@@ -100,16 +100,9 @@ def inline_function(inlinee: Union[Callable, str, ast.FunctionDef], inlinand: Un
             raise NotImplementedError("Function to be inlined has a return statement somewhere other than the last line")
     for i in range(len(inlinand_def.body) - 1):
         ContainsReturn().visit(inlinand_def.body[i])
-    # if the last line of the inlinand is a return statement,
-    # then we change it in to an assignment to a new variable called v_retval
-    inlinand_has_return = False
-    if isinstance(inlinand_def.body[-1], ast.Return):
-        inlinand_has_return = True
-        inlinand_def.body[-1] = ast.Assign(
-            targets = [ast.Name(id='v_retval', ctx=ast.Store())],
-            value = inlinand_def.body[-1].value
-        )
-    # go through every line of the 
+    # check if the last line of the inlinand is a return statement,
+    inlinand_has_return = isinstance(inlinand_def.body[-1], ast.Return)
+    # go through every line of the inlinee and replace all calls that we know how to handle
     newinlinee_body = []
     replacement_count = 0
     for stmt in inlinee_def.body:
@@ -119,8 +112,10 @@ def inline_function(inlinee: Union[Callable, str, ast.FunctionDef], inlinand: Un
             # copy the expanded lines
             replacement_count += 1
             newinlinee_body.extend(inline_function_helper_lines_of_inlined_function('v_{:s}_{:d}'.format(dest_function_name, replacement_count), stmt.value, inlinand_def, self_prefix))
-            # append an assignment for the return value
-            newinlinee_body.append(ast.Assign(targets = stmt.targets, value = ast.Name(id='v_{:s}_{:d}_v_retval'.format(dest_function_name, replacement_count), ctx=ast.Load())))
+            # assign the required variables based on the return statement
+            newinlinee_body[-1] = ast.Assign(
+                targets = stmt.targets, value = newinlinee_body[-1].value
+            )
         # replace f(x)
         elif isinstance(stmt, ast.Expr) and isinstance(stmt.value, ast.Call) and isinstance(stmt.value.func, ast.Name) and stmt.value.func.id == search_function_name:
             if inlinand_has_return: raise ValueError("Trying to inline a function with a return statement into a standalone statement")

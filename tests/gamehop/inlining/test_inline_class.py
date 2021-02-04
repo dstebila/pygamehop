@@ -46,8 +46,7 @@ def f_class_with_no_init(x: class_with_no_init, y: int) -> int:
     return x.myarg
 def f_class_with_no_init_expected_result(y: int) -> int:
     v_x_myarg = y
-    v_x_m_1_v_retval = v_x_myarg
-    z = v_x_m_1_v_retval
+    z = v_x_myarg
     return v_x_myarg
 
 class class_method_with_no_argument():
@@ -57,8 +56,7 @@ def f_class_method_with_no_argument(x: class_method_with_no_argument) -> int:
     z = x.m()
     return z
 def f_class_method_with_no_argument_expected_result() -> int:
-    v_x_m_1_v_retval = 1 + 0
-    z = v_x_m_1_v_retval
+    z = 1 + 0
     return z
 
 def f_inlines_same_class_twice(x: class_with_a_method, y: int, z: class_with_a_method) -> int:
@@ -94,8 +92,7 @@ def f_double_attributing(x: class_with_double_attributing):
     z = x.m(7)
 def f_double_attributing_expected_result():
     v_x_m_1_y = v_x_a.b(3)
-    v_x_m_1_v_retval = v_x_m_1_y
-    z = v_x_m_1_v_retval
+    z = v_x_m_1_y
 
 
 def expected_result(f):
