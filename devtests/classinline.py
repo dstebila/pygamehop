@@ -61,12 +61,12 @@ target3 = """def f3(x: myClassWithMethodWithoutArgument) -> int:
     return 1 + 0"""
 
 
-class TestSomething(unittest.TestCase):
+class TestClassInlining(unittest.TestCase):
     def test_classWithNoMethods(self):
         self.assertEqual(
             target0,
             gamehop.inlining.inline_class(f0, 'x', myClassWithNoMethods)
-        )        
+        )
     def test_classWithAMethod(self):
         self.assertEqual(
             target1,
