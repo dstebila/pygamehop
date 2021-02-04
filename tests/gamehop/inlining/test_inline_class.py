@@ -86,6 +86,17 @@ def f_calls_method_twice_expected_result(y: int) -> int:
     v_x_m_2_a = 2
     return v_x_myarg
 
+class class_with_double_attributing(object):
+    def m(self, x):
+        y = self.a.b(3)
+        return y
+def f_double_attributing(x: class_with_double_attributing):
+    z = x.m(7)
+def f_double_attributing_expected_result():
+    v_x_m_1_y = v_x_a.b(3)
+    v_x_m_1_v_retval = v_x_m_1_y
+    z = v_x_m_1_v_retval
+
 
 def expected_result(f):
     s = inspect.getsource(f)
@@ -124,3 +135,7 @@ class TestInlineClass(unittest.TestCase):
         self.assertEqual(
             gamehop.inlining.inline_class(f_calls_method_twice, 'x', class_with_a_method),
             expected_result(f_calls_method_twice_expected_result))
+    def test_double_attributing(self):
+        self.assertEqual(
+            gamehop.inlining.inline_class(f_double_attributing, 'x', class_with_double_attributing),
+            expected_result(f_double_attributing_expected_result))

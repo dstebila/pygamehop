@@ -66,6 +66,15 @@ def inline_function_helper_lines_of_inlined_function(prefix: str, call: ast.Call
         else:
             mappings[var] = '{:s}_{:s}'.format(prefix, var)
     newinlinand_def = internal.rename_variables(newinlinand_def, mappings)
+    # the above might miss instances of SELFwhatever in places other than assigns, so we rename them everywhere
+    class SELFRename(ast.NodeTransformer):
+        def __init__(self, self_prefix):
+            self.self_prefix = self_prefix
+        def visit_Name(self, node):
+            if node.id.startswith('SELF'):
+                return ast.Name(id='{:s}_{:s}'.format(self_prefix, node.id[4:]), ctx=node.ctx)
+            else: return node
+    newinlinand_def = SELFRename(self_prefix).visit(newinlinand_def)
     # map the parameters onto the arguments
     assert len(call.args) == len(newinlinand_def.args.args)
     for i in range(len(call.args)):
@@ -162,12 +171,10 @@ def inline_class(inlinee: Union[Callable, str, ast.FunctionDef], arg: str, inlin
         if isinstance(f, ast.FunctionDef) and f.name != '__init__':
             fdef = copy.deepcopy(f)
             # dereference self.whatever in the function
-            # formatstr = 'v_{:s}_'.format(arg) + '{:s}'
             formatstr = 'SELF{:s}'
             selfname = fdef.args.args[0].arg
             fdef = internal.get_function_def(internal.dereference_attribute(fdef, selfname, formatstr))
             del fdef.args.args[0]
-            # rename the inlinand's function name
             # inline the method; we've already done the prefixing so we tell inline_function not to add its own prefixes
             inlinee_def = internal.get_function_def(inline_function(inlinee_def, fdef, search_function_name='v_{:s}_{:s}'.format(arg, fdef.name), dest_function_name='{:s}_{:s}'.format(arg, fdef.name), self_prefix='v_{:s}'.format(arg)))
     # remove the inlined argument from the inlinee's list of argments
