@@ -1,3 +1,5 @@
+MYPY ?= 'mypy'
+PYTEST ?= 'pytest'
 all:
 
 
@@ -6,8 +8,8 @@ all:
 test: typecheck_library unittest_library
 
 typecheck_library:
-	mypy -p gamehop.inlining
-	mypy -p gamehop.primitives
+	$(MYPY) -p gamehop.inlining
+	$(MYPY) -p gamehop.primitives
 
 unittest_library:
-	env PYTHONPATH=. pytest -v
+	env PYTHONPATH=. $(PYTEST) -v
