@@ -73,8 +73,10 @@ print("------------------------------------")
 # Game hop from G0 to G1
 # Proven by constructing reduction from distinguishing G0 and G1 to distinguishing PKE.INDCPA0 from PKE.INDCPA1
 class R01(PKE.INDCPA_adversary):
-    def __init__(self, pke2: PKE.Scheme, kem_adversary: INDCPA_adversary) -> None:
+    def __init__(self, kem_adversary: INDCPA_adversary) -> None:
         self.kem_adversary = kem_adversary
+
+    def setup(self, pke2: PKE.Scheme) -> None:
         self.pke = pke2
 
     def challenge(self, pk: PKE.PublicKey) -> Tuple[PKE.Message, PKE.Message]:
@@ -126,7 +128,7 @@ def PKE_INDCPA0_R01(pke: PKE.Scheme, adversary: INDCPA_adversary) -> Crypto.Bit:
 print("================R01 PKE.INDCPA0==================")
 s1 = gamehop.verification.canonicalize_function(G0)
 print(s1)
-test1 = gamehop.inlining.inline_class(PKE.INDCPA0, 'pke', R01)
+test1 = gamehop.inlining.inline_class(PKE.INDCPA0, 'adversary', R01)
 print(test1)
 s2 = gamehop.verification.canonicalize_function(test1)
 print(s2)
