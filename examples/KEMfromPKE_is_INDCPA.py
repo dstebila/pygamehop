@@ -5,12 +5,12 @@ import KEMfromPKE
 
 KEM_Scheme = KEM.Scheme[PKE.PublicKey, PKE.SecretKey, PKE.Ciphertext, PKE.Message, Crypto.Reject]
 INDCPA_adversary = KEM.INDCPA_adversary[PKE.PublicKey, PKE.SecretKey, PKE.Ciphertext, PKE.Message, Crypto.Reject]
-
+Scheme = PKE.Scheme
 
 # G0 should equal KEM.INDCPA_real with KEMfromPKE inlined
 # but we need to include the pke as a parameter
 # and specify all the type parameters
-def G0(adversary: INDCPA_adversary, pke: PKE.Scheme) -> Crypto.Bit:
+def G0(adversary: INDCPA_adversary, pke: Scheme) -> Crypto.Bit:
     #First need to inline the scheme constructor
     # inlined from KEMfromPKE.py __init__()
     kem_self_pke = pke
@@ -42,7 +42,7 @@ gamehop.verification.stringDiff(s1, s2)
 print("------------------------------------")
 
 # G1 should be KEM.INDCPA_random with KEMfromPKE inlined
-def G1(adversary: INDCPA_adversary, pke: PKE.Scheme) -> Crypto.Bit:
+def G1(pke: Scheme, adversary: INDCPA_adversary) -> Crypto.Bit:
     #First need to inline the scheme constructor
     # inlined from KEMfromPKE.py __init__()
     kem_self_pke = pke
@@ -99,7 +99,7 @@ class R01(PKE.INDCPA_adversary):
 
 # When we inline R01 in PKE.INDCPA0, we should get G0
 # Let's try doing that manually and see how close we get
-def PKE_INDCPA0_R01(pke: PKE.Scheme, adversary: INDCPA_adversary) -> Crypto.Bit:
+def PKE_INDCPA0_R01(pke: Scheme, adversary: INDCPA_adversary) -> Crypto.Bit:
     # First need to inline scheme constructor
     r01_self_kem_adversary = adversary
     r01_self_pke = pke
@@ -140,7 +140,7 @@ print("------------------------------------")
 
 # When we inline R01 in PKE.INDCPA1, we should get G1
 # Let's try doing that manually and see how close we get
-def PKE_INDCPA1_R01(pke: PKE.Scheme, adversary: INDCPA_adversary) -> Crypto.Bit:
+def PKE_INDCPA1_R01(pke: Scheme, adversary: INDCPA_adversary) -> Crypto.Bit:
     # First need to inline scheme constructor
     r01_self_kem_adversary = adversary
     r01_self_pke = pke
@@ -163,13 +163,14 @@ def PKE_INDCPA1_R01(pke: PKE.Scheme, adversary: INDCPA_adversary) -> Crypto.Bit:
     ct = pke.Encrypt(pk, m1)
 
     #inlined from R01.guess()
-    return r01_self_kem_adversary.guess(r01_self_pk, ct, r01_self_m0)
+    r = r01_self_kem_adversary.guess(r01_self_pk, ct, r01_self_m0)
+    return r
 
 
 print("================R01 PKE.INDCPA1==================")
 s1 = gamehop.verification.canonicalize_function(G1)
 print(s1)
-test1 = gamehop.inlining.inline_class(PKE.INDCPA1, 'pke', R01)
+test1 = gamehop.inlining.inline_class(PKE.INDCPA1, 'adversary', R01)
 print(test1)
 s2 = gamehop.verification.canonicalize_function(test1)
 print(s2)
