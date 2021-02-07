@@ -68,6 +68,9 @@ def find_all_variables(f: Union[Callable, str, ast.FunctionDef]) -> Set[str]:
                 elif isinstance(target, ast.Tuple) or isinstance(target, ast.List):
                     for elt in target.elts:
                         if isinstance(elt, ast.Name): vars.add(elt.id)
+                # elif isinstance(target, ast.Attribute):
+                #     attr_name = target.value.id + '.' + target.attr
+                #     if attr_name not in vars: vars.append(attr_name)
                 else:
                     raise NotImplementedError("Can't deal with assignment target type " + str(type(target)))
     return vars

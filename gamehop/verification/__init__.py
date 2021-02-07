@@ -7,33 +7,7 @@ import re
 from typing import Any, Callable, List, Set, Union
 
 from . import canonicalization
-
-def findallvariables(fdef: ast.FunctionDef) -> List[str]:
-    """Return a list of all variables in the function, including function parameters."""
-    vars = list()
-    # function arguments
-    args = fdef.args
-    if len(args.posonlyargs) > 0: raise NotImplementedError()
-    if len(args.kwonlyargs) > 0: raise NotImplementedError()
-    if len(args.kw_defaults) > 0: raise NotImplementedError()
-    if len(args.defaults) > 0: raise NotImplementedError()
-    for arg in args.args:
-        vars.append(arg.arg)
-    # find all assigned variables
-    for stmt in fdef.body:
-        if isinstance(stmt, ast.Assign):
-            for target in stmt.targets:
-                if isinstance(target, ast.Name):
-                    if target.id not in vars: vars.append(target.id)
-                elif isinstance(target, ast.Tuple) or isinstance(target, ast.List):
-                    for elt in target.elts:
-                        if elt.id not in vars: vars.append(elt.id)
-                elif isinstance(target, ast.Attribute):
-                    attr_name = target.value.id + '.' + target.attr
-                    if attr_name not in vars: vars.append(attr_name)
-                else:
-                    raise NotImplementedError("Can't deal with assignment target type " + str(type(target)))
-    return vars
+from ..inlining import internal
 
 class NameRenamer(ast.NodeTransformer):
     """Replaces ids in Name nodes based on the provided mapping."""
@@ -80,7 +54,7 @@ def canonicalize_return(f: ast.FunctionDef) -> None:
                 value = ast.Name(id=retname, ctx=ast.Load())
             )
             return [assign, ret]
-    vars = findallvariables(f)
+    vars = internal.find_all_variables(f)
     fprime = ReturnExpander(vars).visit(f)
     f.body = fprime.body
     ast.fix_missing_locations(f)
@@ -93,7 +67,7 @@ def canonicalize_variablenames(f: ast.FunctionDef, prefix = 'v') -> None:
     random.shuffle(tmpname)
     tmpname = ''.join(tmpname)
     # set up the mappings
-    vars = findallvariables(f)
+    vars = list(internal.find_all_variables(f))
     mappings_1stpass = dict()
     mappings_2ndpass = dict()
     for i in range(len(vars)):
@@ -295,7 +269,7 @@ def canonicalize_function(f: Union[Callable, str]) -> str:
     # canonicalize return statement
     canonicalize_return(functionDef)
     # canonicalize function name
-    canoicalization.function_name(functionDef)
+    canonicalization.function_name(functionDef)
     # canonicalize variables and line numbers and remove useless assignments and statements
     # one pass of canonicalizing variable names allows for canonicalizing the order of
     # lines at the next "level", so we have to repeat until all levels have been canonicalized
@@ -333,7 +307,7 @@ def inline_function(fdest: Callable, farg: Callable):
             if isinstance(stmt.value, ast.Call) and stmt.value.func.id == self.farg_def.name:
                 self.replacement_count += 1
                 # prefix all variables in inlinand
-                vars = findallvariables(self.farg_def)
+                vars = internal.find_all_variables(self.farg_def)
                 mappings = dict()
                 for var in vars: mappings[var] = 'v_{:s}_{:d}_{:s}'.format(self.farg_def.name, self.replacement_count, var)
                 newfarg_def = renamevariables(farg_def, mappings)
@@ -401,7 +375,7 @@ class ClassInliner(ast.NodeTransformer):
             if methoddef == None: raise LookupError()
             self.replacement_count += 1
             # prefix all variables in inlinand
-            vars = findallvariables(methoddef)
+            vars = internal.find_all_variables(methoddef)
             mappings = dict()
             for var in vars: mappings[var] = 'v_{:s}_{:s}_{:d}_{:s}'.format(self.inlinand_name, methoddef.name, self.replacement_count, var)
             newmethoddef = renamevariables(methoddef, mappings)
