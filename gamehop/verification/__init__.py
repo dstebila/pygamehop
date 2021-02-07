@@ -6,6 +6,8 @@ import re
 
 from typing import Any, Callable, List, Set, Union
 
+from . import canonicalization
+
 def findallvariables(fdef: ast.FunctionDef) -> List[str]:
     """Return a list of all variables in the function, including function parameters."""
     vars = list()
@@ -81,11 +83,6 @@ def canonicalize_return(f: ast.FunctionDef) -> None:
     vars = findallvariables(f)
     fprime = ReturnExpander(vars).visit(f)
     f.body = fprime.body
-    ast.fix_missing_locations(f)
-
-def canonicalize_functionname(f: ast.FunctionDef, name = 'f') -> None:
-    """Modify (in place) the given function definition to have a canonical name."""
-    f.name = name
     ast.fix_missing_locations(f)
 
 def canonicalize_variablenames(f: ast.FunctionDef, prefix = 'v') -> None:
@@ -298,7 +295,7 @@ def canonicalize_function(f: Union[Callable, str]) -> str:
     # canonicalize return statement
     canonicalize_return(functionDef)
     # canonicalize function name
-    canonicalize_functionname(functionDef)
+    canoicalization.function_name(functionDef)
     # canonicalize variables and line numbers and remove useless assignments and statements
     # one pass of canonicalizing variable names allows for canonicalizing the order of
     # lines at the next "level", so we have to repeat until all levels have been canonicalized
