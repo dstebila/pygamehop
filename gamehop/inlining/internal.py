@@ -2,7 +2,7 @@ import ast
 import copy
 import inspect
 import types
-from typing import Any, Callable, Set, Union
+from typing import Any, Callable, List, Set, Union
 
 def get_function_def(f: Union[Callable, str, ast.FunctionDef]) -> ast.FunctionDef:
     """Gets the ast.FunctionDef for a function that is given as a function or as a string."""
@@ -47,10 +47,10 @@ def rename_variables(f: Union[Callable, str, ast.FunctionDef], mapping: dict, er
         if arg.arg in mapping: arg.arg = mapping[arg.arg]
     return retvalue
 
-def find_all_variables(f: Union[Callable, str, ast.FunctionDef]) -> Set[str]:
+def find_all_variables(f: Union[Callable, str, ast.FunctionDef]) -> List[str]:
     """Return a set of all variables in the function, including function parameters."""
     fdef = get_function_def(f)
-    vars = set()
+    vars = list()
     # function arguments
     args = fdef.args
     if len(args.posonlyargs) > 0: raise NotImplementedError("No support for position-only variables")
@@ -58,16 +58,16 @@ def find_all_variables(f: Union[Callable, str, ast.FunctionDef]) -> Set[str]:
     if len(args.kw_defaults) > 0: raise NotImplementedError("No support for keyword defaults")
     if len(args.defaults) > 0: raise NotImplementedError("No support for argument defaults")
     for arg in args.args:
-        vars.add(arg.arg)
+        if arg.arg not in vars: vars.append(arg.arg)
     # find all assigned variables
     for stmt in fdef.body:
         if isinstance(stmt, ast.Assign):
             for target in stmt.targets:
                 if isinstance(target, ast.Name):
-                    vars.add(target.id)
+                    if target.id not in vars: vars.append(target.id)
                 elif isinstance(target, ast.Tuple) or isinstance(target, ast.List):
                     for elt in target.elts:
-                        if isinstance(elt, ast.Name): vars.add(elt.id)
+                        if isinstance(elt, ast.Name) and elt.id not in vars: vars.append(elt.id)
                 # elif isinstance(target, ast.Attribute):
                 #     attr_name = target.value.id + '.' + target.attr
                 #     if attr_name not in vars: vars.append(attr_name)

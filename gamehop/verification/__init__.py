@@ -9,28 +9,6 @@ from typing import Any, Callable, List, Set, Union
 from . import canonicalization
 from ..inlining import internal
 
-def canonicalize_variablenames(f: ast.FunctionDef, prefix = 'v') -> None:
-    """Modify (in place) the given function definition to give variables canonical names."""
-    # first rename everything to a random string followed by a counter
-    # then rename them to v0, v1, v2, ...
-    tmpname = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r' ,'s', 't', 'u', 'v', 'w', 'x', 'y', 'z']
-    random.shuffle(tmpname)
-    tmpname = ''.join(tmpname)
-    # set up the mappings
-    vars = list(internal.find_all_variables(f))
-    mappings_1stpass = dict()
-    mappings_2ndpass = dict()
-    for i in range(len(vars)):
-        mappings_1stpass[vars[i]] = '{:s}{:d}'.format(tmpname, i)
-        mappings_2ndpass[mappings_1stpass[vars[i]]] = '{:s}{:d}'.format(prefix, i)
-    # rename to temporary names, then output names
-    f_1stpass = internal.rename_variables(f, mappings_1stpass)
-    f_2ndpass = internal.rename_variables(f_1stpass, mappings_2ndpass)
-    # save results in place
-    f.args = f_2ndpass.args
-    f.body = f_2ndpass.body
-    ast.fix_missing_locations(f)
-
 class FindVariableDependencies(ast.NodeVisitor):
     """Find all the variables a node depends on."""
     def __init__(self):
@@ -231,13 +209,13 @@ def canonicalize_function(f: Union[Callable, str]) -> str:
     #     oldstring = newstring
     #     collapse_useless_assigns(functionDef)
     #     remove_useless_statements(functionDef)
-    #     canonicalize_variablenames(functionDef)
+    #     canonicalization.canonicalize_variable_names(functionDef)
     #     canonicalize_lineorder(functionDef)
     #     newstring = ast.unparse(ast.fix_missing_locations(t))
     # temporary: don't loop because currently getting an intermediate loop
     collapse_useless_assigns(functionDef)
     remove_useless_statements(functionDef)
-    canonicalize_variablenames(functionDef)
+    canonicalization.canonicalize_variable_names(functionDef)
     canonicalize_lineorder(functionDef)
     newstring = ast.unparse(ast.fix_missing_locations(t))
     return newstring

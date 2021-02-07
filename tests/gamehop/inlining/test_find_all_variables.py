@@ -21,7 +21,7 @@ class TestFindAllVariables(unittest.TestCase):
     def test_basic(self):
         self.assertEqual(
             gamehop.inlining.internal.find_all_variables(f_basic),
-            set(['x', 'y', 'a', 'b', 'c', 'y', 'w', 'z', 'v', 'u'])
+            list(['x', 'y', 'a', 'b', 'c', 'w', 'z', 'v', 'u'])
         )
     def test_attributed_assign(self):
         with self.assertRaises(NotImplementedError):
