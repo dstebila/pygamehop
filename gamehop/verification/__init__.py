@@ -9,56 +9,6 @@ from typing import Any, Callable, List, Set, Union
 from . import canonicalization
 from ..inlining import internal
 
-class NameRenamer(ast.NodeTransformer):
-    """Replaces ids in Name nodes based on the provided mapping."""
-    def __init__(self, mapping):
-        self.mapping = mapping
-    def visit_Name(self, node):
-        if node.id in self.mapping: return ast.Name(id=self.mapping[node.id], ctx=node.ctx)
-        else: return node
-
-def renamevariables(fdef: ast.FunctionDef, mapping: dict) -> ast.FunctionDef:
-    """Returns a copy of the function definition node with all the variables in the given function definition renamed based on the provided mapping."""
-    retvalue = copy.deepcopy(fdef)
-    for arg in retvalue.args.args:
-        if arg.arg in mapping: arg.arg = mapping[arg.arg]
-    newbody = list()
-    for stmt in retvalue.body:
-        newbody.append(NameRenamer(mapping).visit(stmt))
-    retvalue.body = newbody
-    return retvalue
-
-def canonicalize_return(f: ast.FunctionDef) -> None:
-    """Modify (in place) the given function definition to simplify its return statement to be either a constant or a single variable."""
-    class ReturnExpander(ast.NodeTransformer):
-        def __init__(self, vars, prefix = 'ret'):
-            self.vars = vars
-            self.prefix = prefix
-        def visit_Return(self, node):
-            # if it directly returns a constant or variable, consider that canonical
-            if isinstance(node.value, ast.Constant): return node
-            if isinstance(node.value, ast.Name): return node
-            # otherwise, make a new assignment for that return value and then return the newly assigned variable
-            # find a unique name for the return value
-            i = 0
-            retname = '{:s}{:d}'.format(self.prefix, i)
-            while retname in self.vars:
-                i += 1
-                retname = '{:s}{:d}'.format(self.prefix, i)
-            self.vars.append(retname)
-            assign = ast.Assign(
-                targets = [ast.Name(id=retname, ctx=ast.Store())],
-                value = node.value
-            )
-            ret = ast.Return(
-                value = ast.Name(id=retname, ctx=ast.Load())
-            )
-            return [assign, ret]
-    vars = internal.find_all_variables(f)
-    fprime = ReturnExpander(vars).visit(f)
-    f.body = fprime.body
-    ast.fix_missing_locations(f)
-
 def canonicalize_variablenames(f: ast.FunctionDef, prefix = 'v') -> None:
     """Modify (in place) the given function definition to give variables canonical names."""
     # first rename everything to a random string followed by a counter
@@ -74,8 +24,8 @@ def canonicalize_variablenames(f: ast.FunctionDef, prefix = 'v') -> None:
         mappings_1stpass[vars[i]] = '{:s}{:d}'.format(tmpname, i)
         mappings_2ndpass[mappings_1stpass[vars[i]]] = '{:s}{:d}'.format(prefix, i)
     # rename to temporary names, then output names
-    f_1stpass = renamevariables(f, mappings_1stpass)
-    f_2ndpass = renamevariables(f_1stpass, mappings_2ndpass)
+    f_1stpass = internal.rename_variables(f, mappings_1stpass)
+    f_2ndpass = internal.rename_variables(f_1stpass, mappings_2ndpass)
     # save results in place
     f.args = f_2ndpass.args
     f.body = f_2ndpass.body
@@ -267,23 +217,29 @@ def canonicalize_function(f: Union[Callable, str]) -> str:
     functionDef = t.body[0]
     assert isinstance(functionDef, ast.FunctionDef)
     # canonicalize return statement
-    canonicalize_return(functionDef)
+    canonicalization.canonicalize_return(functionDef)
     # canonicalize function name
-    canonicalization.function_name(functionDef)
+    canonicalization.canonicalize_function_name(functionDef)
     # canonicalize variables and line numbers and remove useless assignments and statements
     # one pass of canonicalizing variable names allows for canonicalizing the order of
     # lines at the next "level", so we have to repeat until all levels have been canonicalized
     # and the source stops changing; also removing a useless assignment or statement might make
     # another assignment or statement useless, so we keep iterating on those
-    oldstring = None
+    # oldstring = None
+    # newstring = ast.unparse(ast.fix_missing_locations(t))
+    # while oldstring != newstring:
+    #     oldstring = newstring
+    #     collapse_useless_assigns(functionDef)
+    #     remove_useless_statements(functionDef)
+    #     canonicalize_variablenames(functionDef)
+    #     canonicalize_lineorder(functionDef)
+    #     newstring = ast.unparse(ast.fix_missing_locations(t))
+    # temporary: don't loop because currently getting an intermediate loop
+    collapse_useless_assigns(functionDef)
+    remove_useless_statements(functionDef)
+    canonicalize_variablenames(functionDef)
+    canonicalize_lineorder(functionDef)
     newstring = ast.unparse(ast.fix_missing_locations(t))
-    while oldstring != newstring:
-        oldstring = newstring
-        collapse_useless_assigns(functionDef)
-        remove_useless_statements(functionDef)
-        canonicalize_variablenames(functionDef)
-        canonicalize_lineorder(functionDef)
-        newstring = ast.unparse(ast.fix_missing_locations(t))
     return newstring
 
 def inline_function(fdest: Callable, farg: Callable):
@@ -310,13 +266,13 @@ def inline_function(fdest: Callable, farg: Callable):
                 vars = internal.find_all_variables(self.farg_def)
                 mappings = dict()
                 for var in vars: mappings[var] = 'v_{:s}_{:d}_{:s}'.format(self.farg_def.name, self.replacement_count, var)
-                newfarg_def = renamevariables(farg_def, mappings)
+                newfarg_def = internal.rename_variables(farg_def, mappings)
                 # map the parameters onto the arguments
                 assert len(stmt.value.args) == len(newfarg_def.args.args)
                 mappings = dict()
                 for i in range(len(stmt.value.args)):
                     mappings[newfarg_def.args.args[i].arg] = stmt.value.args[i].id
-                newfarg_def = renamevariables(newfarg_def, mappings)
+                newfarg_def = internal.rename_variables(newfarg_def, mappings)
                 # turn the final return statement into an assignment
                 assert isinstance(newfarg_def.body[-1], ast.Return)
                 newret = ast.Assign(targets=stmt.targets, value=newfarg_def.body[-1].value)
@@ -378,14 +334,14 @@ class ClassInliner(ast.NodeTransformer):
             vars = internal.find_all_variables(methoddef)
             mappings = dict()
             for var in vars: mappings[var] = 'v_{:s}_{:s}_{:d}_{:s}'.format(self.inlinand_name, methoddef.name, self.replacement_count, var)
-            newmethoddef = renamevariables(methoddef, mappings)
+            newmethoddef = internal.rename_variables(methoddef, mappings)
             selfmapped = mappings[methoddef.args.args[0].arg]
             # map the parameters onto the arguments
             assert len(stmt.value.args) == len(methoddef.args.args) - 1 # offset by 1 due to self
             mappings = dict()
             for i in range(len(stmt.value.args)):
                 mappings[newmethoddef.args.args[i + 1].arg] = stmt.value.args[i].id
-            newmethoddef = renamevariables(newmethoddef, mappings)
+            newmethoddef = internal.rename_variables(newmethoddef, mappings)
             # turn the final return statement into an assignment
             assert isinstance(newmethoddef.body[-1], ast.Return)
             newret = ast.Assign(targets=stmt.targets, value=newmethoddef.body[-1].value)

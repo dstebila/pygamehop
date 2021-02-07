@@ -15,7 +15,7 @@ f_basic_expected_result = """def f(x, y):
 class TestCanonicalizeFunctionName(unittest.TestCase):
     def test_basic(self):
         f = gamehop.inlining.internal.get_function_def(f_basic)
-        gamehop.verification.canonicalization.function_name(f)
+        gamehop.verification.canonicalization.canonicalize_function_name(f)
         self.assertEqual(
             ast.unparse(f),
             f_basic_expected_result
