@@ -49,4 +49,4 @@ H1 = gamehop.inline(PKE.INDCPA1, R01, arg = 'adversary')
 G1 = gamehop.inline(KEM.INDCPA_random, KEMfromPKE.Scheme, arg='kem')
 gamehop.assertEqual(H1, G1, debugging=debugging)
 
-print(gamehop.advantage(H0, H1, PKE.INDCPA))
+print(gamehop.advantage(H0, H1, [PKE.INDCPA]))

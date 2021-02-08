@@ -36,7 +36,7 @@ def assertEqual(a: str, b: str, debugging=False):
     else:
         print("Strings identical")
 
-def advantage(a: str, b: str, experiment: Crypto.Experiment):
+def advantage(a: str, b: str, experiment: List[Crypto.Experiment]):
     pass
 
 
