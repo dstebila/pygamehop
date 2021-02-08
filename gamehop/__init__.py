@@ -3,6 +3,7 @@ __all__ = ['primitives']
 from typing import Any, Callable, List, Set, Union, cast
 from gamehop import inlining
 from gamehop import verification
+from gamehop.primitives import Crypto
 import ast
 import inspect
 
@@ -35,7 +36,7 @@ def assertEqual(a: str, b: str, debugging=False):
     else:
         print("Strings identical")
 
-def advantage(a: str, b: str, scheme, experiment):
+def advantage(a: str, b: str, experiment: Crypto.Experiment):
     pass
 
 
