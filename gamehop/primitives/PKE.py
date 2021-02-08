@@ -9,20 +9,20 @@ SecretKey = TypeVar('SecretKey')
 Message = TypeVar('Message')
 
 
-class Scheme(Generic[Ciphertext, PublicKey, SecretKey, Message, Reject]):
+class PKEScheme(Generic[Ciphertext, PublicKey, SecretKey, Message, Reject]):
     def KeyGen(self) -> Tuple[PublicKey, SecretKey]: pass
     def Encrypt(self, pk: PublicKey, msg: Message) -> Ciphertext: pass
     def Decrypt(self, sk: SecretKey, ct: Ciphertext) -> Union[Message, Reject]: pass
     MessageSet: Set[Message] = set()
 
 
-class INDCPA_adversary(Generic[Ciphertext, PublicKey, SecretKey, Message, Reject]):
+class PKEINDCPA_adversary(Generic[Ciphertext, PublicKey, SecretKey, Message, Reject]):
     def challenge(self, pk: PublicKey) -> Tuple[Message, Message]: pass
     def guess(self, ct: Ciphertext) -> Crypto.Bit: pass
-    def setup(self, pke: Scheme) -> None: pass
-    pke: Scheme
+    def setup(self, pke: PKEScheme) -> None: pass
+    pke: PKEScheme
 
-def INDCPA0(pke: Scheme, adversary: INDCPA_adversary) -> Crypto.Bit:
+def INDCPA0(pke: PKEScheme, adversary: PKEINDCPA_adversary) -> Crypto.Bit:
     #adversary.pke = pke
     adversary.setup(pke)
     (pk, sk) = pke.KeyGen()
@@ -32,7 +32,7 @@ def INDCPA0(pke: Scheme, adversary: INDCPA_adversary) -> Crypto.Bit:
     return r
 
 
-def INDCPA1(pke: Scheme, adversary: INDCPA_adversary) -> Crypto.Bit:
+def INDCPA1(pke: PKEScheme, adversary: PKEINDCPA_adversary) -> Crypto.Bit:
     #adversary.pke = pke
     adversary.setup(pke)
     (pk, sk) = pke.KeyGen()

@@ -2,10 +2,11 @@ from typing import Tuple, Union, Generic, Set
 
 from gamehop.primitives import Crypto, KEM, PKE
 
-KEM_Scheme = KEM.Scheme[PKE.PublicKey, PKE.SecretKey, PKE.Ciphertext, PKE.Message, Crypto.Reject]
+KEMScheme = KEM.KEMScheme[PKE.PublicKey, PKE.SecretKey, PKE.Ciphertext, PKE.Message, Crypto.Reject]
+PKEScheme = PKE.PKEScheme
 
-class Scheme(Generic[PKE.PublicKey, PKE.SecretKey, PKE.Ciphertext, PKE.Message], KEM_Scheme):
-    def __init__(self, pke: PKE.Scheme) -> None:
+class Scheme(Generic[PKE.PublicKey, PKE.SecretKey, PKE.Ciphertext, PKE.Message], KEMScheme):
+    def __init__(self, pke: PKEScheme) -> None:
         self.pke = pke
         self.SharedSecretSet = self.pke.MessageSet
     def KeyGen(self) -> Tuple[PKE.PublicKey, PKE.SecretKey]:

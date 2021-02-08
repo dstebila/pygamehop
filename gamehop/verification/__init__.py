@@ -105,12 +105,12 @@ def collapse_useless_assigns(f: ast.FunctionDef):
                     stmtprime = f.body[j]
                     if isinstance(stmtprime, ast.Assign):
                         # replace arg with val in the right hand side
-                        stmtprime.value = NameRenamer({arg: val}).visit(stmtprime.value)
+                        stmtprime.value = internal.NameRenamer({arg: val}, False).visit(stmtprime.value)
                         # stop if arg is in the left
                         if contains_name(stmtprime.targets, arg): break
                     else:
                         # replace arg with val in whole statement
-                        f.body[j] = NameRenamer({arg, val}).visit(stmtprime)
+                        f.body[j] = internal.NameRenamer({arg: val}, False).visit(stmtprime)
                 # remove from the body and start over
                 del f.body[i]
                 keep_going = True
@@ -219,12 +219,3 @@ def canonicalize_function(f: Union[Callable, str]) -> str:
     canonicalize_lineorder(functionDef)
     newstring = ast.unparse(ast.fix_missing_locations(t))
     return newstring
-
-import difflib
-
-def stringDiff(a,b):
-    differences = difflib.ndiff(a.splitlines(keepends=True), b.splitlines(keepends=True))
-    diffl = []
-    for difference in differences:
-        diffl.append(difference)
-    print(''.join(diffl), end="\n")
