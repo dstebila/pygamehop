@@ -28,3 +28,7 @@ def INDCPA_random(kem: KEMScheme, adversary: KEMINDCPA_adversary) -> Crypto.Bit:
     (ct, _) = kem.Encaps(pk)
     ss_rand = Crypto.UniformlySample(kem.SharedSecretSet)
     return adversary.guess(pk, ct, ss_rand)
+
+class KEMINDCPA_advantage(Crypto.AdvantageBaseClass): pass
+#INDCPA: Crypto.Experiment[ INDCPA_game, INDCPA_advantage ] = (INDCPA0, INDCPA1, PKEINDCPA_adversary, INDCPA_advantage)
+INDCPA = (INDCPA_real, INDCPA_random, KEMINDCPA_adversary, KEMINDCPA_advantage)
