@@ -6,17 +6,20 @@ debugging = True
 separator = "---------------------------------------------------------------"
 Separator = "==============================================================="
 
-
 dirname = helpers.parseArgs(sys.argv)
 sys.path.append(os.path.abspath(dirname))
 import proof
+
+if hasattr(proof, 'debugging'):
+    debugging = proof.debugging
 
 if hasattr(proof, 'steps'):
     if not hasattr(proof, 'experiment'):
         print("missing experiment")
         sys.exit(1)
 
-    r = helpers.checkProof(proof.experiment, proof.steps, debugging)
+    r, advantages = helpers.checkProof(proof.experiment, proof.steps, debugging)
+    print(advantages)
     if r:
         print("Valid")
     else:
@@ -31,7 +34,8 @@ else:
     for p in proof.proofs:
         experiment = p[0]
         steps = p[1]
-        r2 = helpers.checkProof(steps, experiment, debugging)
+        r2, advantages = helpers.checkProof(steps, experiment, debugging)
+        print(advantages)
         r = r and r2
 
     if r:

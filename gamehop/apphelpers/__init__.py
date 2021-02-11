@@ -36,6 +36,7 @@ def isGameTest(val):
 def checkProof(experiment, steps, debugging):
     games = []
     originalFunctions = []
+    advantages = []
     lastStep = None
     isValid = True
 
@@ -92,11 +93,13 @@ def checkProof(experiment, steps, debugging):
             elif not isGameTest(lastStep[0]):
                 # must be a function step
                 if debugging: print(separator)
-                testResult = gametests.equal(games[-1], games[-2], debugging, None)
+                advantage, testResult = gametests.equal(games[-1], games[-2], debugging, None)
                 isValid = isValid and testResult
+                advantages.append(advantage)
             else:
                 if debugging: print(separator)
-                testResult = lastStep[0](games[-1], games[-2], debugging, lastStep[1])
+                advantage, testResult = lastStep[0](games[-1], games[-2], debugging, lastStep[1])
                 isValid = isValid and testResult
+                advantages.append(advantage)
             lastStep = step
-    return isValid
+    return isValid, advantages

@@ -11,7 +11,7 @@ def equal(a, b, debugging, moreargs):
             for difference in differences:
                 diffl.append(difference)
             print(''.join(diffl), end="\n")
-        return False
+        return None, False
     else:
         if debugging:
             print("Strings identical")
