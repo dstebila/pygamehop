@@ -94,6 +94,19 @@ def f_double_attributing_expected_result():
     xⴰmᴠ1ⴰy = xⴰa.b(3)
     z = xⴰmᴠ1ⴰy
 
+def f_intermediate_value_helper(x):
+    return x + 1
+class class_intermediate_value():
+    def __init__(self):
+        self.x = 1
+def f_intermediate_value(v: class_intermediate_value):
+    y = f_intermediate_value_helper(v.x)
+    return y
+def f_intermediate_value_expected_result():
+    vⴰx = 1
+    y = f_intermediate_value_helper(vⴰx)
+    return y
+
 
 def expected_result(f):
     s = inspect.getsource(f)
@@ -136,3 +149,7 @@ class TestInlineClass(unittest.TestCase):
         self.assertEqual(
             gamehop.inlining.inline_class(f_double_attributing, 'x', class_with_double_attributing),
             expected_result(f_double_attributing_expected_result))
+    def test_intermediate_value(self):
+        self.assertEqual(
+            gamehop.inlining.inline_class(f_intermediate_value, 'v', class_intermediate_value),
+            expected_result(f_intermediate_value_expected_result))
