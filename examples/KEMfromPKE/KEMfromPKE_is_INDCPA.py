@@ -1,5 +1,6 @@
 from typing import Tuple
 
+import gamehop
 from gamehop.primitives import Crypto, KEM, PKE
 import KEMfromPKE
 
@@ -38,7 +39,7 @@ test1 = gamehop.inlining.inline_class(KEM.INDCPA_real, 'kem', KEMfromPKE.Scheme)
 s2 = gamehop.verification.canonicalize_function(test1)
 print(s2)
 print("---------------Diff-----------------")
-gamehop.verification.stringDiff(s1, s2)
+gamehop.stringDiff(s1, s2)
 print("------------------------------------")
 
 # G1 should be KEM.INDCPA_random with KEMfromPKE inlined
@@ -67,7 +68,7 @@ print(test1)
 s2 = gamehop.verification.canonicalize_function(test1)
 print(s2)
 print("---------------Diff-----------------")
-gamehop.verification.stringDiff(s1, s2)
+gamehop.stringDiff(s1, s2)
 print("------------------------------------")
 
 # Game hop from G0 to G1
@@ -133,7 +134,7 @@ print(test1)
 s2 = gamehop.verification.canonicalize_function(test1)
 print(s2)
 print("---------------Diff-----------------")
-gamehop.verification.stringDiff(s1, s2)
+gamehop.stringDiff(s1, s2)
 print("------------------------------------")
 
 
@@ -175,5 +176,5 @@ print(test1)
 s2 = gamehop.verification.canonicalize_function(test1)
 print(s2)
 print("---------------Diff-----------------")
-gamehop.verification.stringDiff(s1, s2)
+gamehop.stringDiff(s1, s2)
 print("------------------------------------")

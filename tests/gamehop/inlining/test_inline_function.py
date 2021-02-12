@@ -21,27 +21,27 @@ def f_variable(x):
     y = inlinand(x, x)
     z = 2
 def f_variable_expected_result(x):
-    v_inlinand_1_c = x + x
-    y = v_inlinand_1_c
+    inlinandᴠ1ⴰc = x + x
+    y = inlinandᴠ1ⴰc
     z = 2
 def f_constant(x):
     y = inlinand(x, 3)
 def f_constant_expected_result(x):
-    v_inlinand_1_c = x + 3
-    y = v_inlinand_1_c
+    inlinandᴠ1ⴰc = x + 3
+    y = inlinandᴠ1ⴰc
 def f_several_calls(x):
     w = inlinand(x, x)
     y = inlinand(x, x)
 def f_several_calls_expected_result(x):
-    v_inlinand_1_c = x + x
-    w = v_inlinand_1_c
-    v_inlinand_2_c = x + x
-    y = v_inlinand_2_c
+    inlinandᴠ1ⴰc = x + x
+    w = inlinandᴠ1ⴰc
+    inlinandᴠ2ⴰc = x + x
+    y = inlinandᴠ2ⴰc
 def f_compound_return(x):
     y = inlinand_compound_return(x, 3)
 def f_compound_return_expected_result(x):
-    v_inlinand_compound_return_1_c = x + 3
-    y = v_inlinand_compound_return_1_c + 7
+    inlinand_compound_returnᴠ1ⴰc = x + 3
+    y = inlinand_compound_returnᴠ1ⴰc + 7
 def f_inlinand_nested(x):
     y = inlinand(inlinand(x, 3), 4)
 def f_inlinand_in_operation(x):
@@ -51,7 +51,7 @@ def f_no_return_at_end_but_expected(a, b):
 def f_no_assignment(a, b):
     inlinand_no_return_at_end(a, 3)
 def f_no_assignment_expected_result(a, b):
-    v_inlinand_no_return_at_end_1_c = a + 3
+    inlinand_no_return_at_endᴠ1ⴰc = a + 3
 def f_no_assignment_with_return(a, b):
     inlinand(a, 3)
 
