@@ -6,7 +6,13 @@ from typing import Any, Callable, Union
 
 from . import internal
 
-__all__ = ['inline_argument']
+__all__ = ['inline_argument', 'inline_class', 'inline_function']
+
+# Note that inlining uses Unicode symbols to make it look like the original code
+# e.g. attribute dereferencing: x.y gets inlined to xⴰy
+#      variables in an inlined function: def f(): a = y gets inlined to 
+#      fᴠ1ⴰa (here the ᴠ1 denotes it's the first inlining of this function)
+# https://www.asmeurer.com/python-unicode-variable-names/
 
 class NameNodeReplacer(ast.NodeTransformer):
     """Replaces all instances of a Name node with a given node."""
