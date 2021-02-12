@@ -27,6 +27,20 @@ def f_reassign(y):
 def f_reassign_expected_result(y):
     g(y)
     g(7)
+def f_tuple(y):
+    x = 4
+    z = y
+    (a, b, c) = (x, y, z)
+    g(a + 1, b + 2, c + 3, x + 4)
+def f_tuple_expected_result(y):
+    g(4 + 1, y + 2, y + 3, 4 + 4)
+def f_tuple2():
+    c = 1
+    d = 2
+    (a,b) = (c,d)
+    return a
+def f_tuple2_expected_result():
+    return 1
 
 
 def expected_result(f):
@@ -55,4 +69,18 @@ class TestCollapseAssigns(unittest.TestCase):
         self.assertEqual(
             ast.unparse(f),
             expected_result(f_reassign_expected_result)
+        )
+    def test_tuple(self):
+        f = gamehop.inlining.internal.get_function_def(f_tuple)
+        gamehop.verification.canonicalization.collapse_useless_assigns(f)
+        self.assertEqual(
+            ast.unparse(f),
+            expected_result(f_tuple_expected_result)
+        )
+    def test_tuple2(self):
+        f = gamehop.inlining.internal.get_function_def(f_tuple2)
+        gamehop.verification.canonicalization.collapse_useless_assigns(f)
+        self.assertEqual(
+            ast.unparse(f),
+            expected_result(f_tuple2_expected_result)
         )

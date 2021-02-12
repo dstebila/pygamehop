@@ -88,16 +88,15 @@ class NameNodeReplacer(ast.NodeTransformer):
         else: return node
 
 def collapse_useless_assigns(f: ast.FunctionDef) -> None:
-    """Modify (in place) the given function definition to remove all lines containing tautological/useless assignments. For example, if the code contains a line "x = a" followed by a line "y = x + b", it replaces all subsequent instances of x with a, yielding the single line "y = a + b", up until x is set in another assignment statement.
-
-    Doesn't handle tuples.  Doesn't handle any kind of logic involving if statements or loops."""
+    """Modify (in place) the given function definition to remove all lines containing tautological/useless assignments. For example, if the code contains a line "x = a" followed by a line "y = x + b", it replaces all subsequent instances of x with a, yielding the single line "y = a + b", up until x is set in another assignment statement.  Handles tuples.  Doesn't handle any kind of logic involving if statements or loops."""
+    # keep looping until nothing changes
     keep_going = True
     while keep_going:
         keep_going = False
         for i in range(len(f.body)):
             stmt = f.body[i]
             if isinstance(stmt, ast.Assign):
-                # assignment of the x = a or x = 7
+                # assignment of the form x = a or x = 7
                 if isinstance(stmt.targets[0], ast.Name) and (isinstance(stmt.value, ast.Name) or isinstance(stmt.value, ast.Constant)):
                     replacer = NameNodeReplacer(stmt.targets[0].id, stmt.value)
                     # go through all subsequent statements and replace x with a until x is set anew
@@ -111,8 +110,58 @@ def collapse_useless_assigns(f: ast.FunctionDef) -> None:
                         else:
                             # replace arg with val in whole statement
                             f.body[j] = replacer.visit(stmtprime)
-                    # remove from the body and start over
+                    # remove the statement from the body
                     del f.body[i]
+                    # we made a change, so loop again
+                    keep_going = True
+                    break
+                # assignment of the form (x, y) = (a, b)
+                if isinstance(stmt.targets[0], ast.Tuple) and isinstance(stmt.value, ast.Tuple):
+                    # make sure the lengths match
+                    if len(stmt.targets[0].elts) != len(stmt.value.elts): break
+                    break_out = False
+                    # make sure everything on the left is just a name
+                    for l in range(len(stmt.targets[0].elts)):
+                        if not isinstance(stmt.targets[0].elts[l], ast.Name): break_out = True
+                    if break_out: break
+                    # expand (x, y) = (a, b) into tmpvar1 = a; tmpvar2 = b; x = tmpvar1; y = tmpvar2
+                    # this should avoid problems like the following:
+                    #     (x, y) = (f(x), g(x))
+                    # is not equivalent to
+                    #   x = f(x)
+                    #   y = g(x)
+                    # but is equivalent to
+                    #   tmpvar1 = f(x)
+                    #   tmpvar2 = g(x)
+                    #   x = tmpvar1
+                    #   y = tmpvar2
+                    newstmts_tmps_store = list()
+                    newstmts_tmps_load = list()
+                    tmpvar_formatstr = 'v_' + secrets.token_hex(10) + '_{:d}'
+                    for l in range(len(stmt.targets[0].elts)):
+                        newstmts_tmps_store.append(
+                            ast.Assign(
+                                targets=[ast.Name(id=tmpvar_formatstr.format(l), ctx=ast.Store())],
+                                value=stmt.value.elts[l]
+                            )
+                        )
+                        newstmts_tmps_load.append(
+                            ast.Assign(
+                                targets=[stmt.targets[0].elts[l]],
+                                value=ast.Name(id=tmpvar_formatstr.format(l), ctx=ast.Load())
+                            )
+                        )
+                    # the new body should be everything before the current statement, 
+                    # followed by all the tmpvar = ... assigns, 
+                    # followed by all the ... = tmpvar assigns, 
+                    # followed by everything after the current statement
+                    new_f_body = list()
+                    new_f_body.extend(f.body[:i])
+                    new_f_body.extend(newstmts_tmps_store)
+                    new_f_body.extend(newstmts_tmps_load)
+                    new_f_body.extend(f.body[i+1:])
+                    f.body = new_f_body
+                    # we made a change, so loop again
                     keep_going = True
                     break
             elif isinstance(stmt, ast.If): raise NotImplementedError("Cannot handle functions with if statements.")
