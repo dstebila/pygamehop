@@ -1,5 +1,6 @@
 import ast
 import secrets
+from typing import List, Union
 
 from ..inlining import internal
 
@@ -57,4 +58,61 @@ def canonicalize_variable_names(f: ast.FunctionDef, prefix = 'v') -> None:
     # save results in place
     f.args = f_2ndpass.args
     f.body = f_2ndpass.body
+    ast.fix_missing_locations(f)
+
+class FindVariableDependencies(ast.NodeVisitor):
+    """Find all the variables a node depends on."""
+    def __init__(self):
+        self.loads = list()
+        self.stores = list()
+    def visit_Name(self, node):
+        if isinstance(node.ctx, ast.Load) and node.id not in self.loads: self.loads.append(node.id)
+        if isinstance(node.ctx, ast.Store) and node.id not in self.stores: self.stores.append(node.id)
+
+def contains_name(node: Union[ast.AST, List], name: str) -> bool:
+    """Determines whether the given node (or list of nodes) contains a variable with the given name."""
+    if isinstance(node, ast.AST): searchin = [node]
+    else: searchin = node
+    for element in searchin:
+        var_deps = FindVariableDependencies()
+        var_deps.visit(element)
+        if name in var_deps.stores or name in var_deps.loads: return True
+    return False
+
+def collapse_useless_assigns(f: ast.FunctionDef) -> None:
+    """Modify (in place) the given function definition to remove all lines containing tautological/useless assignments. For example, if the code contains a line "x = a" followed by a line "y = x + b", it replaces all subsequent instances of x with a, yielding the single line "y = a + b", up until x is set in another assignment statement.
+
+    Doesn't handle tuples.  Doesn't handle any kind of logic involving if statements or loops."""
+    keep_going = True
+    while keep_going:
+        keep_going = False
+        for i in range(len(f.body)):
+            stmt = f.body[i]
+            if isinstance(stmt, ast.Assign):
+                mappings = dict()
+                if len(stmt.targets) != 1: raise NotImplementedError("Cannot handle assignments with multiple targets")
+                if isinstance(stmt.targets[0], ast.Tuple): raise NotImplementedError("Cannot handle assignments to tuples")
+                if isinstance(stmt.targets[0], ast.Attribute): raise NotImplementedError("Cannot handle assignments to attributes")
+                if isinstance(stmt.targets[0], ast.Subscript): raise NotImplementedError("Cannot handle assignments to subscripts")
+                if isinstance(stmt.targets[0], ast.Name) and True:
+                    mappings[stmt.targets[0].id] = stmt.value
+                else: raise NotImplementedError("Cannot handle assigns to type {:s}".format(type(stmt.targets[0]).__name__))
+                # go through all subsequent statements and replace x with a until x is set anew
+                for j in range(i + 1, len(f.body)):
+                    stmtprime = f.body[j]
+                    if isinstance(stmtprime, ast.Assign):
+                        # replace arg with val in the right hand side
+                        stmtprime.value = internal.NameRenamer(mappings, False).visit(stmtprime.value)
+                        # stop if arg is in the left
+                        for arg in mappings: 
+                            if contains_name(stmtprime.targets, arg): break
+                    else:
+                        # replace arg with val in whole statement
+                        f.body[j] = internal.NameRenamer(mappings, False).visit(stmtprime)
+                    # remove from the body and start over
+                del f.body[i]
+                keep_going = True
+                break
+            elif isinstance(stmt, ast.If): raise NotImplementedError("Cannot handle functions with if statements.")
+            elif isinstance(stmt, ast.For) or isinstance(stmt, ast.While): raise NotImplementedError("Cannot handle functions with loops.")
     ast.fix_missing_locations(f)

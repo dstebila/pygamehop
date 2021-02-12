@@ -5,28 +5,10 @@ import random
 import re
 
 from typing import Any, Callable, List, Set, Union
+from types import FunctionType
 
 from . import canonicalization
 from ..inlining import internal
-
-class FindVariableDependencies(ast.NodeVisitor):
-    """Find all the variables a node depends on."""
-    def __init__(self):
-        self.loads = list()
-        self.stores = list()
-    def visit_Name(self, node):
-        if isinstance(node.ctx, ast.Load) and node.id not in self.loads: self.loads.append(node.id)
-        if isinstance(node.ctx, ast.Store) and node.id not in self.stores: self.stores.append(node.id)
-
-def contains_name(node: Union[ast.AST, List], name: str) -> bool:
-    """Determines whether the given node (or list of nodes) contains a variable with the given name."""
-    if isinstance(node, ast.AST): searchin = [node]
-    else: searchin = node
-    for element in searchin:
-        var_deps = FindVariableDependencies()
-        var_deps.visit(element)
-        if name in var_deps.stores or name in var_deps.loads: return True
-    return False
 
 def canonicalize_lineorder(f: ast.FunctionDef) -> None:
     """Modify (in place) the given function definition so that its lines are in a canonical order.
@@ -44,7 +26,7 @@ def canonicalize_lineorder(f: ast.FunctionDef) -> None:
     for stmt in f.body:
         if isinstance(stmt, ast.Assign):
             # find all the variables this statement depends on
-            vardeps = FindVariableDependencies()
+            vardeps = canonicalization.FindVariableDependencies()
             vardeps.visit(stmt.value)
             # find the max level of all variables this statement depends on
             max_level = 0
@@ -52,7 +34,7 @@ def canonicalize_lineorder(f: ast.FunctionDef) -> None:
                 if var in variable_levels:
                     max_level = max(max_level, variable_levels[var])
             # find the variables that are assigned by this statement
-            varassigns = FindVariableDependencies()
+            varassigns = canonicalization.FindVariableDependencies()
             if len(stmt.targets) != 1: raise NotImplementedError
             varassigns.visit(stmt.targets[0])
             # set the level of the variables assigned by this statement
@@ -67,7 +49,7 @@ def canonicalize_lineorder(f: ast.FunctionDef) -> None:
     levels = list(set(line_levels.values()))
     levels.sort()
     # start building the sorted lines
-    output = list()
+    output: List[ast.stmt] = list()
     for level in levels:
         # find the lines at this level
         lines_at_this_level = list()
@@ -85,37 +67,6 @@ def canonicalize_lineorder(f: ast.FunctionDef) -> None:
     f.body = output
     ast.fix_missing_locations(f)
 
-def collapse_useless_assigns(f: ast.FunctionDef):
-    """Modify (in place) the given function definition to remove all lines containing tautological/useless assignments. For example, if the code contains a line "x = a" followed by a line "y = x + b", it replaces all subsequent instances of x with a, yielding the single line "y = a + b", up until x is set in another assignment statement.
-
-    Doesn't handle tuples.  Doesn't handle any kind of logic involving if statements or loops."""
-    # keep looping until we don't remove any statements within a loop of the execution
-    keep_going = True
-    while keep_going:
-        keep_going = False
-        # let's start at the very beginning, a very good place to start
-        for i in range(len(f.body)):
-            stmt = f.body[i]
-            # if the statement is an assignment of a single variable to another variable, e.g., x = a
-            if isinstance(stmt, ast.Assign) and len(stmt.targets) == 1 and isinstance(stmt.targets[0], ast.Name) and isinstance(stmt.value, ast.Name):
-                arg = stmt.targets[0].id
-                val = stmt.value.id
-                # go through all subsequent statements and replace x with a until x is set anew
-                for j in range(i + 1, len(f.body)):
-                    stmtprime = f.body[j]
-                    if isinstance(stmtprime, ast.Assign):
-                        # replace arg with val in the right hand side
-                        stmtprime.value = internal.NameRenamer({arg: val}, False).visit(stmtprime.value)
-                        # stop if arg is in the left
-                        if contains_name(stmtprime.targets, arg): break
-                    else:
-                        # replace arg with val in whole statement
-                        f.body[j] = internal.NameRenamer({arg: val}, False).visit(stmtprime)
-                # remove from the body and start over
-                del f.body[i]
-                keep_going = True
-                break
-
 class ReturnVariables(ast.NodeVisitor):
     """Find all the variables that are part of a return statement within this node"""
     def __init__(self):
@@ -128,7 +79,7 @@ class ReverseTaintAnalysisOneLevel(ast.NodeVisitor):
     """Given a set of variables, find all variables that directly depend on these variables"""
     def __init__(self, targets: Set):
         self.targets = targets
-        self.found = set()
+        self.found: Set[ast.stmt] = set()
     def visit_Assign(self, node):
         # what variables are assigned by this statement?
         assign_targets = set()
@@ -151,7 +102,7 @@ def remove_useless_statements(f: ast.FunctionDef):
     # find all variables that the return variables depend on
     # each iteration finds one more level of variables that taint the return variables
     # keep iterating until we've found them all
-    retvarsdeps_old = set()
+    retvarsdeps_old: Set[Any] = set()
     retvarsdeps_finder = ReverseTaintAnalysisOneLevel(retvars_finder.found)
     retvarsdeps_finder.visit(f)
     retvarsdeps_new = retvarsdeps_finder.targets | retvarsdeps_finder.found
@@ -188,7 +139,7 @@ def canonicalize_function(f: Union[Callable, str]) -> str:
     - variable names are 'v0', 'v1', ...
     - lines are reordered based on variable dependencies"""
     # parse the function
-    if isinstance(f, Callable): t = ast.parse(inspect.getsource(f))
+    if isinstance(f, FunctionType): t = ast.parse(inspect.getsource(f))
     elif isinstance(f, str): t = ast.parse(f)
     else: raise TypeError()
     # make sure it is a single function
@@ -207,13 +158,13 @@ def canonicalize_function(f: Union[Callable, str]) -> str:
     # newstring = ast.unparse(ast.fix_missing_locations(t))
     # while oldstring != newstring:
     #     oldstring = newstring
-    #     collapse_useless_assigns(functionDef)
+    #     canonicalization.collapse_useless_assigns(functionDef)
     #     remove_useless_statements(functionDef)
     #     canonicalization.canonicalize_variable_names(functionDef)
     #     canonicalize_lineorder(functionDef)
     #     newstring = ast.unparse(ast.fix_missing_locations(t))
     # temporary: don't loop because currently getting an intermediate loop
-    collapse_useless_assigns(functionDef)
+    canonicalization.collapse_useless_assigns(functionDef)
     remove_useless_statements(functionDef)
     canonicalization.canonicalize_variable_names(functionDef)
     canonicalize_lineorder(functionDef)
