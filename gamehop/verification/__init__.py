@@ -84,13 +84,13 @@ class ReverseTaintAnalysisOneLevel(ast.NodeVisitor):
         # what variables are assigned by this statement?
         assign_targets = set()
         for t in node.targets:
-            assignvars_finder = FindVariableDependencies()
+            assignvars_finder = canonicalization.FindVariableDependencies()
             assignvars_finder.visit(t)
             assign_targets |= set(assignvars_finder.stores)
         # is one of our variables of interest assigned in this statement?
         if not self.targets.isdisjoint(assign_targets):
             # if so, find all the variables in the right hand side and add them to found
-            finder = FindVariableDependencies()
+            finder = canonicalization.FindVariableDependencies()
             finder.visit(node.value)
             self.found |= set(finder.loads)
 
@@ -120,7 +120,7 @@ def remove_useless_statements(f: ast.FunctionDef):
             # what variables are assigned by this statement?
             assign_targets = set()
             for t in node.targets:
-                assignvars_finder = FindVariableDependencies()
+                assignvars_finder = canonicalization.FindVariableDependencies()
                 assignvars_finder.visit(t)
                 assign_targets |= set(assignvars_finder.stores)
             # are all the variables assigned in this statement useless?

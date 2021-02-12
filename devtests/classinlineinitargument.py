@@ -1,4 +1,5 @@
 import unittest
+import gamehop
 import gamehop.inlining
 import gamehop.verification
 
@@ -30,5 +31,5 @@ if True:
     print(test1)
     print(s2)
     print("---------------Diff-----------------")
-    gamehop.verification.stringDiff(s1, s2)
+    gamehop.stringDiff(s1, s2)
     print("------------------------------------")
