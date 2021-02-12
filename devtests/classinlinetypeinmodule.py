@@ -4,7 +4,7 @@ import gamehop.verification
 
 from gamehop.primitives import PKE
 
-Scheme = PKE.Scheme
+Scheme = PKE.PKEScheme
 
 # This test is totally unfair!
 # Use case is experiment in PKE takes a Scheme as an argument
@@ -12,7 +12,7 @@ Scheme = PKE.Scheme
 # Workaround is to use a type alias: Scheme = PKE.Scheme
 
 
-def h(pke: PKE.Scheme):
+def h(pke: PKE.PKEScheme):
     y = 1
     return y
 
