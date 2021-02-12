@@ -10,17 +10,17 @@ class class_with_no_methods(object):
 def f_class_with_no_methods(x: class_with_no_methods) -> int:
     return x.myarg
 def f_class_with_no_methods_expected_result() -> int:
-    v_x_myarg = 0
-    return v_x_myarg
+    xⴰmyarg = 0
+    return xⴰmyarg
 
 class class_init_has_args(object):
     def __init__(self, a: int, b: int):
         self.myarg = a + b
 def f_class_init_has_args(x: class_with_no_methods) -> int:
     return x.myarg
-def f_class_init_has_args_expected_result(v_x_init_a: int, v_x_init_b: int) -> int:
-    v_x_myarg = v_x_init_a + v_x_init_b
-    return v_x_myarg
+def f_class_init_has_args_expected_result(xⴰinitⴰa: int, xⴰinitⴰb: int) -> int:
+    xⴰmyarg = xⴰinitⴰa + xⴰinitⴰb
+    return xⴰmyarg
 
 class class_with_a_method(object):
     def __init__(self):
@@ -32,10 +32,10 @@ def f_class_with_a_method(x: class_with_a_method, y: int) -> int:
     x.m(y)
     return x.myarg
 def f_class_with_a_method_expected_result(y: int) -> int:
-    v_x_myarg = 0
-    v_x_myarg = y
-    v_x_m_1_a = 2
-    return v_x_myarg
+    xⴰmyarg = 0
+    xⴰmyarg = y
+    xⴰmᴠ1ⴰa = 2
+    return xⴰmyarg
 
 class class_with_no_init(object):
     def m(self, y: int):
@@ -45,9 +45,9 @@ def f_class_with_no_init(x: class_with_no_init, y: int) -> int:
     z = x.m(y)
     return x.myarg
 def f_class_with_no_init_expected_result(y: int) -> int:
-    v_x_myarg = y
-    z = v_x_myarg
-    return v_x_myarg
+    xⴰmyarg = y
+    z = xⴰmyarg
+    return xⴰmyarg
 
 class class_method_with_no_argument():
     def m(self):
@@ -64,25 +64,25 @@ def f_inlines_same_class_twice(x: class_with_a_method, y: int, z: class_with_a_m
     z.m(y)
     return x.myarg
 def f_inlines_same_class_twice_expected_result(y: int) -> int:
-    v_z_myarg = 0
-    v_x_myarg = 0
-    v_x_myarg = y
-    v_x_m_1_a = 2
-    v_z_myarg = y
-    v_z_m_1_a = 2
-    return v_x_myarg
+    zⴰmyarg = 0
+    xⴰmyarg = 0
+    xⴰmyarg = y
+    xⴰmᴠ1ⴰa = 2
+    zⴰmyarg = y
+    zⴰmᴠ1ⴰa = 2
+    return xⴰmyarg
 
 def f_calls_method_twice(x: class_with_a_method, y: int) -> int:
     x.m(y)
     x.m(7)
     return x.myarg
 def f_calls_method_twice_expected_result(y: int) -> int:
-    v_x_myarg = 0
-    v_x_myarg = y
-    v_x_m_1_a = 2
-    v_x_myarg = 7
-    v_x_m_2_a = 2
-    return v_x_myarg
+    xⴰmyarg = 0
+    xⴰmyarg = y
+    xⴰmᴠ1ⴰa = 2
+    xⴰmyarg = 7
+    xⴰmᴠ2ⴰa = 2
+    return xⴰmyarg
 
 class class_with_double_attributing(object):
     def m(self, x):
@@ -91,8 +91,8 @@ class class_with_double_attributing(object):
 def f_double_attributing(x: class_with_double_attributing):
     z = x.m(7)
 def f_double_attributing_expected_result():
-    v_x_m_1_y = v_x_a.b(3)
-    z = v_x_m_1_y
+    xⴰmᴠ1ⴰy = xⴰa.b(3)
+    z = xⴰmᴠ1ⴰy
 
 
 def expected_result(f):
