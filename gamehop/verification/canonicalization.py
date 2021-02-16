@@ -1,6 +1,7 @@
 import ast
+import copy
 import secrets
-from typing import List, Union
+from typing import cast, List, Optional, Union
 
 from ..inlining import internal
 
@@ -166,4 +167,124 @@ def collapse_useless_assigns(f: ast.FunctionDef) -> None:
                     break
             elif isinstance(stmt, ast.If): raise NotImplementedError("Cannot handle functions with if statements.")
             elif isinstance(stmt, ast.For) or isinstance(stmt, ast.While): raise NotImplementedError("Cannot handle functions with loops.")
+    ast.fix_missing_locations(f)
+
+class LinkedList(object):
+    def __init__(self):
+        self.value: List[ast.AST] = list()
+        self.children: Optional[LinkedList] = None
+    def flatten(self):
+        if self.children is not None: 
+            return dict({'value': [ast.unparse(x) for x in self.value], 'children': self.children.flatten()})
+        else:
+            return dict({'value': [ast.unparse(x) for x in self.value]})
+
+def assignee_vars(stmt: ast.Assign) -> List[str]:
+    if len(stmt.targets) != 1: raise NotImplementedError("Cannot handle assignment statements with multiple targets")
+    if isinstance(stmt.targets[0], ast.Name): return [stmt.targets[0].id]
+    elif isinstance(stmt.targets[0], ast.Tuple): 
+        ret = list()
+        for x in stmt.targets[0].elts:
+            if not isinstance(x, ast.Name): raise NotImplementedError("Cannot handle tuples containing things other than variables")
+            ret.append(x.id)
+        return ret
+    else: raise NotImplementedError("Cannot handle assignments with left sides of the type " + str(type(stmt.targets[0]).__name__))
+
+def dependent_vars(stmt: ast.Assign) -> List[str]:
+    class FindLoadNames(ast.NodeVisitor):
+        def __init__(self):
+            self.found = list()
+        def visit_Name(self, node):
+            if isinstance(node.ctx, ast.Load): self.found.append(node.id)
+    finder = FindLoadNames()
+    finder.visit(stmt.value)
+    return finder.found
+
+def recurse(active_vars: List[str], body: List[ast.AST]) -> Optional[LinkedList]:
+    """Given a list of variables currently active and a list of statements representing the body of the function,
+    return a tree where the root of the tree is a list of independent statements that directly affect the active variables,
+    TODO"""
+    print("called recurse with active_vars = {:s}".format(str(active_vars)))
+    mytree = LinkedList()
+    if len(body) == 0 or len(active_vars) == 0: return None
+    new_body = copy.deepcopy(body)
+    curr_active_vars = copy.deepcopy(active_vars)
+    next_active_vars = list()
+    for j in range(len(new_body) - 1, -1, -1):
+        stmt = new_body[j]
+        print("statement is {:s}".format(ast.unparse(stmt)))
+        if not isinstance(stmt, ast.Assign): raise NotImplementedError("Don't know how to handle statements of type " + str(type(stmt).__name__))
+        stmt_assignees = assignee_vars(stmt)
+        # statement does not affect currently active variables so we don't need it
+        if len(set(stmt_assignees) & set(curr_active_vars)) == 0: 
+            del new_body[j]
+            continue
+        # statement affects only currently active variables, so we collect it at this level, and deactivate those variables
+        elif len(set(stmt_assignees) & set(curr_active_vars)) == len(set(stmt_assignees)):
+            mytree.value.append(stmt)
+            del new_body[j]
+            for v in stmt_assignees:
+                if v in curr_active_vars: curr_active_vars.remove(v)
+            next_active_vars.extend(dependent_vars(stmt))
+        # some of the variables affected by this statement are currently active, but some are not
+        else:
+            not_curr_active = set(stmt_assignees) - set(curr_active_vars)
+            # if the not active variables in this statement have no overlap with the active variables we started out with,
+            # then we can collect this statement at this level, and deactivate those variables
+            if len(not_curr_active & set(active_vars)) == 0:
+                mytree.value.append(stmt)
+                del new_body[j]
+                for v in stmt_assignees:
+                    if v in curr_active_vars: curr_active_vars.remove(v)
+                next_active_vars.extend(dependent_vars(stmt))
+            # if some of the variables in this statement overlap with the active variables we started out with, 
+            # (but have already collected statements for at this level), then this statement is not for this level
+            # remove all of this statement's assignees from the list of currently active variables
+            else:
+                for v in stmt_assignees:
+                    if v in curr_active_vars: 
+                        curr_active_vars.remove(v)
+                        next_active_vars.append(v)
+        if len(curr_active_vars) == 0: break
+    # sort the lines at this level based on their variables order of appearance in active_vars
+    mytree_value_new: List[ast.AST] = list()
+    for v in active_vars:
+        for stmt in mytree.value:
+            assert isinstance(stmt, ast.Assign)
+            if v in assignee_vars(stmt):
+                mytree.value.remove(stmt)
+                mytree_value_new.append(stmt)
+                break
+    assert len(mytree.value) == 0
+    mytree.value = mytree_value_new
+    mytree.children = recurse(next_active_vars, new_body)
+    return mytree
+
+def doit(f: ast.FunctionDef) -> Optional[LinkedList]:
+    body = copy.deepcopy(f.body)
+    # make sure the final statement is a return
+    final_stmt = body[-1]
+    del body[-1]
+    stmts_at_level: List[List[ast.AST]] = list()
+    if not isinstance(final_stmt, ast.Return): return None
+    val = final_stmt.value
+    if isinstance(final_stmt.value, ast.Constant): 
+        ret = LinkedList()
+        ret.value = [final_stmt]
+        return ret
+    elif not isinstance(final_stmt.value, ast.Name): raise NotImplementedError("Cannot handle functions with return type " + str(type(final_stmt.value).__name__))
+    return_variable = final_stmt.value.id
+    mytree = LinkedList()
+    mytree.value = [final_stmt]
+    mytree.children = recurse(list(return_variable), cast(List[ast.AST], body))
+    return mytree
+
+def canonicalize_line_order(f: ast.FunctionDef) -> None:
+    mytree = doit(f)
+    newbody: List[ast.AST] = list()
+    while mytree != None:
+        assert mytree is not None
+        newbody = mytree.value + newbody
+        mytree = mytree.children
+    f.body = cast(List[ast.stmt], newbody)
     ast.fix_missing_locations(f)
