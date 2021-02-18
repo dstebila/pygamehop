@@ -17,6 +17,13 @@ def f_variable(x, y):
 def f_variable_expected_result(x, y):
     a = 7
     return a
+def f_tuple(x, y):
+    a = 7
+    return (a, x, y)
+def f_tuple_expected_result(x, y):
+    a = 7
+    ret0 = (a, x, y)
+    return ret0
 def f_attribute(x, y):
     return x.a
 def f_attribute_expected_result(x, y):
