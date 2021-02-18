@@ -3,7 +3,7 @@ import copy
 import secrets
 from typing import cast, List, Optional, Union
 
-from ..inlining import internal
+from ...inlining import internal
 
 def canonicalize_function_name(f: ast.FunctionDef, name = 'f') -> None:
     """Modify (in place) the given function definition to have a canonical name."""
