@@ -22,3 +22,7 @@ class Scheme(PKEScheme):
             return Crypto.Reject
         pt1 = self.pke1.Decrypt(sk[0], pt2)
         return pt1
+
+# Advantage is MIN(adv(PKE1), adv(PKE2))
+# two separate proofs, each showing an upper bound on the advantage
+# Replace one PKE with a random function

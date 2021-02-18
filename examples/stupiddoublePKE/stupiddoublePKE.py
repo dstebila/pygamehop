@@ -22,5 +22,7 @@ class Scheme(PKEScheme):
         pt2 = self.pke2.Decrypt(sk2, ct2)
         pt1 = self.pke1.Decrypt(sk1, ct1)
         if pt2 == Crypto.Reject or pt1 == Crypto.Reject or pt1 != pt2:
-            return Crypto.Reject
-        return pt1
+            r = Crypto.Reject
+        else: 
+            r = pt1
+        return r
