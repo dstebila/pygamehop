@@ -41,6 +41,12 @@ def f_tuple2():
     return a
 def f_tuple2_expected_result():
     return 1
+def f_tuple3(a, b):
+    c = (a, b)
+    (x, y) = c
+    return x + y
+def f_tuple3_expected_result(a, b):
+    return a + b
 
 
 def expected_result(f):
@@ -83,4 +89,11 @@ class TestCollapseAssigns(unittest.TestCase):
         self.assertEqual(
             ast.unparse(f),
             expected_result(f_tuple2_expected_result)
+        )
+    def test_tuple3(self):
+        f = gamehop.inlining.internal.get_function_def(f_tuple3)
+        gamehop.verification.canonicalization.collapse_useless_assigns(f)
+        self.assertEqual(
+            ast.unparse(f),
+            expected_result(f_tuple3_expected_result)
         )

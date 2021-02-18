@@ -97,8 +97,8 @@ def collapse_useless_assigns(f: ast.FunctionDef) -> None:
         for i in range(len(f.body)):
             stmt = f.body[i]
             if isinstance(stmt, ast.Assign):
-                # assignment of the form x = a or x = 7
-                if isinstance(stmt.targets[0], ast.Name) and (isinstance(stmt.value, ast.Name) or isinstance(stmt.value, ast.Constant)):
+                # assignment of the form x = a or x = 7 or x = (a, b)
+                if isinstance(stmt.targets[0], ast.Name) and (isinstance(stmt.value, ast.Name) or isinstance(stmt.value, ast.Constant) or isinstance(stmt.value, ast.Tuple)):
                     replacer = NameNodeReplacer(stmt.targets[0].id, stmt.value)
                     # go through all subsequent statements and replace x with a until x is set anew
                     for j in range(i + 1, len(f.body)):
@@ -117,7 +117,7 @@ def collapse_useless_assigns(f: ast.FunctionDef) -> None:
                     keep_going = True
                     break
                 # assignment of the form (x, y) = (a, b)
-                if isinstance(stmt.targets[0], ast.Tuple) and isinstance(stmt.value, ast.Tuple):
+                elif isinstance(stmt.targets[0], ast.Tuple) and isinstance(stmt.value, ast.Tuple):
                     # make sure the lengths match
                     if len(stmt.targets[0].elts) != len(stmt.value.elts): break
                     break_out = False
