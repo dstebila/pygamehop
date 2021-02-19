@@ -23,7 +23,7 @@ class PKEINDCPA_adversary(Generic[Ciphertext, PublicKey, SecretKey, Message], Cr
 
 def INDCPA0(pke: PKEScheme, adversary: PKEINDCPA_adversary) -> Crypto.Bit:
     #adversary.pke = pke
-    adversary.setup(pke)
+    dummy = adversary.setup(pke)
     (pk, sk) = pke.KeyGen()
     (m0, m1) = adversary.challenge(pk)
     ct = pke.Encrypt(pk, m0)
@@ -33,7 +33,7 @@ def INDCPA0(pke: PKEScheme, adversary: PKEINDCPA_adversary) -> Crypto.Bit:
 
 def INDCPA1(pke: PKEScheme, adversary: PKEINDCPA_adversary) -> Crypto.Bit:
     #adversary.pke = pke
-    adversary.setup(pke)
+    dummy = adversary.setup(pke)
     (pk, sk) = pke.KeyGen()
     (m0, m1) = adversary.challenge(pk)
     ct = pke.Encrypt(pk, m1)

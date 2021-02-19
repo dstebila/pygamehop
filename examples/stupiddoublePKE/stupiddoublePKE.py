@@ -13,8 +13,9 @@ class Scheme(PKEScheme):
         (pk2, sk2) = self.pke2.KeyGen()
         return ((pk1, pk2), (sk1, sk2))
     def Encrypt(self, pk, msg):
-        ct1 = self.pke1.Encrypt(pk[0], msg)
-        ct2 = self.pke2.Encrypt(pk[1], msg)
+        pk1, pk2 = pk
+        ct1 = self.pke1.Encrypt(pk1, msg)
+        ct2 = self.pke2.Encrypt(pk2, msg)
         return (ct1, ct2)
     def Decrypt(self, sk, ct):
         (ct1, ct2) = ct

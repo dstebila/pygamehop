@@ -16,3 +16,15 @@ def equal(a, b, debugging, moreargs):
         if debugging:
             print("Strings identical")
         return None, True
+
+
+def advantage(a, b, debugging, moreargs):
+    if debugging:
+        print('Checking that games match experiment: TODO')
+    
+    (experiment, schemename) = moreargs
+    ename = experiment
+    r = "Adv(" + schemename + ")"
+    print('Advantage is: ' + r)
+
+    return r, True
