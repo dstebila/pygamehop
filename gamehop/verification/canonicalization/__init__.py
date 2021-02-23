@@ -204,7 +204,6 @@ def recurse(active_vars: List[str], body: List[ast.AST]) -> Optional[LinkedList]
     """Given a list of variables currently active and a list of statements representing the body of the function,
     return a tree where the root of the tree is a list of independent statements that directly affect the active variables,
     TODO"""
-    print("called recurse with active_vars = {:s}".format(str(active_vars)))
     mytree = LinkedList()
     if len(body) == 0 or len(active_vars) == 0: return None
     new_body = copy.deepcopy(body)
@@ -212,7 +211,6 @@ def recurse(active_vars: List[str], body: List[ast.AST]) -> Optional[LinkedList]
     next_active_vars = list()
     for j in range(len(new_body) - 1, -1, -1):
         stmt = new_body[j]
-        print("statement is {:s}".format(ast.unparse(stmt)))
         if not isinstance(stmt, ast.Assign): raise NotImplementedError("Don't know how to handle statements of type " + str(type(stmt).__name__))
         stmt_assignees = assignee_vars(stmt)
         # statement does not affect currently active variables so we don't need it
