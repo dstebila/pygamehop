@@ -276,7 +276,7 @@ def doit(f: ast.FunctionDef) -> Optional[LinkedList]:
     return_variable = final_stmt.value.id
     mytree = LinkedList()
     mytree.value = [final_stmt]
-    mytree.children = recurse(list(return_variable), cast(List[ast.AST], body))
+    mytree.children = recurse([return_variable], cast(List[ast.AST], body))
     return mytree
 
 def canonicalize_line_order(f: ast.FunctionDef) -> None:
