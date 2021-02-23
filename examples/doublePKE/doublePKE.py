@@ -13,16 +13,14 @@ class Scheme(PKEScheme):
         (pk2, sk2) = self.pke2.KeyGen()
         return ((pk1, pk2), (sk1, sk2))
     def Encrypt(self, pk, msg):
-        ct1 = self.pke1.Encrypt(pk[0], msg)
-        ct2 = self.pke2.Encrypt(pk[1], ct1)
+        pk1, pk2 = pk
+        ct1 = self.pke1.Encrypt(pk1, msg)
+        ct2 = self.pke2.Encrypt(pk2, ct1)
         return ct2
     def Decrypt(self, sk, ct):
         pt2 = self.pke2.Decrypt(sk[1], ct)
         if pt2 == Crypto.Reject:
-            return Crypto.Reject
-        pt1 = self.pke1.Decrypt(sk[0], pt2)
-        return pt1
+            r = Crypto.Reject
+        r = self.pke1.Decrypt(sk[0], pt2)
+        return r
 
-# Advantage is MIN(adv(PKE1), adv(PKE2))
-# two separate proofs, each showing an upper bound on the advantage
-# Replace one PKE with a random function
