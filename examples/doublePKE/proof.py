@@ -33,6 +33,24 @@ class R01(PKE.PKEINDCPA_adversary):
 
 
 
+experiment = PKE.INDCPA
+steps = [
+    (PKE.INDCPA0, 'pke', doublePKE.Scheme),  # game 0 for the experiment we care about.  Reduction produces pt = Decrypt(Encrypt(m))
+    (PKE.CORRECT1, 'adversary', R01),        # equal to correctness game1 after reducing
+
+    (gametsets.advantage, (PKE.CORRECT, something)),    # check the game advantage
+
+    (PKE.CORRECT0, 'adversary', R12),        # use m directly instead of pt
+
+    (PKE.INDCPA0, 'adversary', R23),         # now equals game 0 for the experiment we really want to reduce to
+
+    (gametsets.advantage, (PKE.INDCPA, something)),    # check the game advantage
+
+    (PKE.INDCPA1, 'adversary', R23),         # game 1 for the experiment that we want to reduce to
+
+    ....    # reverse steps back to outer game 1
+]
+
 
 experiment = PKE.INDCPA
 steps = [
