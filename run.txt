@@ -1,0 +1,2 @@
+env PYTHONPATH=. MYPY='python3.9 -m mypy' PYTEST='python3.9 -m pytest' make devtest
+env PYTHONPATH=. python3.9 gamehop/app.py examples/stupiddoublePKE
