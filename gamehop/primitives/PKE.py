@@ -1,4 +1,4 @@
-from typing import Tuple, Union, TypeVar, Generic, Set
+from typing import Tuple, Union, TypeVar, Generic, Set, Any
 
 from . import Crypto
 
