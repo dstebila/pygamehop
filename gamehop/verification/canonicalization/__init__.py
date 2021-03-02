@@ -288,6 +288,10 @@ def canonicalize_line_order(f: ast.FunctionDef) -> None:
     ast.fix_missing_locations(f)
 
 def canonicalize_argument_order(f: ast.FunctionDef) -> None:
+    """Modify (in place) the given function definition to canonicalize the order of the arguments
+    based on the order in which the returned variable depends on intermediate variables. Arguments
+    that do not affect the return variable are removed. Assumes that canonicalize_line_order 
+    has already been called."""
     body = copy.deepcopy(f.body)
     # make sure the final statement is a return
     final_stmt = body[-1]
