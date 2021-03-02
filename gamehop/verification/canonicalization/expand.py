@@ -1,6 +1,8 @@
 import ast
 import copy
 
+from typing import Dict, List
+
 from ...inlining import internal
 
 class ExtractCallArguments(ast.NodeTransformer):
@@ -64,7 +66,7 @@ def variable_reassign(f: ast.FunctionDef) -> None:
     assigned to only once. If a variable is reassigned, give it a new name based
     on a counter. Can only handle functions with assign and return statements."""
     # keep track of how many times each variable has appeared
-    counts = dict()
+    counts: Dict[str, int] = dict()
     # format variable name based on counts: x, xν1, xν2, ...
     def varname(var, counts):
         if var not in counts or counts[var] == 0: return var
@@ -72,7 +74,7 @@ def variable_reassign(f: ast.FunctionDef) -> None:
     # build the new body by going through each statement
     # rename any variables that are used based on what their current numbering
     # then update the count for any variables that have been reassigned
-    newbody = list()
+    newbody: List[ast.stmt] = list()
     for stmt in f.body:
         # construct the current list of variable renamings
         mappings = dict()
