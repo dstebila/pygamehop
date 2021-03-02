@@ -22,8 +22,7 @@ class PKEINDCPA_adversary(Generic[Ciphertext, PublicKey, SecretKey, Message], Cr
     pke: PKEScheme
 
 def INDCPA0(pke: PKEScheme, adversary: PKEINDCPA_adversary) -> Crypto.Bit:
-    #adversary.pke = pke
-    dummy = adversary.setup(pke)
+    adversary.setup(pke)
     (pk, sk) = pke.KeyGen()
     (m0, m1) = adversary.challenge(pk)
     ct = pke.Encrypt(pk, m0)
@@ -32,8 +31,7 @@ def INDCPA0(pke: PKEScheme, adversary: PKEINDCPA_adversary) -> Crypto.Bit:
 
 
 def INDCPA1(pke: PKEScheme, adversary: PKEINDCPA_adversary) -> Crypto.Bit:
-    #adversary.pke = pke
-    dummy = adversary.setup(pke)
+    adversary.setup(pke)
     (pk, sk) = pke.KeyGen()
     (m0, m1) = adversary.challenge(pk)
     ct = pke.Encrypt(pk, m1)
@@ -47,7 +45,7 @@ class PKECORRECT_adversary(Generic[Ciphertext, PublicKey, SecretKey, Message], C
     pke: PKEScheme
 
 def CORRECT0(pke: PKEScheme, adversary: PKECORRECT_adversary):
-    dummy = adversary.setup(pke)
+    adversary.setup(pke)
     (pk, sk) = pke.KeyGen()
     m = adversary.challenge(pk, sk)
     ct = pke.Encrypt(pk, m)
@@ -56,7 +54,7 @@ def CORRECT0(pke: PKEScheme, adversary: PKECORRECT_adversary):
     return r
     
 def CORRECT1(pke: PKEScheme, adversary: PKECORRECT_adversary):
-    dummy = adversary.setup(pke)
+    adversary.setup(pke)
     (pk, sk) = pke.KeyGen()
     m = adversary.challenge(pk, sk)
     ct = pke.Encrypt(pk, m)
