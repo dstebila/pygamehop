@@ -46,7 +46,7 @@ experiment = KEM.INDCPA
 steps = [
     (KEM.INDCPA_real, [('kem', KEMfromPKE.Scheme)]),
     (PKE.INDCPA0, 'adversary', R01),
-    (gametests.equal, None),
+    (gametests.advantage, (PKE.INDCPA, 'pke1')),
     (PKE.INDCPA1, 'adversary', R01),
     (KEM.INDCPA_random, 'kem', KEMfromPKE.Scheme)
 ]
