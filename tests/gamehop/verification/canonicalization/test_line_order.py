@@ -38,6 +38,17 @@ def f_basic3_expected_result(x, y):
     w = 3
     r = (u, v, w)
     return r
+def f_ordering(a):
+    c = h(a)
+    b = g(c)
+    d = (b, c)
+    return d
+def f_ordering_expected_result(a):
+    c = h(a)
+    b = g(c)
+    d = (b, c)
+    return d
+
 
 def expected_result(f):
     s = inspect.getsource(f)
@@ -65,4 +76,11 @@ class TestCanonicalizeLineOrder(unittest.TestCase):
         self.assertEqual(
             ast.unparse(f),
             expected_result(f_basic3_expected_result)
+        )
+    def test_ordering(self):
+        f = gamehop.inlining.internal.get_function_def(f_ordering)
+        gamehop.verification.canonicalization.canonicalize_line_order(f)
+        self.assertEqual(
+            ast.unparse(f),
+            expected_result(f_ordering_expected_result)
         )
