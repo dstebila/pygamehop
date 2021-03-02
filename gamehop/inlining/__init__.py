@@ -103,7 +103,7 @@ def inline_function(inlinee: Union[Callable, str, ast.FunctionDef], inlinand: Un
     # check that there are no return statements anywhere in the inlinand other than the last line
     class ContainsReturn(ast.NodeVisitor):
         def visit_Return(self, node):
-            raise NotImplementedError("Function to be inlined has a return statement somewhere other than the last line")
+            raise NotImplementedError("Function to be inlined ({:s}) has a return statement somewhere other than the last line".format(inlinand_def.name))
     for i in range(len(inlinand_def.body) - 1):
         ContainsReturn().visit(inlinand_def.body[i])
     # check if the last line of the inlinand is a return statement,
@@ -114,7 +114,7 @@ def inline_function(inlinee: Union[Callable, str, ast.FunctionDef], inlinand: Un
     for stmt in inlinee_def.body:
         # replace y = f(x)
         if isinstance(stmt, ast.Assign) and isinstance(stmt.value, ast.Call) and isinstance(stmt.value.func, ast.Name) and stmt.value.func.id == search_function_name:
-            if not inlinand_has_return: raise ValueError("Trying to inline a function without a return statement into an assignment")
+            if not inlinand_has_return: raise ValueError("Trying to inline a function ({:s}) without a return statement into an assignment".format(inlinand_def.name))
             # copy the expanded lines
             replacement_count += 1
             newinlinee_body.extend(inline_function_helper_lines_of_inlined_function('{:s}ᴠ{:d}'.format(dest_function_name, replacement_count), stmt.value, inlinand_def, self_prefix))
