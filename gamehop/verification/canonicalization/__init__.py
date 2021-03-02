@@ -286,3 +286,33 @@ def canonicalize_line_order(f: ast.FunctionDef) -> None:
         mytree = mytree.children
     f.body = cast(List[ast.stmt], newbody)
     ast.fix_missing_locations(f)
+
+def canonicalize_argument_order(f: ast.FunctionDef) -> None:
+    body = copy.deepcopy(f.body)
+    # make sure the final statement is a return
+    final_stmt = body[-1]
+    del body[-1]
+    stmts_at_level: List[List[ast.AST]] = list()
+    if not isinstance(final_stmt, ast.Return): return None
+    # get the return value
+    val = final_stmt.value
+    if not isinstance(final_stmt.value, ast.Name): raise NotImplementedError("Cannot handle functions with return type " + str(type(final_stmt.value).__name__))
+    active_vars = [final_stmt.value.id]
+    # go through the statements starting from the end and accumulate the variables in order
+    for i in range(len(body)-1, -1, -1):
+        stmt = body[i]
+        if not isinstance(stmt, ast.Assign): raise NotImplementedError("Cannot handle non-assign statements ({:s}) in {:s}".format(ast.unparse(stmt), f.name))
+        dep_vars = dependent_vars(stmt)
+        ass_vars = assignee_vars(stmt)
+        if len(set(active_vars) & set(ass_vars)) != 0:
+            active_vars.extend(dep_vars)
+    # assemble the new list of arguments in order
+    new_args = []
+    vars_used = [] # since active_vars may contain some variables more than once, need to keep track of the ones we've already used
+    for v in active_vars:
+        for a in f.args.args:
+            if a.arg == v and v not in vars_used:
+                new_args.append(a)
+                vars_used.append(v)
+    f.args.args = new_args
+    ast.fix_missing_locations(f)

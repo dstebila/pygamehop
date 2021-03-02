@@ -31,6 +31,7 @@ def canonicalize_function(f: Union[Callable, str]) -> str:
     canonicalization.canonicalize_function_name(functionDef)
     canonicalization.collapse_useless_assigns(functionDef)
     canonicalization.canonicalize_line_order(functionDef)
+    canonicalization.canonicalize_argument_order(functionDef)
     canonicalization.canonicalize_variable_names(functionDef)
     newstring = ast.unparse(ast.fix_missing_locations(t))
     return newstring
