@@ -9,6 +9,7 @@ from types import FunctionType
 
 from . import canonicalization
 from ..inlining import internal
+from .canonicalization import expand
 
 def canonicalize_function(f: Union[Callable, str]) -> str:
     """Returns a string representing a canonicalized version of the given function.
@@ -25,6 +26,8 @@ def canonicalize_function(f: Union[Callable, str]) -> str:
     # make sure it is a single function
     functionDef = t.body[0]
     assert isinstance(functionDef, ast.FunctionDef)
+    expand.call_arguments(functionDef)
+    expand.variable_reassign(functionDef)
     # canonicalize return statement
     canonicalization.canonicalize_return(functionDef)
     # canonicalize function name
