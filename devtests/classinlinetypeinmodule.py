@@ -13,12 +13,10 @@ Scheme = PKE.PKEScheme
 # Workaround is to use a type alias: Scheme = PKE.Scheme
 
 
-def h(pke: PKE.PKEScheme):
-    y = 1
+def h(pke: PKE.PKEScheme, y):    
     return y
 
-def f_target(pke: Scheme):
-    y = 1
+def f_target(pke: Scheme, y):
     return y
 
 
