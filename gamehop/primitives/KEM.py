@@ -19,11 +19,13 @@ class KEMINDCPA_adversary(Generic[PublicKey, SecretKey, Ciphertext, SharedSecret
     def guess(self, pk: PublicKey, ct: Ciphertext, ss: SharedSecret) -> Crypto.Bit: pass
 
 def INDCPA_real(kem: KEMScheme, adversary: KEMINDCPA_adversary) -> Crypto.Bit:
+    dummy = adversary.setup()
     (pk, sk) = kem.KeyGen()
     (ct, ss_real) = kem.Encaps(pk)
     return adversary.guess(pk, ct, ss_real)
 
 def INDCPA_random(kem: KEMScheme, adversary: KEMINDCPA_adversary) -> Crypto.Bit:
+    dummy = adversary.setup()
     (pk, sk) = kem.KeyGen()
     (ct, _) = kem.Encaps(pk)
     ss_rand = Crypto.UniformlySample(kem.SharedSecretSet)

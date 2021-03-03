@@ -24,6 +24,7 @@ class R01(PKE.PKEINDCPA_adversary):
 
     def setup(self, pke2: PKEScheme) -> None:
         self.pke = pke2
+        return None
 
     def challenge(self, pk: PKE.PublicKey) -> Tuple[PKE.Message, PKE.Message]:
         self.pk = pk
