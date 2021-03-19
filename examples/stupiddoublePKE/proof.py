@@ -11,8 +11,8 @@ PKEINDCPA_adversary = PKE.PKEINDCPA_adversary
 
 
 #This reduction takes an adversary for stupiddoublepke and creates an adversary for pke1
-class R01(PKE.PKEINDCPA_adversary):
-    def __init__(self, adversary: PKE.PKEINDCPA_adversary, pke2: PKEScheme) -> None:
+class R01(PKEINDCPA_adversary):
+    def __init__(self, adversary: PKEINDCPA_adversary, pke2: PKEScheme) -> None:
         self.adversary = adversary      # this is the adversary for pke1
         self.pke2 = pke2
     
@@ -35,8 +35,8 @@ class R01(PKE.PKEINDCPA_adversary):
         return self.adversary.guess(ct)
 
 #This reduction takes an adversary for stupiddoublepke and creates an adversary for pke2
-class R12(PKE.PKEINDCPA_adversary):
-    def __init__(self, adversary: PKE.PKEINDCPA_adversary, pke1: PKEScheme) -> None:
+class R12(PKEINDCPA_adversary):
+    def __init__(self, adversary: PKEINDCPA_adversary, pke1: PKEScheme) -> None:
         self.adversary = adversary      # this is the adversary for pke2
         self.pke1 = pke1
     
