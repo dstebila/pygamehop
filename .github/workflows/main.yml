@@ -29,8 +29,8 @@ jobs:
       run: |
         # mypy examples
         mypy -p gamehop.inlining
-        mypy -p gamehop.primitives
-        # mypy -p gamehop.verification
+        # mypy -p gamehop.primitives
+        mypy -p gamehop.verification
     - name: Run unittests
       run: |
         env PYTHONPATH=. pytest -v
