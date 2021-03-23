@@ -195,11 +195,34 @@ def canonicalize_line_order(f: ast.FunctionDef) -> None:
     based on the order in which the returned variable depends on previous lines. Lines
     that do not affect the return variable are removed. Assumes expand.variable_reassign
     has been called."""
+    # It may seem hacky that this function keeps calling canonicalize_line_order_inner
+    # until it stops changing, but there's a good reason for that, see its comment.
+    f_before = None
+    f_after = ast.unparse(f)
+    while f_before != f_after:
+        f_before = f_after
+        canonicalize_line_order_inner(f)
+        f_after = ast.unparse(f)
+
+def canonicalize_line_order_inner(f: ast.FunctionDef) -> None:
     # Idea of the algorithm is as follows: build a tree of statements rooted at the 
     # return statement; node Y is a child of node X if node X depends on node Y.
     # We keep track of the level in the tree that each node is at, in terms of distance
     # from the return statement. Statements at the same level of the tree are ordered
     # based on the order in which their assigned variables were first depended on
+    #
+    # This doesn't fully canonicalize the line order on a single pass.  In particular,
+    # after n passes, vars_in_order is in the correct order up until the n levels 
+    # closest to the return statement, but not necessarily beyond that, because 
+    # the order of variables in the parts of vars_in_order corresponding to levels
+    # further out was set before those statements were ordered, so that may have
+    # induced the wrong otder.  
+    #
+    # The solution is to updates vars_in_order after each level has been ordered.
+    # But that would require a lot of complex logic here.  An equivalent way would
+    # be to just call the function again, and that will cause at least one more 
+    # level to be set correctly.  That's why (the outer) canonicalize_line_order
+    # keeps calling this inner function until the order stops changing.
     level_for_var: Dict[str, int] = dict() # what level the assignment statement for a variable should be put at
     stmts_at_level: List[List[ast.stmt]] = list() # what statements are at a given level
     vars_in_order = list() # the order of variables added
