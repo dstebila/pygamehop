@@ -23,6 +23,12 @@ def f_unused_arg(x, y):
 def f_unused_arg_expected_result(y):
     r = (7, y)
     return r
+def f_arith(x: int, y: int):
+    r = x + 2 * y
+    return r
+def f_arith_expected_result(y: int, x: int):
+    r = x + 2 * y
+    return r
 
 def expected_result(f):
     s = inspect.getsource(f)
@@ -51,3 +57,7 @@ class TestCanonicalizeArgumentOrder(unittest.TestCase):
             ast.unparse(f),
             expected_result(f_unused_arg_expected_result)
         )
+    def arith(self):
+        s1 = gamehop.verification.canonicalize_function(f_arith)
+        s2 = gamehop.verification.canonicalize_function(expected_result(f_arith_expected_result))
+        self.assertEqual(s1, s2)

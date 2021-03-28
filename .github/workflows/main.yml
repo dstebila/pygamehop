@@ -23,14 +23,9 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
-    - name: Run typechecker
-      # eventually replace this with just 
-      # env PYTHONPATH=. pytest --mypy .
-      run: |
-        # mypy examples
-        mypy -p gamehop.inlining
-        mypy -p gamehop.primitives
-        # mypy -p gamehop.verification
-    - name: Run unittests
-      run: |
-        env PYTHONPATH=. pytest -v
+    - name: Run typechecker on library
+      run: make typecheck_library
+    - name: Run library unit tests
+      run: env PYTHONPATH=. make unittest_library
+    - name: Run examples
+      run: env PYTHONPATH=. make test_examples

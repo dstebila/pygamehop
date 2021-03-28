@@ -2,7 +2,7 @@ import ast
 import copy
 import inspect
 import types
-from typing import Any, Callable, Union
+from typing import Any, Callable, List, Union
 
 from . import internal
 
@@ -141,12 +141,26 @@ def inline_function(inlinee: Union[Callable, str, ast.FunctionDef], inlinand: Un
     ContainsCall(search_function_name).visit(inlinee_def)
     return ast.unparse(ast.fix_missing_locations(inlinee_def))
 
-def inline_class(inlinee: Union[Callable, str, ast.FunctionDef], arg: str, inlinand: Union[object, str, ast.ClassDef], inline_init = True) -> str:
+def inline_class(inlinee: Union[Callable, str, ast.FunctionDef], arg: str, inlinand: Union[object, str, ast.ClassDef], inline_init = True, inline_class_props = True) -> str:
     """Returns a string representing the given class definition inlined into an argument of the given function.."""
     # get the function definitions
     inlinee_def = copy.deepcopy(internal.get_function_def(inlinee))
     inlinand_def = copy.deepcopy(internal.get_class_def(inlinand))
+    # inline class properties
+    class_props_to_add: List[ast.stmt] = []
+    if inline_class_props:
+        for stmt in inlinand_def.body:
+            if isinstance(stmt, ast.Assign):
+                assert(isinstance(stmt.targets[0], ast.Name))
+                newvarname = '{:s}ⴰ{:s}'.format(arg, stmt.targets[0].id)
+                class_props_to_add.append(
+                    ast.Assign(
+                        [ast.Name(id=newvarname, ctx=ast.Store())],
+                        stmt.value
+                    )
+                )
     # inline the __init__ method
+    init_stmts_to_add: List[ast.stmt] = []
     if inline_init:
         for f in inlinand_def.body:
             if isinstance(f, ast.FunctionDef) and f.name == '__init__':
@@ -163,7 +177,8 @@ def inline_class(inlinee: Union[Callable, str, ast.FunctionDef], arg: str, inlin
                     newarg.arg = newname
                     inlinee_def.args.args.append(newarg)
                 # copy the body of __init__ to the start of the inlinee body
-                inlinee_def.body = initdef.body + inlinee_def.body
+                init_stmts_to_add = initdef.body
+    inlinee_def.body = class_props_to_add + init_stmts_to_add + inlinee_def.body
     # dereference attribute calls in the new body
     formatstr = '{:s}ⴰ'.format(arg) + '{:s}'
     inlinee_def = internal.get_function_def(internal.dereference_attribute(inlinee_def, arg, formatstr))

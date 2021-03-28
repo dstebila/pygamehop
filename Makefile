@@ -1,18 +1,23 @@
 MYPY ?= 'mypy'
 PYTEST ?= 'pytest'
+PYTHON ?= 'python3.9'
 all:
 
 
 # eventually just replace this with
 # env PYTHONPATH=. pytest -v --mypy
-test: typecheck_library unittest_library
+test: typecheck_library unittest_library test_examples
 
 typecheck_library:
 	$(MYPY) -p gamehop.inlining
-	$(MYPY) -p gamehop.primitives
+	$(MYPY) -p gamehop.verification
+	# $(MYPY) -p gamehop.primitives
 
 unittest_library:
-	env PYTHONPATH=. $(PYTEST) -v
+	env PYTHONPATH=. $(PYTEST) -v tests/gamehop
+
+test_examples:
+	env PYTHONPATH=. $(PYTEST) -v tests/examples
 
 devtest:
 	env PYTHONPATH=. $(PYTEST) -v devtests/*

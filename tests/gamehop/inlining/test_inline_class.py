@@ -107,6 +107,18 @@ def f_intermediate_value_expected_result():
     y = f_intermediate_value_helper(1)
     return y
 
+def f_class_with_property_helper(x):
+    return x + 1
+class class_with_property():
+    prop = 12
+def f_class_with_property(v: class_with_property):
+    y = f_class_with_property_helper(v.prop)
+    return y
+def f_class_with_property_expected_result():
+    vⴰprop = 12
+    y = f_class_with_property_helper(vⴰprop)
+    return y
+
 
 def expected_result(f):
     s = inspect.getsource(f)
@@ -156,3 +168,7 @@ class TestInlineClass(unittest.TestCase):
         self.assertEqual(
             ast.unparse(step2),
             expected_result(f_intermediate_value_expected_result))
+    def test_class_with_property(self):
+        self.assertEqual(
+            gamehop.inlining.inline_class(f_class_with_property, 'v', class_with_property),
+            expected_result(f_class_with_property_expected_result))

@@ -49,6 +49,18 @@ def f_ordering_expected_result(a):
     d = g(c)
     r = (b, c, d)
     return r
+def f_KEMfromPKEtestcase1(pke):
+    m0 = h(pke.MS)
+    m1 = h(pke.MS)    
+    ct = E(m0)
+    r = g(ct, m1)
+    return r
+def f_KEMfromPKEtestcase2(pke):
+    m0 = h(pke.MS)
+    ct = E(m0)
+    m1 = h(pke.MS)
+    r = g(ct, m1)
+    return r
 
 
 def expected_result(f):
@@ -85,3 +97,11 @@ class TestCanonicalizeLineOrder(unittest.TestCase):
             ast.unparse(f),
             expected_result(f_ordering_expected_result)
         )
+    def test_KEMfromPKEtestcase(self):
+        f1 = gamehop.inlining.internal.get_function_def(f_KEMfromPKEtestcase1)
+        f2 = gamehop.inlining.internal.get_function_def(f_KEMfromPKEtestcase2)
+        gamehop.verification.canonicalization.canonicalize_line_order(f1)
+        gamehop.verification.canonicalization.canonicalize_line_order(f2)
+        s1 = ast.unparse(f1).replace('f_KEMfromPKEtestcase1', 'f')
+        s2 = ast.unparse(f2).replace('f_KEMfromPKEtestcase2', 'f')
+        self.assertEqual(s1, s2)

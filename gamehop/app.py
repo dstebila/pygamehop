@@ -22,9 +22,10 @@ if hasattr(proof, 'steps'):
     print(advantages)
     if r:
         print("Valid")
+        sys.exit(0)
     else:
         print("Invalid")
-    sys.exit(r)
+        sys.exit(1)
 else:
     if not hassattr(proof, 'proofs'):
         print("Need steps or proofs variable to be defined.")
@@ -40,7 +41,7 @@ else:
 
     if r:
         print("Valid")
+        sys.exit(0)
     else:
         print("Invalid")
-
-    sys.exit(r)
+        sys.exit(1)
