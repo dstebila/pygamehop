@@ -3,20 +3,20 @@ import gamehop
 import gamehop.inlining
 import gamehop.verification
 
-class g: 
+class g:
    x : 1
 
 def j(x):
-   return j
-def h(x):     
-   y = j(g.x)
-   z = j(g.x)
+   return x
+def h(x):
+   y = (g.x)
+   z = (g.x)
    return y + z
 
-def f_target(x):   
+def f_target(x):
    v = g.x
-   y = j(v)
-   z = j(v)   
+   y = (v)
+   z = (v)
    r = y + z
    return r
 
