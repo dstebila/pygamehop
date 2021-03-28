@@ -19,6 +19,14 @@ def f_inline_function_order_expected_result():
     x = f_inline_function_order_helper(1)
     return y + 2 * x
 
+def f_constant_return(a, b, c):
+    d = a + b
+    return 1
+def f_constant_return_expected_result():
+    r = 1
+    return r
+
+
 def expected_result(f):
     s = inspect.getsource(f)
     s = s.replace('_expected_result', '')
@@ -29,10 +37,8 @@ class TestCanonicalize(unittest.TestCase):
         f = gamehop.inline(f_inline_function_order, class_inline_function_order, 'v')
         f = gamehop.verification.canonicalize_function(f)
         g = gamehop.verification.canonicalize_function(expected_result(f_inline_function_order_expected_result))
-        self.assertEqual(
-            f,
-            g
-        )
-
-g = gamehop.verification.canonicalize_function(expected_result(f_inline_function_order_expected_result))
-print(g)
+        self.assertEqual(f, g)
+    def test_constant_return(self):
+        f = gamehop.verification.canonicalize_function(f_constant_return)
+        g = gamehop.verification.canonicalize_function(expected_result(f_constant_return_expected_result))
+        self.assertEqual(f, g)

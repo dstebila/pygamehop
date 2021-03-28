@@ -296,8 +296,12 @@ def canonicalize_argument_order(f: ast.FunctionDef) -> None:
     del body[-1]
     stmts_at_level: List[List[ast.AST]] = list()
     if not isinstance(final_stmt, ast.Return): return None
+    # if it returns a constant, then can remove all arguments
+    if isinstance(final_stmt.value, ast.Constant):
+        f.args.args = []
+        ast.fix_missing_locations(f)
+        return
     # get the return value
-    val = final_stmt.value
     if not isinstance(final_stmt.value, ast.Name): raise NotImplementedError("Cannot handle functions with return type " + str(type(final_stmt.value).__name__))
     active_vars = [final_stmt.value.id]
     # go through the statements starting from the end and accumulate the variables in order
