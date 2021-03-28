@@ -35,10 +35,10 @@ def expected_result(f):
 class TestCanonicalize(unittest.TestCase):
     def test_inline_function_order(self):
         f = gamehop.inline(f_inline_function_order, class_inline_function_order, 'v')
-        f = gamehop.verification.canonicalize_function(f)
-        g = gamehop.verification.canonicalize_function(expected_result(f_inline_function_order_expected_result))
-        self.assertEqual(f, g)
+        s1 = gamehop.verification.canonicalize_function(f)
+        s2 = gamehop.verification.canonicalize_function(expected_result(f_inline_function_order_expected_result))
+        self.assertEqual(s1, s2)
     def test_constant_return(self):
-        f = gamehop.verification.canonicalize_function(f_constant_return)
-        g = gamehop.verification.canonicalize_function(expected_result(f_constant_return_expected_result))
-        self.assertEqual(f, g)
+        s1 = gamehop.verification.canonicalize_function(f_constant_return)
+        s2 = gamehop.verification.canonicalize_function(expected_result(f_constant_return_expected_result))
+        self.assertEqual(s1, s2)
