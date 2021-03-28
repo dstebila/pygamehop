@@ -14,11 +14,10 @@ typecheck_library:
 	# $(MYPY) -p gamehop.primitives
 
 unittest_library:
-	env PYTHONPATH=. $(PYTEST) -v
+	env PYTHONPATH=. $(PYTEST) -v tests/gamehop
 
 test_examples:
-	env PYTHONPATH=. $(PYTHON) gamehop/app.py examples/KEMfromPKE
-	env PYTHONPATH=. $(PYTHON) gamehop/app.py examples/stupiddoublePKE
+	env PYTHONPATH=. $(PYTEST) -v tests/examples
 
 devtest:
 	env PYTHONPATH=. $(PYTEST) -v devtests/*
