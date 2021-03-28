@@ -1,3 +1,4 @@
+import gamehop.inlining
 import gamehop.verification
 
 # Some test cases for inlinining and canonicalization
@@ -44,7 +45,7 @@ def function3(w: int, b: int) -> int:
     u = w + 9
     return u + d
 
-f3 = gamehop.verification.inline_function(function3, addseven)
+f3 = gamehop.inlining.inline_function(function3, addseven)
 f3 = gamehop.verification.canonicalize_function(f3)
 assert f1 == f3
 
@@ -60,8 +61,8 @@ def function4(a: int, b: int, doer: Doer, seven: int) -> int:
  e = c + d
  return e
 
-f4 = gamehop.verification.inline_argument(function4, 'seven', 7)
-f4 = gamehop.verification.inline_argument(f4, 'doer', Doer)
+f4 = gamehop.inlining.inline_argument(function4, 'seven', 7)
+f4 = gamehop.inlining.inline_argument(f4, 'doer', Doer)
 f4 = gamehop.verification.canonicalize_function(f4)
 assert f1 == f4
 
