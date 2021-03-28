@@ -47,6 +47,17 @@ def f_inline_init_arg2(v: class_inline_init_arg2, x: class_inline_init_arg2_help
 def f_inline_init_arg2_target(x: class_inline_init_arg2_helper):
     return x.prop
 
+class class_inline_init_arg3_helper():
+    prop: 1
+class class_inline_init_arg3():
+    x: None
+def f_inline_init_arg3(v: class_inline_init_arg3, x: class_inline_init_arg3_helper):
+    v.x = x
+    return v.x.prop
+def f_inline_init_arg3_target(x: class_inline_init_arg3_helper):
+    return x.prop
+
+
 def expected_result(f):
     s = inspect.getsource(f)
     s = s.replace('_expected_result', '')
@@ -71,4 +82,9 @@ class TestCanonicalize(unittest.TestCase):
         test1 = gamehop.inlining.inline_class(f_inline_init_arg2, 'v', class_inline_init_arg2)
         s1 = gamehop.verification.canonicalize_function(test1)
         s2 = gamehop.verification.canonicalize_function(f_inline_init_arg2_target)
+        self.assertEqual(s1, s2)
+    def test_inline_init_arg3(self):
+        test1 = gamehop.inlining.inline_class(f_inline_init_arg3, 'v', class_inline_init_arg3)
+        s1 = gamehop.verification.canonicalize_function(test1)
+        s2 = gamehop.verification.canonicalize_function(f_inline_init_arg3_target)
         self.assertEqual(s1, s2)
