@@ -6,17 +6,15 @@ import gamehop.verification
 class g:
    x : 1
 
-def j(x):
-   return x
 def h(x):
-   y = (g.x)
-   z = (g.x)
+   y = g.x
+   z = g.x
    return y + z
 
 def f_target(x):
    v = g.x
-   y = (v)
-   z = (v)
+   y = v
+   z = v
    r = y + z
    return r
 
