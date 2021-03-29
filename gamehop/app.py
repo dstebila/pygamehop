@@ -27,15 +27,13 @@ if hasattr(proof, 'steps'):
         print("Invalid")
         sys.exit(1)
 else:
-    if not hassattr(proof, 'proofs'):
+    if not hasattr(proof, 'proofs'):
         print("Need steps or proofs variable to be defined.")
         sys.exit(1)
 
     r = True
-    for p in proof.proofs:
-        experiment = p[0]
-        steps = p[1]
-        r2, advantages = helpers.checkProof(steps, experiment, debugging)
+    for (experiment, steps) in proof.proofs:
+        r2, advantages = helpers.checkProof(experiment, steps, debugging)
         print(advantages)
         r = r and r2
 
