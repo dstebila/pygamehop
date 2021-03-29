@@ -11,3 +11,4 @@ def run_example(name):
 class TestProofs(unittest.TestCase):
     def test_KEMfromPKE(self): run_example("KEMfromPKE")
     def test_stupiddoublePKE(self): run_example("stupiddoublePKE")
+    def test_doublePKE(self): run_example("doublePKE")
