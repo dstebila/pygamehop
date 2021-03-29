@@ -1,4 +1,4 @@
-from typing import Tuple
+from typing import Tuple, Any
 import ast
 import sys
 import gamehop
@@ -7,61 +7,74 @@ import doublePKE
 from gamehop import gametests
 PKEScheme = PKE.PKEScheme
 PKEINDCPA_adversary = PKE.PKEINDCPA_adversary
+PublicKey = PKE.PublicKey
+SecretKey = PKE.SecretKey
+Message = PKE.Message
+Ciphertext = PKE.Ciphertext
 
-class R01(PKE.PKEINDCPA_adversary):
-    def __init__(self, adversary: PKE.PKEINDCPA_adversary, pke2: PKEScheme) -> None:
-        self.adversary = adversary      # this is the adversary for pke1
+
+# Challenger runs pke1, reduction runs pke2, adversary attacks DoublePKE(pke1, pke2)
+class R01_1(PKEINDCPA_adversary):
+    def __init__(self, adversary: PKEINDCPA_adversary, pke2: PKEScheme) -> None:
+        self.adversary = adversary      # this is the adversary for doublepke
         self.pke2 = pke2
-    
-    def setup(self, pke1: PKEScheme) -> None:        
+
+    def setup(self, pke1: PKEScheme) -> None:
         self.pke1 = pke1
-        dummy = self.adversary.setup(self.pke1)
+        dummy = self.adversary.setup(PKEScheme(self.pke1, self.pke2))
         return None
-        
+
     def challenge(self, pk: PKE.PublicKey) -> Tuple[PKE.Message, PKE.Message]:
         self.pk1 = pk
         (self.pk2, self.sk2)  = self.pke2.KeyGen()
         pk_double = (self.pk1, self.pk2)
-        (self.m0, self.m1) = self.adversary.challenge(pk_double)
+        (m0, m1) = self.adversary.challenge(pk_double)
+        return (m0, m1)
 
-        return (self.m0, self.m1)
+    def guess(self, ct: PKE.Ciphertext) -> Crypto.Bit:
+        ct2 = self.pke2.Encrypt(self.pk2, ct)
+        return self.adversary.guess(ct2)
 
-    def guess(self, ct1: PKE.Ciphertext) -> Crypto.Bit:
-        ct2 = self.pke2.Encrypt(self.pk2, self.m0)
-        ct = (ct1, ct2)
+
+# Challenger runs pke2, reduction runs pke1, adversary attacks DoublePKE(pke1, pke2)
+class R01_2(PKEINDCPA_adversary):
+    def __init__(self, adversary: PKEINDCPA_adversary, pke1: PKEScheme) -> None:
+        self.adversary = adversary      # this is the adversary for doublepke
+        self.pke1 = pke1
+
+    def setup(self, pke2: PKEScheme) -> None:
+        self.pke2 = pke2
+        dummy = self.adversary.setup(PKEScheme(self.pke1, self.pke2))
+        return None
+
+    def challenge(self, pk: PKE.PublicKey) -> Tuple[PKE.Message, PKE.Message]:
+        self.pk2 = pk
+        (self.pk1, self.sk1)  = self.pke1.KeyGen()
+        pk_double = (self.pk1, self.pk2)
+        (m0, m1) = self.adversary.challenge(pk_double)
+        i0 = self.pke1.Encrypt(self.pk1, m0)
+        i1 = self.pke1.Encrypt(self.pk1, m1)
+        return (i0, i1)
+
+    def guess(self, ct: PKE.Ciphertext) -> Crypto.Bit:
         return self.adversary.guess(ct)
 
 
-
-experiment = PKE.INDCPA
-steps = [
-    (PKE.INDCPA0, 'pke', doublePKE.Scheme),  # game 0 for the experiment we care about.  Reduction produces pt = Decrypt(Encrypt(m))
-    (PKE.CORRECT1, 'adversary', R01),        # equal to correctness game1 after reducing
-
-    (gametests.advantage, (PKE.CORRECT, None)),    # check the game advantage
-
-    #(PKE.CORRECT0, 'adversary', R12),        # use m directly instead of pt
-
-#    (PKE.INDCPA0, 'adversary', R23),         # now equals game 0 for the experiment we really want to reduce to
-
- #   (gametsets.advantage, (PKE.INDCPA, None)),    # check the game advantage
-
-  #  (PKE.INDCPA1, 'adversary', R23),         # game 1 for the experiment that we want to reduce to
-
-      # reverse steps back to outer game 1
+proofs = [
+    (PKE.INDCPA,
+    [
+        (PKE.INDCPA0, 'pke', doublePKE.Scheme),  # game 0 for the experiment we care about.  Reduction produces pt = Decrypt(Encrypt(m))
+        (PKE.INDCPA0, 'adversary', R01_2),               # reduction to INDCPA for pke2.
+        (gametests.advantage, (PKE.INDCPA, 'pke2')),
+        (PKE.INDCPA1, 'adversary', R01_2),
+        (PKE.INDCPA1, 'pke', doublePKE.Scheme)
+    ]),
+    (PKE.INDCPA,
+    [
+        (PKE.INDCPA0, 'pke', doublePKE.Scheme),  # game 0 for the experiment we care about.  Reduction produces pt = Decrypt(Encrypt(m))
+        (PKE.INDCPA0, 'adversary', R01_1),               # reduction to INDCPA for pke2.
+        (gametests.advantage, (PKE.INDCPA, 'pke1')),
+        (PKE.INDCPA1, 'adversary', R01_1),
+        (PKE.INDCPA1, 'pke', doublePKE.Scheme)
+    ])
 ]
-
-
-# experiment = PKE.INDCPA
-# steps = [
-    # (PKE.INDCPA0, 'pke', doublePKE.Scheme),  
-    # (PKE.INDCPA0, 'adversary', R01),
-    
-    # (PKE.INDCPA0, 'adversary', R01),
-    # (PKE.INDCPA1, 'pke', doublePKE.Scheme), 
-# ]
-
-
-# Advantage is MIN(adv(PKE1), adv(PKE2))
-# two separate proofs, each showing an upper bound on the advantage
-# Replace one PKE with a random function
