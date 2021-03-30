@@ -34,3 +34,5 @@ class R01(PKE.PKEINDCPA_adversary):
 proof.addDistinguishingProofStep(PKE.INDCPA, PKE.PKEScheme, R01)
 
 assert proof.check(print_hops=False, print_canonicalizations=False)
+print()
+print(proof.advantage_bound())

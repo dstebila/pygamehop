@@ -60,3 +60,5 @@ class R12(PKEINDCPA_adversary):
 proof.addDistinguishingProofStep(PKE.INDCPA, PKEScheme, R12)
 
 assert proof.check(print_hops=False, print_canonicalizations=False)
+print()
+print(proof.advantage_bound())

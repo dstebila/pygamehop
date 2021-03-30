@@ -95,3 +95,14 @@ class Proof():
             else: print("✅ canoncalizations of ({:s}) and ({:s}) are equal".format(previousGameDescription, endGameDescription))
             return True
         else: raise TypeError("Unsupported experiment type for proof checker: {:s}.".format(str(type(self.experiment).__name__)))
+
+    def advantage_bound(self):
+        lines = []
+        lines.append("Advantage of {:s} in experiment {:s} of scheme {:s}".format(fqn(self.adversary), fqn(self.experiment), fqn(self.scheme)))
+        lines.append("≤")
+        for stepNum, step in enumerate(self.proofSteps):
+            if step['type'] == 'distinguishingProofStep':
+                lines.append("Advantage of {:s} in distinguishing experiment {:s} of scheme {:s}".format(fqn(step['reduction']), fqn(step['experiment']), "TODO"))
+            else: raise TypeError("Unsupported experiment type for proof checker: {:s}.".format(str(type(self.experiment).__name__)))
+            if stepNum < len(self.proofSteps) - 1: lines.append("+")
+        return "\n".join(lines)

@@ -35,6 +35,8 @@ class R1(PKEINDCPA_adversary):
 proof1.addDistinguishingProofStep(PKE.INDCPA, PKEScheme, R1)
 
 assert proof1.check(print_hops=False, print_canonicalizations=False)
+print()
+print(proof1.advantage_bound())
 
 
 # term we're trying to bound, first in terms of PKE1 security
@@ -65,3 +67,5 @@ class R2(PKEINDCPA_adversary):
 proof2.addDistinguishingProofStep(PKE.INDCPA, PKEScheme, R2)
 
 assert proof2.check(print_hops=False, print_canonicalizations=False)
+print()
+print(proof2.advantage_bound())
