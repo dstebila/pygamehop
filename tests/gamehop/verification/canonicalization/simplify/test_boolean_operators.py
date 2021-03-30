@@ -29,6 +29,14 @@ def f_manyF(y):
     a = (False or (True and True)) and (True or (False and False)) and (False or (True and False))
 def f_manyF_expected_result(y):
     a = False
+def f_manyT_with_nonconst(y):
+    a = True and (True or False) and (False or False or True or y)
+def f_manyT_with_nonconst_expected_result(y):
+    a = True
+def f_manyF_with_nonconst(y):
+    a = (False or (True and True and y)) and (True or (False and False)) and (False or (True and False))
+def f_manyF_with_nonconst_expected_result(y):
+    a = False
 
 
 def expected_result(f):
@@ -78,4 +86,18 @@ class TestSimplifyBooleanOperators(unittest.TestCase):
         self.assertEqual(
             ast.unparse(f),
             expected_result(f_manyF_expected_result)
+        )
+    def test_manyT_with_nonconst(self):
+        f = gamehop.inlining.internal.get_function_def(f_manyT_with_nonconst)
+        f = simplify.boolean_operators(f)
+        self.assertEqual(
+            ast.unparse(f),
+            expected_result(f_manyT_with_nonconst_expected_result)
+        )
+    def test_manyF_with_nonconst(self):
+        f = gamehop.inlining.internal.get_function_def(f_manyF_with_nonconst)
+        f = simplify.boolean_operators(f)
+        self.assertEqual(
+            ast.unparse(f),
+            expected_result(f_manyF_with_nonconst_expected_result)
         )
