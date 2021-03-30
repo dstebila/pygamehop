@@ -13,7 +13,7 @@ def f_second(x, y):
     z = x if 0 == 1 else y
     return z
 def f_second_target(x, y):
-    return x
+    return y
 
 
 class TestCollapseIfExpr(unittest.TestCase):
