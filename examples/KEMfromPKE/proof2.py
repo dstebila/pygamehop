@@ -1,8 +1,5 @@
-import ast
-import sys
 from typing import Tuple
 
-import gamehop
 from gamehop.primitives import Crypto, KEM, PKE
 from gamehop.proofs import Proof
 
