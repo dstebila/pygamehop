@@ -4,11 +4,11 @@ import unittest
 
 def run_example(name):
     subprocess.run(
-        [sys.executable, "gamehop/app.py", "examples/" + name],
+        [sys.executable, "examples/" + name + "/proof2.py"],
         check=True
     )
 
 class TestProofs(unittest.TestCase):
     def test_KEMfromPKE(self): run_example("KEMfromPKE")
-    def test_stupiddoublePKE(self): run_example("stupiddoublePKE")
-    def test_doublePKE(self): run_example("doublePKE")
+    # def test_stupiddoublePKE(self): run_example("stupiddoublePKE")
+    # def test_doublePKE(self): run_example("doublePKE")
