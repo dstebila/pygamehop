@@ -7,7 +7,15 @@ from typing import Any, Callable, List, Set, Union
 def get_function_def(f: Union[Callable, str, ast.FunctionDef]) -> ast.FunctionDef:
     """Gets the ast.FunctionDef for a function that is given as a function or as a string."""
     # parse the function
-    if isinstance(f, types.FunctionType): t = ast.parse(inspect.getsource(f))
+    if isinstance(f, types.FunctionType): 
+        src = inspect.getsource(f)
+        indentation = src.find('def')
+        if indentation > 0:
+            newsrc = []
+            for line in src.splitlines():
+                newsrc.append(line[indentation:])
+            src = "\n".join(newsrc)
+        t = ast.parse(src)
     elif isinstance(f, str): t = ast.parse(f)
     elif isinstance(f, ast.FunctionDef): return f
     else: raise TypeError("Cannot handle functions provided as {:s}".format(type(f).__name__))
