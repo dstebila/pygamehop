@@ -33,25 +33,29 @@ def canonicalize_function(f: Union[Callable, str]) -> str:
     # make sure it is a single function
     functionDef = t.body[0]
     assert isinstance(functionDef, ast.FunctionDef)
-    expand.call_arguments(functionDef)
-    debug_helper(functionDef, "expand.call_arguments")
-    expand.variable_reassign(functionDef)
-    debug_helper(functionDef, "expand.variable_reassign")
-    # canonicalize return statement
-    canonicalization.canonicalize_return(functionDef)
-    debug_helper(functionDef, "canonicalization.canonicalize_return")
-    # canonicalize function name
-    canonicalization.canonicalize_function_name(functionDef)
-    debug_helper(functionDef, "canonicalization.canonicalize_function_name")
-    canonicalization.collapse_useless_assigns(functionDef)
-    debug_helper(functionDef, "canonicalization.collapse_useless_assigns")
-    canonicalization.simplify.simplify(functionDef)
-    debug_helper(functionDef, "canonicalization.simplify.simplify")
-    canonicalization.canonicalize_line_order(functionDef)
-    debug_helper(functionDef, "canonicalization.canonicalize_line_order")
-    canonicalization.canonicalize_argument_order(functionDef)
-    debug_helper(functionDef, "canonicalization.canonicalize_argument_order")
-    canonicalization.canonicalize_variable_names(functionDef)
-    debug_helper(functionDef, "canonicalization.canonicalize_variable_names")
-    newstring = ast.unparse(ast.fix_missing_locations(t))
-    return newstring
+    str_previous = ""
+    str_current = ast.unparse(ast.fix_missing_locations(t))
+    while str_previous != str_current:
+        str_previous = str_current
+        expand.call_arguments(functionDef)
+        debug_helper(functionDef, "expand.call_arguments")
+        expand.variable_reassign(functionDef)
+        debug_helper(functionDef, "expand.variable_reassign")
+        # canonicalize return statement
+        canonicalization.canonicalize_return(functionDef)
+        debug_helper(functionDef, "canonicalization.canonicalize_return")
+        # canonicalize function name
+        canonicalization.canonicalize_function_name(functionDef)
+        debug_helper(functionDef, "canonicalization.canonicalize_function_name")
+        canonicalization.collapse_useless_assigns(functionDef)
+        debug_helper(functionDef, "canonicalization.collapse_useless_assigns")
+        canonicalization.simplify.simplify(functionDef)
+        debug_helper(functionDef, "canonicalization.simplify.simplify")
+        canonicalization.canonicalize_line_order(functionDef)
+        debug_helper(functionDef, "canonicalization.canonicalize_line_order")
+        canonicalization.canonicalize_argument_order(functionDef)
+        debug_helper(functionDef, "canonicalization.canonicalize_argument_order")
+        canonicalization.canonicalize_variable_names(functionDef)
+        debug_helper(functionDef, "canonicalization.canonicalize_variable_names")
+        str_current = ast.unparse(ast.fix_missing_locations(t))
+    return str_current
