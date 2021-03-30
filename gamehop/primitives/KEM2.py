@@ -1,6 +1,7 @@
 from typing import Tuple, Union, TypeVar, Generic, Set
 
 from . import Crypto
+from .. import proofs
 
 PublicKey = TypeVar('PublicKey')
 SecretKey = TypeVar('SecretKey')
@@ -18,12 +19,13 @@ class KEMINDCPA_adversary(Generic[PublicKey, SecretKey, Ciphertext, SharedSecret
     def setup(self, kem: KEMScheme): pass
     def guess(self, pk: PublicKey, ct: Ciphertext, ss: SharedSecret) -> Crypto.Bit: pass
 
-def INDCPA_b(kem: KEMScheme, adversary: KEMINDCPA_adversary, b: Crypto.Bit) -> Crypto.Bit:
-    dummy = adversary.setup(kem)
-    (pk, sk) = kem.KeyGen()
-    (ct, ss_real) = kem.Encaps(pk)
-    ss_rand = Crypto.UniformlySample(kem.SharedSecretSet)
-    ss_challenge = ss_real if b == 0 else ss_rand
-    # alternatively:
-    # ss_challenge = (1 - b) * ss_real + (b * ss_rand)
-    return adversary.guess(pk, ct, ss_challenge)
+class INDCPA(proofs.GuessingExperiment):
+    def main(self, kem: KEMScheme, adversary: KEMINDCPA_adversary, b: Crypto.Bit) -> Crypto.Bit:
+        dummy = adversary.setup(kem)
+        (pk, sk) = kem.KeyGen()
+        (ct, ss_real) = kem.Encaps(pk)
+        ss_rand = Crypto.UniformlySample(kem.SharedSecretSet)
+        ss_challenge = ss_real if b == 0 else ss_rand
+        # alternatively:
+        # ss_challenge = (1 - b) * ss_real + (b * ss_rand)
+        return adversary.guess(pk, ct, ss_challenge)
