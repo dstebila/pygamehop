@@ -22,17 +22,17 @@ class PKEINDCPA_adversary(Generic[Ciphertext, PublicKey, SecretKey, Message], Cr
     def guess(self, ct: Ciphertext) -> Crypto.Bit: pass
 
 class INDCPA(proofs.DistinguishingExperiment):
-    def main0(self, pke: PKEScheme, adversary: PKEINDCPA_adversary) -> Crypto.Bit:
-        dummy = adversary.setup(pke)
-        (pk, sk) = pke.KeyGen()
+    def main0(self, scheme: PKEScheme, adversary: PKEINDCPA_adversary) -> Crypto.Bit:
+        dummy = adversary.setup(scheme)
+        (pk, sk) = scheme.KeyGen()
         (m0, m1) = adversary.challenge(pk)
-        ct = pke.Encrypt(pk, m0)
+        ct = scheme.Encrypt(pk, m0)
         r = adversary.guess(ct)
         return r
-    def main1(self, pke: PKEScheme, adversary: PKEINDCPA_adversary) -> Crypto.Bit:
-        dummy = adversary.setup(pke)
-        (pk, sk) = pke.KeyGen()
+    def main1(self, scheme: PKEScheme, adversary: PKEINDCPA_adversary) -> Crypto.Bit:
+        dummy = adversary.setup(scheme)
+        (pk, sk) = scheme.KeyGen()
         (m0, m1) = adversary.challenge(pk)
-        ct = pke.Encrypt(pk, m1)
+        ct = scheme.Encrypt(pk, m1)
         r = adversary.guess(ct)
         return r
