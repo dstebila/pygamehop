@@ -29,7 +29,7 @@ def parseArgs(argv):
     return dirname
 
 def isGameTest(val):
-    if not callable(val): return false
+    if not callable(val): return False
     return val.__name__ in dir(gametests)
 
 
