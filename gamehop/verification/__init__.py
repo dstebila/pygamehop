@@ -10,6 +10,7 @@ from types import FunctionType
 from . import canonicalization
 from ..inlining import internal
 from .canonicalization import expand
+from .canonicalization import simplify
 
 def debug_helper(functionDef, label):
     if False: # change this to True to print some debugging info
@@ -44,6 +45,8 @@ def canonicalize_function(f: Union[Callable, str]) -> str:
     debug_helper(functionDef, "canonicalization.canonicalize_function_name")
     canonicalization.collapse_useless_assigns(functionDef)
     debug_helper(functionDef, "canonicalization.collapse_useless_assigns")
+    canonicalization.simplify.simplify(functionDef)
+    debug_helper(functionDef, "canonicalization.simplify.simplify")
     canonicalization.canonicalize_line_order(functionDef)
     debug_helper(functionDef, "canonicalization.canonicalize_line_order")
     canonicalization.canonicalize_argument_order(functionDef)

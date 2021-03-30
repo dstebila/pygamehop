@@ -1,19 +1,29 @@
 import ast
 import copy
 
-def simplify(o: ast.AST) -> ast.AST:
+def simplify(f: ast.FunctionDef) -> None:
+    """Modify (in place) the given function definition so that all expressions
+    involving constants are simplified."""
+    # go through each statement in the body
+    newbody = list()
+    for stmt in f.body:
+        newbody.append(simplify_internal(stmt))
+    f.body = newbody
+    ast.fix_missing_locations(f)
+
+def simplify_internal(o: ast.stmt) -> ast.stmt:
     o = unary_operators(o)
     o = boolean_operators(o)
     o = binary_operators(o)
     return o
 
-def unary_operators(o: ast.AST) -> ast.AST:
+def unary_operators(o: ast.stmt) -> ast.stmt:
     """Modify the given AST object so that all unary operators
     applied to constants are simplified."""
     class UnarySimplifier(ast.NodeTransformer):
         def visit_UnaryOp(self, node):
             # recurse if the operand is not a constant
-            if not(isinstance(node.operand, ast.Constant)): node.operand = simplify(node.operand)
+            if not(isinstance(node.operand, ast.Constant)): node.operand = simplify_internal(node.operand)
             # if operand still not a constant, nothing we can do
             if not(isinstance(node.operand, ast.Constant)): return node
             # do replacements based on operator type
@@ -26,7 +36,7 @@ def unary_operators(o: ast.AST) -> ast.AST:
     ast.fix_missing_locations(o)
     return o
 
-def boolean_operators(o: ast.AST) -> ast.AST:
+def boolean_operators(o: ast.stmt) -> ast.stmt:
     """Modify the given AST object so that all boolean operations
     applied to constants are simplified."""
     class BoolOpSimplifier(ast.NodeTransformer):
@@ -34,7 +44,7 @@ def boolean_operators(o: ast.AST) -> ast.AST:
             # recurse on all the operands if they are not constant
             for i in range(len(node.values)):
                 if not(isinstance(node.values[i], ast.Constant)):
-                    node.values[i] = simplify(node.values[i])
+                    node.values[i] = simplify_internal(node.values[i])
             # for and's, we can simplify if any node is False
             if isinstance(node.op, ast.And):
                 for v in node.values:
@@ -59,14 +69,14 @@ def boolean_operators(o: ast.AST) -> ast.AST:
     ast.fix_missing_locations(o)
     return o
 
-def binary_operators(o: ast.AST) -> ast.AST:
+def binary_operators(o: ast.stmt) -> ast.stmt:
     """Modify the given AST object so that all binary operations
     applied to constants are simplified."""
     class BinOpSimplifier(ast.NodeTransformer):
         def visit_BinOp(self, node):
             # recurse if the operands are not constant
-            if not(isinstance(node.left, ast.Constant)): node.left = simplify(node.left)
-            if not(isinstance(node.right, ast.Constant)): node.right = simplify(node.right)
+            if not(isinstance(node.left, ast.Constant)): node.left = simplify_internal(node.left)
+            if not(isinstance(node.right, ast.Constant)): node.right = simplify_internal(node.right)
             # simplify addition of constants or addition with 0
             if isinstance(node.op, ast.Add):
                 if isinstance(node.left, ast.Constant) and isinstance(node.right, ast.Constant): return ast.Constant(node.left.value + node.right.value)
