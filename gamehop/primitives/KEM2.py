@@ -24,4 +24,6 @@ def INDCPA_b(kem: KEMScheme, adversary: KEMINDCPA_adversary, b: Crypto.Bit) -> C
     (ct, ss_real) = kem.Encaps(pk)
     ss_rand = Crypto.UniformlySample(kem.SharedSecretSet)
     ss_challenge = ss_real if b == 0 else ss_rand
+    # alternatively:
+    # ss_challenge = (1 - b) * ss_real + (b * ss_rand)
     return adversary.guess(pk, ct, ss_challenge)
