@@ -102,16 +102,48 @@ def binary_operators(o: ast.stmt) -> ast.stmt:
                 elif isinstance(node.left, ast.Constant) and node.left.value == 0: return ast.Constant(0)
                 elif isinstance(node.right, ast.Constant) and node.right.value == 1: return node.left
                 elif isinstance(node.right, ast.Constant) and node.right.value == -1: return ast.UnaryOp(ast.USub(), node.left)
-            if not(isinstance(node.left, ast.Constant)): return node
-            if not(isinstance(node.right, ast.Constant)): return node
-            if isinstance(node.op, ast.FloorDiv): return ast.Constant(node.left.value // node.right.value)
-            if isinstance(node.op, ast.Mod): return ast.Constant(node.left.value % node.right.value)
-            if isinstance(node.op, ast.Pow): return ast.Constant(node.left.value ** node.right.value)
-            if isinstance(node.op, ast.LShift): return ast.Constant(node.left.value << node.right.value)
-            if isinstance(node.op, ast.RShift): return ast.Constant(node.left.value >> node.right.value)
-            if isinstance(node.op, ast.BitOr): return ast.Constant(node.left.value | node.right.value)
-            if isinstance(node.op, ast.BitXor): return ast.Constant(node.left.value ^ node.right.value)
-            if isinstance(node.op, ast.BitAnd): return ast.Constant(node.left.value & node.right.value)
+            # simplify integer division of constants or integer division of the form 0/x, x/1, x/-1
+            if isinstance(node.op, ast.FloorDiv):
+                if isinstance(node.left, ast.Constant) and isinstance(node.right, ast.Constant): return ast.Constant(node.left.value // node.right.value)
+                elif isinstance(node.left, ast.Constant) and node.left.value == 0: return ast.Constant(0)
+                elif isinstance(node.right, ast.Constant) and node.right.value == 1: return node.left
+                elif isinstance(node.right, ast.Constant) and node.right.value == -1: return ast.UnaryOp(ast.USub(), node.left)
+            # simplify mod of constants or mod of the form 0 % x, x % 1
+            if isinstance(node.op, ast.Mod):
+                if isinstance(node.left, ast.Constant) and isinstance(node.right, ast.Constant): return ast.Constant(node.left.value % node.right.value)
+                elif isinstance(node.left, ast.Constant) and node.left.value == 0: return ast.Constant(0)
+                elif isinstance(node.right, ast.Constant) and node.right.value == 1: return ast.Constant(0)
+            # simplify exponentiation of constants or exponentiations of the form x ** 0, x ** 1, 1 ** x
+            if isinstance(node.op, ast.Pow):
+                if isinstance(node.left, ast.Constant) and isinstance(node.right, ast.Constant): return ast.Constant(node.left.value ** node.right.value)
+                elif isinstance(node.right, ast.Constant) and node.right.value == 0: return ast.Constant(1)
+                elif isinstance(node.right, ast.Constant) and node.right.value == 1: return node.left
+                elif isinstance(node.left, ast.Constant) and node.left.value == 1: return ast.Constant(1)
+            # simplify shifts of constants or shifts of the form x << 0, 0 << y
+            if isinstance(node.op, ast.LShift):
+                if isinstance(node.left, ast.Constant) and isinstance(node.right, ast.Constant): return ast.Constant(node.left.value << node.right.value)
+                elif isinstance(node.right, ast.Constant) and node.right.value == 0: return node.left
+                elif isinstance(node.left, ast.Constant) and node.left.value == 0: return ast.Constant(0)
+            # simplify shifts of constants or shifts of the form x >> 0, 0 >> y
+            if isinstance(node.op, ast.RShift):
+                if isinstance(node.left, ast.Constant) and isinstance(node.right, ast.Constant): return ast.Constant(node.left.value >> node.right.value)
+                elif isinstance(node.right, ast.Constant) and node.right.value == 0: return node.left
+                elif isinstance(node.left, ast.Constant) and node.left.value == 0: return ast.Constant(0)
+            # simplify bitwise OR of constants or ORs of the form x | 0, 0 | x
+            if isinstance(node.op, ast.BitOr):
+                if isinstance(node.left, ast.Constant) and isinstance(node.right, ast.Constant): return ast.Constant(node.left.value | node.right.value)
+                elif isinstance(node.right, ast.Constant) and node.right.value == 0: return node.left
+                elif isinstance(node.left, ast.Constant) and node.left.value == 0: return node.right
+            # simplify bitwise XOR of constants or XORs of the form x ^ 0, 0 ^ x
+            if isinstance(node.op, ast.BitXor):
+                if isinstance(node.left, ast.Constant) and isinstance(node.right, ast.Constant): return ast.Constant(node.left.value ^ node.right.value)
+                elif isinstance(node.right, ast.Constant) and node.right.value == 0: return node.left
+                elif isinstance(node.left, ast.Constant) and node.left.value == 0: return node.right
+            # simplify bitwise AND of constants or ANDs of the form x & 0, 0 & x
+            if isinstance(node.op, ast.BitAnd):
+                if isinstance(node.left, ast.Constant) and isinstance(node.right, ast.Constant): return ast.Constant(node.left.value & node.right.value)
+                elif isinstance(node.right, ast.Constant) and node.right.value == 0: return ast.Constant(0)
+                elif isinstance(node.left, ast.Constant) and node.left.value == 0: return ast.Constant(0)
             return node
     o = BinOpSimplifier().visit(o)
     ast.fix_missing_locations(o)
