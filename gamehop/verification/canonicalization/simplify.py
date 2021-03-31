@@ -16,6 +16,7 @@ def simplify_internal(o: ast.stmt) -> ast.stmt:
     o = boolean_operators(o)
     o = binary_operators(o)
     o = compare_operators(o)
+    o = ifexp(o)
     return o
 
 def unary_operators(o: ast.stmt) -> ast.stmt:
@@ -151,7 +152,7 @@ def binary_operators(o: ast.stmt) -> ast.stmt:
     return o
 
 def compare_operators(o: ast.stmt) -> ast.stmt:
-    """Modify the given AST object so that all binary operations
+    """Modify the given AST object so that all compare operations
     applied to constants are simplified."""
     class CompareSimplifier(ast.NodeTransformer):
         def visit_Compare(self, node):
@@ -185,5 +186,22 @@ def compare_operators(o: ast.stmt) -> ast.stmt:
                 else: raise ValueError("Unsupported comparator: {:s}".format(str(type(op))))
             return ast.Constant(truthValue)
     o = CompareSimplifier().visit(o)
+    ast.fix_missing_locations(o)
+    return o
+
+def ifexp(o: ast.stmt) -> ast.stmt:
+    """Modify the given AST object so that all if expressions
+    with constant test are simplified."""
+    class IfExpSimplifier(ast.NodeTransformer):
+        def visit_IfExp(self, node):
+            # recursively simplify the bodies
+            node.body = simplify_internal(node.body)
+            node.orelse = simplify_internal(node.orelse)
+            # recurse if the test is not constant
+            if not(isinstance(node.test, ast.Constant)): node.test = simplify_internal(node.test)
+            # can't do anything if it's not constant by now
+            if not(isinstance(node.test, ast.Constant)): return node
+            return node.body if node.test.value else node.orelse
+    o = IfExpSimplifier().visit(o)
     ast.fix_missing_locations(o)
     return o
