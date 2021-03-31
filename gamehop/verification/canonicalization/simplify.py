@@ -15,6 +15,7 @@ def simplify_internal(o: ast.stmt) -> ast.stmt:
     o = unary_operators(o)
     o = boolean_operators(o)
     o = binary_operators(o)
+    o = compare_operators(o)
     return o
 
 def unary_operators(o: ast.stmt) -> ast.stmt:
@@ -146,5 +147,43 @@ def binary_operators(o: ast.stmt) -> ast.stmt:
                 elif isinstance(node.left, ast.Constant) and node.left.value == 0: return ast.Constant(0)
             return node
     o = BinOpSimplifier().visit(o)
+    ast.fix_missing_locations(o)
+    return o
+
+def compare_operators(o: ast.stmt) -> ast.stmt:
+    """Modify the given AST object so that all binary operations
+    applied to constants are simplified."""
+    class CompareSimplifier(ast.NodeTransformer):
+        def visit_Compare(self, node):
+            # recurse if the operands are not constant
+            if not(isinstance(node.left, ast.Constant)): node.left = simplify_internal(node.left)
+            for i in range(len(node.comparators)):
+                if not(isinstance(node.comparators[i], ast.Constant)): node.comparators[i] = simplify_internal(node.comparators[i])
+            # can't do anything if they're not constants by now
+            if not(isinstance(node.left, ast.Constant)): return node
+            for i in range(len(node.comparators)):
+                if not(isinstance(node.comparators[i], ast.Constant)): return node
+            # compute the actual value
+            truthValue = True
+            values = []
+            values.append(node.left.value)
+            for c in node.comparators:
+                values.append(c.value)
+            for i, op in enumerate(node.ops):
+                a = values[i]
+                b = values[i+1]
+                if isinstance(op, ast.Eq): truthValue = truthValue and (a == b)
+                elif isinstance(op, ast.NotEq): truthValue = truthValue and (a != b)
+                elif isinstance(op, ast.Lt): truthValue = truthValue and (a < b)
+                elif isinstance(op, ast.LtE): truthValue = truthValue and (a <= b)
+                elif isinstance(op, ast.Gt): truthValue = truthValue and (a > b)
+                elif isinstance(op, ast.GtE): truthValue = truthValue and (a >= b)
+                elif isinstance(op, ast.Is): truthValue = truthValue and (a is b)
+                elif isinstance(op, ast.IsNot): truthValue = truthValue and (a is not  b)
+                elif isinstance(op, ast.In): truthValue = truthValue and (a in b)
+                elif isinstance(op, ast.NotIn): truthValue = truthValue and (a not in b)
+                else: raise ValueError("Unsupported comparator: {:s}".format(str(type(op))))
+            return ast.Constant(truthValue)
+    o = CompareSimplifier().visit(o)
     ast.fix_missing_locations(o)
     return o
