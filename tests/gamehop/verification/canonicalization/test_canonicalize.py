@@ -15,16 +15,16 @@ def f_inline_function_order(v: class_inline_function_order):
     y = v.f()
     return y + 2 * x
 def f_inline_function_order_expected_result():
-    y = f_inline_function_order_helper(1)
-    x = f_inline_function_order_helper(1)
-    return y + 2 * x
+    v0 = f_inline_function_order_helper(1)
+    v1 = f_inline_function_order_helper(1)
+    v2 = v0 + 2 * v1
+    return v2
 
 def f_constant_return(a, b, c):
     d = a + b
     return 1
 def f_constant_return_expected_result():
-    r = 1
-    return r
+    return 1
 
 class class_inline_init_arg_helper():
     prop: 1
@@ -33,8 +33,9 @@ class class_inline_init_arg():
         self.x = x
 def f_inline_init_arg(v: class_inline_init_arg, x: class_inline_init_arg_helper):
     return v.x.prop
-def f_inline_init_arg_target(x: class_inline_init_arg_helper):
-    return x.prop
+def f_inline_init_arg_expected_result(v0: class_inline_init_arg_helper):
+    v1 = v0.prop
+    return v1
     
 class class_inline_init_arg2_helper():
     prop: 1
@@ -44,8 +45,9 @@ class class_inline_init_arg2():
 def f_inline_init_arg2(v: class_inline_init_arg2, x: class_inline_init_arg2_helper):
     v.setCommonClass(x)
     return v.x.prop
-def f_inline_init_arg2_target(x: class_inline_init_arg2_helper):
-    return x.prop
+def f_inline_init_arg2_expected_result(v0: class_inline_init_arg2_helper):
+    v1 = v0.prop
+    return v1
 
 class class_inline_init_arg3_helper():
     prop: 1
@@ -54,8 +56,9 @@ class class_inline_init_arg3():
 def f_inline_init_arg3(v: class_inline_init_arg3, x: class_inline_init_arg3_helper):
     v.x = x
     return v.x.prop
-def f_inline_init_arg3_target(x: class_inline_init_arg3_helper):
-    return x.prop
+def f_inline_init_arg3_expected_result(v0: class_inline_init_arg3_helper):
+    v1 = v0.prop
+    return v1
 
 
 def expected_result(f):
@@ -67,24 +70,34 @@ class TestCanonicalize(unittest.TestCase):
     def test_inline_function_order(self):
         f = gamehop.inline(f_inline_function_order, class_inline_function_order, 'v')
         s1 = gamehop.verification.canonicalize_function(f)
-        s2 = gamehop.verification.canonicalize_function(expected_result(f_inline_function_order_expected_result))
+        f2 = gamehop.inlining.internal.get_function_def(f_inline_function_order_expected_result)
+        gamehop.verification.canonicalization.canonicalize_function_name(f2)
+        s2 = ast.unparse(f2)
         self.assertEqual(s1, s2)
     def test_constant_return(self):
         s1 = gamehop.verification.canonicalize_function(f_constant_return)
-        s2 = gamehop.verification.canonicalize_function(expected_result(f_constant_return_expected_result))
+        f2 = gamehop.inlining.internal.get_function_def(f_constant_return_expected_result)
+        gamehop.verification.canonicalization.canonicalize_function_name(f2)
+        s2 = ast.unparse(f2)
         self.assertEqual(s1, s2)
     def test_inline_init_arg(self):
         test1 = gamehop.inlining.inline_class(f_inline_init_arg, 'v', class_inline_init_arg)
         s1 = gamehop.verification.canonicalize_function(test1)
-        s2 = gamehop.verification.canonicalize_function(f_inline_init_arg_target)
+        f2 = gamehop.inlining.internal.get_function_def(f_inline_init_arg_expected_result)
+        gamehop.verification.canonicalization.canonicalize_function_name(f2)
+        s2 = ast.unparse(f2)
         self.assertEqual(s1, s2)
     def test_inline_init_arg2(self):
         test1 = gamehop.inlining.inline_class(f_inline_init_arg2, 'v', class_inline_init_arg2)
         s1 = gamehop.verification.canonicalize_function(test1)
-        s2 = gamehop.verification.canonicalize_function(f_inline_init_arg2_target)
+        f2 = gamehop.inlining.internal.get_function_def(f_inline_init_arg2_expected_result)
+        gamehop.verification.canonicalization.canonicalize_function_name(f2)
+        s2 = ast.unparse(f2)
         self.assertEqual(s1, s2)
     def test_inline_init_arg3(self):
         test1 = gamehop.inlining.inline_class(f_inline_init_arg3, 'v', class_inline_init_arg3)
         s1 = gamehop.verification.canonicalize_function(test1)
-        s2 = gamehop.verification.canonicalize_function(f_inline_init_arg3_target)
+        f2 = gamehop.inlining.internal.get_function_def(f_inline_init_arg3_expected_result)
+        gamehop.verification.canonicalization.canonicalize_function_name(f2)
+        s2 = ast.unparse(f2)
         self.assertEqual(s1, s2)
