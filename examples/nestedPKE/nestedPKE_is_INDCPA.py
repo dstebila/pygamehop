@@ -3,13 +3,13 @@ from typing import Tuple, Any
 from gamehop.primitives import Crypto, PKE
 from gamehop.proofs import Proof
 
-import doublePKE
+import nestedPKE
 
 PKEScheme = PKE.PKEScheme
 PKEINDCPA_adversary = PKE.PKEINDCPA_adversary
 
 # term we're trying to bound, first in terms of PKE1 security
-proof1 = Proof(PKE.INDCPA, doublePKE.Scheme, PKEINDCPA_adversary)
+proof1 = Proof(PKE.INDCPA, nestedPKE.Scheme, PKEINDCPA_adversary)
 
 # game hop:
 # encrypt m1 rather than m0; simulate PKE2's encryption
@@ -40,7 +40,7 @@ print(proof1.advantage_bound())
 
 
 # term we're trying to bound, first in terms of PKE1 security
-proof2 = Proof(PKE.INDCPA, doublePKE.Scheme, PKEINDCPA_adversary)
+proof2 = Proof(PKE.INDCPA, nestedPKE.Scheme, PKEINDCPA_adversary)
 
 # game hop:
 # encrypt m1 rather than m0; simulate PKE1's encryption
