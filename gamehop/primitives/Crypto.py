@@ -19,11 +19,6 @@ def UniformlySample(s : Set[T]) -> UniformlyRandomT[T]: pass
 class AdversaryBaseClass():
     def setup(self, scheme: Any) -> None: pass
 
-class AdvantageBaseClass(): pass
-
-
 Adversary = TypeVar('Adversary', bound=AdversaryBaseClass)
+
 Scheme = TypeVar('Scheme')
-Game = Callable[[Scheme, Adversary], Bit]
-Advantage = TypeVar('Advantage', bound=AdvantageBaseClass)
-Experiment = Tuple[Game, Game, Adversary, Advantage]
