@@ -16,9 +16,7 @@ T = TypeVar('T')
 UniformlyRandomT = Annotated[T, UniformlyRandom]
 def UniformlySample(s : Set[T]) -> UniformlyRandomT[T]: pass
 
-class AdversaryBaseClass():
+class Adversary():
     def setup(self, scheme: Any) -> None: pass
 
-Adversary = TypeVar('Adversary', bound=AdversaryBaseClass)
-
-Scheme = TypeVar('Scheme')
+class Scheme(): pass
