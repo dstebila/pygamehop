@@ -1,23 +1,22 @@
-from typing import Tuple, Union, TypeVar, Generic, Set
+from typing import Tuple, Union, Set
 
 from . import Crypto
 from .. import proofs
 
-PublicKey = TypeVar('PublicKey')
-SecretKey = TypeVar('SecretKey')
-Ciphertext = TypeVar('Ciphertext')
-SharedSecret = TypeVar('SharedSecret')
-Reject = TypeVar('Reject')
-
-class KEMScheme(Generic[PublicKey, SecretKey, Ciphertext, SharedSecret, Reject]):
+class KEMScheme(Crypto.Scheme):
+    class PublicKey(): pass
+    class SecretKey(): pass
+    class Ciphertext(): pass
+    class SharedSecret(): pass
+    class Reject(): pass
     def KeyGen(self) -> Tuple[PublicKey, SecretKey]: pass
     def Encaps(self, pk: PublicKey) -> Tuple[Ciphertext, SharedSecret]: pass
     def Decaps(self, sk: SecretKey, ct: Ciphertext) -> Union[SharedSecret, Reject]: pass
     SharedSecretSet: Set[SharedSecret] = set()
 
-class KEMINDCPA_adversary(Generic[PublicKey, SecretKey, Ciphertext, SharedSecret, Reject]):
+class KEMINDCPA_adversary(Crypto.Adversary):
     def setup(self, kem: KEMScheme): pass
-    def guess(self, pk: PublicKey, ct: Ciphertext, ss: SharedSecret) -> Crypto.Bit: pass
+    def guess(self, pk: KEMScheme.PublicKey, ct: KEMScheme.Ciphertext, ss: KEMScheme.SharedSecret) -> Crypto.Bit: pass
 
 class INDCPA(proofs.DistinguishingExperiment):
     def main0(self, scheme: KEMScheme, adversary: KEMINDCPA_adversary) -> Crypto.Bit:

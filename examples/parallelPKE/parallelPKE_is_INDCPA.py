@@ -22,13 +22,13 @@ class R01(PKEINDCPA_adversary):
         self.pke1 = pke1
         dummy = self.adversary.setup(self.pke1)
         return None
-    def challenge(self, pk: PKE.PublicKey) -> Tuple[PKE.Message, PKE.Message]:
+    def challenge(self, pk: PKE.PKEScheme.PublicKey) -> Tuple[PKE.PKEScheme.Message, PKE.PKEScheme.Message]:
         self.pk1 = pk
         (self.pk2, self.sk2)  = self.pke2.KeyGen()
         pk_double = (self.pk1, self.pk2)
         (self.m0, self.m1) = self.adversary.challenge(pk_double)
         return (self.m0, self.m1)
-    def guess(self, ct1: PKE.Ciphertext) -> Crypto.Bit:
+    def guess(self, ct1: PKE.PKEScheme.Ciphertext) -> Crypto.Bit:
         ct2 = self.pke2.Encrypt(self.pk2, self.m0)
         ct = (ct1, ct2)
         return self.adversary.guess(ct)
@@ -46,13 +46,13 @@ class R12(PKEINDCPA_adversary):
         self.pke2 = pke2
         dummy = self.adversary.setup(self.pke2)
         return None
-    def challenge(self, pk: PKE.PublicKey) -> Tuple[PKE.Message, PKE.Message]:
+    def challenge(self, pk: PKE.PKEScheme.PublicKey) -> Tuple[PKE.PKEScheme.Message, PKE.PKEScheme.Message]:
         self.pk2 = pk
         (self.pk1, self.sk1)  = self.pke1.KeyGen()
         pk_double = (self.pk1, self.pk2)
         (self.m0, self.m1) = self.adversary.challenge(pk_double)
         return (self.m0, self.m1)
-    def guess(self, ct2: PKE.Ciphertext) -> Crypto.Bit:
+    def guess(self, ct2: PKE.PKEScheme.Ciphertext) -> Crypto.Bit:
         ct1 = self.pke1.Encrypt(self.pk1, self.m1)
         ct = (ct1, ct2)
         return self.adversary.guess(ct)

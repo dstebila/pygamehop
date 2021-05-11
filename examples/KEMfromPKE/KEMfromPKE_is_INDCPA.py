@@ -5,7 +5,7 @@ from gamehop.proofs import Proof
 
 import KEMfromPKE
 
-KEMINDCPA_adversary = KEM.KEMINDCPA_adversary[PKE.PublicKey, PKE.SecretKey, PKE.Ciphertext, PKE.Message, Crypto.Reject]
+KEMINDCPA_adversary = KEM.KEMINDCPA_adversary
 
 # statement we're trying to prove
 proof = Proof(KEM.INDCPA, KEMfromPKE.Scheme, KEMINDCPA_adversary)
@@ -19,7 +19,7 @@ class R01(PKE.PKEINDCPA_adversary):
     def setup(self, pke2: PKE.PKEScheme) -> None:
         self.pke = pke2
         return None
-    def challenge(self, pk: PKE.PublicKey) -> Tuple[PKE.Message, PKE.Message]:
+    def challenge(self, pk: PKE.PKEScheme.PublicKey) -> Tuple[PKE.PKEScheme.Message, PKE.PKEScheme.Message]:
         self.pk = pk
         self.ss0 = Crypto.UniformlySample(self.pke.MessageSet)
         self.ct0 = self.pke.Encrypt(pk, self.ss0)
@@ -28,7 +28,7 @@ class R01(PKE.PKEINDCPA_adversary):
         self.ct1 = self.pke.Encrypt(pk, self.ss1)
         self.m1 = self.ss1
         return (self.m0, self.m1)
-    def guess(self, ct: PKE.Ciphertext) -> Crypto.Bit:
+    def guess(self, ct: PKE.PKEScheme.Ciphertext) -> Crypto.Bit:
         return self.kem_adversary.guess(self.pk, ct, self.m0)
 
 proof.addDistinguishingProofStep(PKE.INDCPA, PKE.PKEScheme, R01)
