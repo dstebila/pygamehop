@@ -61,7 +61,20 @@ def f_KEMfromPKEtestcase2(pke):
     m1 = h(pke.MS)
     r = g(ct, m1)
     return r
-
+def f_degenerate(self, A, B, C, D, E):
+    pk = A()
+    ct = B(pk)
+    m0 = C(pk)
+    mask = D('label', m0)
+    r = E(ct, mask, m0)
+    return r
+def f_degenerate_expected_result(self, A, B, C, D, E):
+    pk = A()
+    m0 = C(pk)
+    ct = B(pk)
+    mask = D('label', m0)
+    r = E(ct, mask, m0)
+    return r
 
 def expected_result(f):
     s = inspect.getsource(f)
@@ -105,3 +118,10 @@ class TestCanonicalizeLineOrder(unittest.TestCase):
         s1 = ast.unparse(f1).replace('f_KEMfromPKEtestcase1', 'f')
         s2 = ast.unparse(f2).replace('f_KEMfromPKEtestcase2', 'f')
         self.assertEqual(s1, s2)
+    def test_degenerate(self):
+        f = gamehop.inlining.internal.get_function_def(f_degenerate)
+        gamehop.verification.canonicalization.canonicalize_line_order(f)
+        self.assertEqual(
+            ast.unparse(f),
+            expected_result(f_degenerate_expected_result)
+        )

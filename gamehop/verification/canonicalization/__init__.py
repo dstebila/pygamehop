@@ -255,7 +255,8 @@ def canonicalize_line_order_inner(f: ast.FunctionDef) -> None:
         # all of the variables this statement depends on should go at least one level lower in the tree
         dep_vars = dependent_vars(stmt)
         for v in dep_vars:
-            level_for_var[v] = this_should_be_at_level + 1
+            if v in level_for_var: level_for_var[v] = max(level_for_var[v], this_should_be_at_level + 1)
+            else: level_for_var[v] = this_should_be_at_level + 1
             if v not in vars_in_order: vars_in_order.append(v) # keep track of the order of first dependence of every variable
         # make a new level of the tree if it doesn't exist yet
         if len(stmts_at_level) < this_should_be_at_level + 1: stmts_at_level.append(list())
