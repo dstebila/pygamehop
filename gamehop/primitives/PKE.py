@@ -1,22 +1,22 @@
-from typing import Tuple, Union, TypeVar, Generic, Set, Any
+from typing import Tuple, Union
 
 from . import Crypto
 from .. import proofs
 
+class PublicKey(): pass
+class SecretKey(): pass
+class Ciphertext(): pass
+class Message(): pass
+
 class PKEScheme(Crypto.Scheme):
-    class PublicKey(): pass
-    class SecretKey(): pass
-    class Ciphertext(): pass
-    class Message(): pass
-    class Reject(): pass
     def KeyGen(self) -> Tuple[PublicKey, SecretKey]: pass
     def Encrypt(self, pk: PublicKey, msg: Message) -> Ciphertext: pass
-    def Decrypt(self, sk: SecretKey, ct: Ciphertext) -> Union[Message, Reject]: pass
+    def Decrypt(self, sk: SecretKey, ct: Ciphertext) -> Union[Message, Crypto.Reject]: pass
 
 class PKEINDCPA_adversary(Crypto.Adversary):
     def setup(self, pke: PKEScheme): pass
-    def challenge(self, pk: PKEScheme.PublicKey) -> Tuple[PKEScheme.Message, PKEScheme.Message]: pass
-    def guess(self, ct: PKEScheme.Ciphertext) -> Crypto.Bit: pass
+    def challenge(self, pk: PublicKey) -> Tuple[Message, Message]: pass
+    def guess(self, ct: Ciphertext) -> Crypto.Bit: pass
 
 class INDCPA(proofs.DistinguishingExperiment):
     def main0(self, scheme: PKEScheme, adversary: PKEINDCPA_adversary) -> Crypto.Bit:

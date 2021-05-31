@@ -1,6 +1,7 @@
 from typing import Tuple
 
 from gamehop.primitives import Crypto, KEM, PKE
+from gamehop.primitives.KEM import SharedSecret
 from gamehop.proofs import Proof
 
 import KEMfromPKE
@@ -19,20 +20,20 @@ class R01(PKE.PKEINDCPA_adversary):
     def setup(self, pke2: PKE.PKEScheme) -> None:
         self.pke = pke2
         return None
-    def challenge(self, pk: PKE.PKEScheme.PublicKey) -> Tuple[PKE.PKEScheme.Message, PKE.PKEScheme.Message]:
+    def challenge(self, pk: PKE.PublicKey) -> Tuple[PKE.Message, PKE.Message]:
         self.pk = pk
-        self.ss0 = Crypto.UniformlySample(self.pke.MessageSet)
+        self.ss0 = Crypto.UniformlySample(SharedSecret)
         self.ct0 = self.pke.Encrypt(pk, self.ss0)
         self.m0 = self.ss0
-        self.ss1 = Crypto.UniformlySample(self.pke.MessageSet)
+        self.ss1 = Crypto.UniformlySample(SharedSecret)
         self.ct1 = self.pke.Encrypt(pk, self.ss1)
         self.m1 = self.ss1
         return (self.m0, self.m1)
-    def guess(self, ct: PKE.PKEScheme.Ciphertext) -> Crypto.Bit:
+    def guess(self, ct: PKE.Ciphertext) -> Crypto.Bit:
         return self.kem_adversary.guess(self.pk, ct, self.m0)
 
 proof.addDistinguishingProofStep(PKE.INDCPA, PKE.PKEScheme, R01)
 
-assert proof.check(print_hops=False, print_canonicalizations=False)
+assert proof.check(print_hops=True, print_canonicalizations=True)
 print()
 print(proof.advantage_bound())
