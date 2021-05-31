@@ -43,6 +43,8 @@ def canonicalize_function(f: Union[Callable, str]) -> str:
         # canonicalize function name
         canonicalization.canonicalize_function_name(functionDef)
         debug_helper(functionDef, "canonicalization.canonicalize_function_name")
+        canonicalization.inline_lambdas(functionDef)
+        debug_helper(functionDef, "canonicalization.inline_lambdas")
         canonicalization.collapse_useless_assigns(functionDef)
         debug_helper(functionDef, "canonicalization.collapse_useless_assigns")
         canonicalization.simplify.simplify(functionDef)

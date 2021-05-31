@@ -322,3 +322,34 @@ def canonicalize_argument_order(f: ast.FunctionDef) -> None:
                 vars_used.append(v)
     f.args.args = new_args
     ast.fix_missing_locations(f)
+
+def inline_lambdas(f: ast.FunctionDef) -> None:
+    """Modify (in place) the given function definition to replace all calls to lambdas with their body. 
+    Assumes that expand.variable_reassign has already been called."""
+    # extract all the lambda definitions
+    new_body: List[ast.stmt] = list()
+    lambdas = dict()
+    for stmt in f.body:
+        if isinstance(stmt, ast.Assign) and isinstance(stmt.value, ast.Lambda):
+            for target in stmt.targets:
+                assert isinstance(target, ast.Name)
+                lambdas[target.id] = stmt.value
+        else:
+            new_body.append(stmt)
+    f.body = new_body
+    class LambdaReplacer(ast.NodeTransformer):
+        def __init__(self, lambdas):
+            self.lambdas = lambdas
+        def visit_Call(self, node):
+            if isinstance(node.func, ast.Name) and node.func.id in lambdas:
+                lam = lambdas[node.func.id]
+                lamargs = lam.args.args
+                callargs = node.args
+                assert len(lamargs) == len(callargs)
+                lambody = copy.deepcopy(lam.body)
+                for i in range(len(lamargs)):
+                    lambody = NameNodeReplacer(lamargs[i].arg, callargs[i]).visit(lambody)
+                return lambody
+            else: return node
+    f = LambdaReplacer(lambdas).visit(f)
+    ast.fix_missing_locations(f)
