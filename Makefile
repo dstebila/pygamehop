@@ -11,7 +11,7 @@ test: typecheck_library unittest_library test_examples
 typecheck_library:
 	$(MYPY) -p gamehop.inlining
 	$(MYPY) -p gamehop.verification
-	# $(MYPY) -p gamehop.primitives
+	$(MYPY) -p gamehop.primitives
 
 unittest_library:
 	env PYTHONPATH=. $(PYTEST) -v tests/gamehop
