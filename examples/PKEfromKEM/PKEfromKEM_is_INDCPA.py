@@ -1,4 +1,4 @@
-from typing import Tuple
+from typing import Callable, Tuple
 
 from gamehop.primitives import Crypto, PKE, KEM, KDF, OTP
 from gamehop.proofs import Proof
@@ -36,24 +36,23 @@ proof.addDistinguishingProofStep(KEM.INDCPA, KEMScheme, R01)
 # game hop:
 # replace output of KDF with random
 # proven by constructing reduction from distinguishing the previous game and this game to distinguishing KDF.KDFsec (with b = 0) from KDF.KDFsec (with b = 1) for KDF
-class R12(KDF.OTKDFsec_adversary):
+class R12(KDF.KDFsec_adversary):
     def __init__(self, adversary: PKEINDCPA_adversary, kem: KEMScheme) -> None:
         self.adversary = adversary
         self.kem = kem
     def setup(self, kdf: KDFScheme) -> None:
         self.kdf = kdf
         return None
-    def phase1(self) -> Tuple[str, int]:
+    def run(self, o_eval: Callable[[str, int], Crypto.ByteString]) -> Crypto.Bit:
         (pk, sk) = self.kem.KeyGen()
         (self.m0, m1) = self.adversary.challenge(pk)
         (self.ct1, _) = self.kem.Encaps(pk)
-        return ("label", len(self.m0))
-    def phase2(self, kk: Crypto.ByteString) -> Crypto.Bit:
-        ct2 = kk ^ self.m0
+        mask = o_eval("label", len(self.m0))
+        ct2 = mask ^ self.m0
         r = self.adversary.guess((self.ct1, ct2))
         return r
 
-proof.addDistinguishingProofStep(KDF.OTKDFsec, KDFScheme, R12, renaming = {'Key': 'SharedSecret'})
+proof.addDistinguishingProofStep(KDF.KDFsec, KDFScheme, R12, renaming = {'Key': 'SharedSecret'})
 
 # game hop:
 # XOR the mask with m1 rather than m0
@@ -78,24 +77,23 @@ proof.addDistinguishingProofStep(OTP.OTIND, OTPScheme, R23)
 # game hop:
 # replace output of KDF with real
 # proven by constructing reduction from distinguishing the previous game and this game to distinguishing KDF.KDFsec (with b = 1) from KDF.KDFsec (with b = 0) for KDF
-class R34(KDF.OTKDFsec_adversary):
+class R34(KDF.KDFsec_adversary):
     def __init__(self, adversary: PKEINDCPA_adversary, kem: KEMScheme) -> None:
         self.adversary = adversary
         self.kem = kem
     def setup(self, kdf: KDFScheme) -> None:
         self.kdf = kdf
         return None
-    def phase1(self) -> Tuple[str, int]:
+    def run(self, o_eval: Callable[[str, int], Crypto.ByteString]) -> Crypto.Bit:
         (pk, sk) = self.kem.KeyGen()
         (m0, self.m1) = self.adversary.challenge(pk)
         (self.ct1, _) = self.kem.Encaps(pk)
-        return ("label", len(self.m1))
-    def phase2(self, kk: Crypto.ByteString) -> Crypto.Bit:
-        ct2 = kk ^ self.m1
+        mask = o_eval("label", len(self.m1))
+        ct2 = mask ^ self.m1
         r = self.adversary.guess((self.ct1, ct2))
         return r
 
-proof.addDistinguishingProofStep(KDF.OTKDFsec, KDFScheme, R34, reverseDirection = True, renaming = {'Key': 'SharedSecret'})
+proof.addDistinguishingProofStep(KDF.KDFsec, KDFScheme, R34, reverseDirection = True, renaming = {'Key': 'SharedSecret'})
 
 # game hop:
 # replace KEM shared secret with random

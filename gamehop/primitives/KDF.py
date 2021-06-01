@@ -1,4 +1,4 @@
-from typing import Dict, Tuple, Union
+from typing import Callable, Tuple, Union
 
 from . import Crypto
 from .. import proofs
@@ -8,22 +8,20 @@ class Key(): pass
 class KDFScheme(Crypto.Scheme):
     def KDF(self, k: Key, label: str, len: int) -> Crypto.ByteString: pass
 
-class OTKDFsec_adversary(Crypto.Adversary):
+class KDFsec_adversary(Crypto.Adversary):
     def setup(self, kdf: KDFScheme): pass
-    def phase1(self) -> Tuple[str, int]: pass
-    def phase2(self, kk: Crypto.ByteString) -> Crypto.Bit: pass
+    def run(self, o_eval: Callable[[str, int], Crypto.ByteString]) -> Crypto.Bit: pass
 
-class OTKDFsec(proofs.DistinguishingExperiment):
-    def main0(self, scheme: KDFScheme, adversary: OTKDFsec_adversary) -> Crypto.Bit:
+class KDFsec(proofs.DistinguishingExperiment):
+    def main0(self, scheme: KDFScheme, adversary: KDFsec_adversary) -> Crypto.Bit:
         dummy = adversary.setup(scheme)
         k = Crypto.UniformlySample(Key)
-        (label, len) = adversary.phase1()
-        kk = scheme.KDF(k, label, len)
-        r = adversary.phase2(kk)
+        o_eval = lambda label, length: scheme.KDF(k, label, length)
+        r = adversary.run(o_eval)
         return r
-    def main1(self, scheme: KDFScheme, adversary: OTKDFsec_adversary) -> Crypto.Bit:
+    def main1(self, scheme: KDFScheme, adversary: KDFsec_adversary) -> Crypto.Bit:
         dummy = adversary.setup(scheme)
-        (label, len) = adversary.phase1()
-        kk = Crypto.UniformlySample(Crypto.ByteString)
-        r = adversary.phase2(kk)
+        # TODO: turn into a lazily sampled random function
+        o_eval = lambda label, length: Crypto.UniformlySample(Crypto.ByteString)
+        r = adversary.run(o_eval)
         return r
