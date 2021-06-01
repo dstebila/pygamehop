@@ -2,9 +2,11 @@ from abc import ABC
 import inspect
 from typing import List, Type
 import typing
+import ast
 
 from .primitives import Crypto
 from . import inlining
+from .inlining import internal
 from . import verification
 
 class Experiment(): pass
@@ -28,13 +30,14 @@ class Proof():
         self.scheme = scheme
         self.adversary = adversary
         self.proofSteps: List[dict] = []
-    def addDistinguishingProofStep(self, experiment: Type[DistinguishingExperiment], scheme, reduction, reverseDirection=False):
+    def addDistinguishingProofStep(self, experiment: Type[DistinguishingExperiment], scheme, reduction, reverseDirection=False, renaming=dict()):
         self.proofSteps.append({
             'type': 'distinguishingProofStep',
             'experiment': experiment,
             'scheme': scheme,
             'reduction': reduction,
-            'reverseDirection': reverseDirection
+            'reverseDirection': reverseDirection,
+            'renaming': renaming
         })
     def check(self, print_hops=False, print_canonicalizations=False):
         if issubclass(self.experiment, DistinguishingExperiment):
@@ -53,6 +56,8 @@ class Proof():
                 if step['type'] == 'distinguishingProofStep':
                     leftInlining = inlining.inline_class(step['experiment'].main0, 'adversary', step['reduction'])
                     rightInlining = inlining.inline_class(step['experiment'].main1, 'adversary', step['reduction'])
+                    leftInlining = ast.unparse(internal.rename_variables(leftInlining, step['renaming'], error_if_exists = False))
+                    rightInlining = ast.unparse(internal.rename_variables(rightInlining, step['renaming'], error_if_exists = False))
                     if step['reverseDirection']: (rightInlining, leftInlining) = (leftInlining, rightInlining)
                     s1 = verification.canonicalize_function(previousGame)
                     s2 = verification.canonicalize_function(leftInlining)

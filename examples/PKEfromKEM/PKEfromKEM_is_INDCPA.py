@@ -43,18 +43,17 @@ class R12(KDF.OTKDFsec_adversary):
     def setup(self, kdf: KDFScheme) -> None:
         self.kdf = kdf
         return None
-    def phase1(self) -> Tuple[KDF.Key, str, int]:
+    def phase1(self) -> Tuple[str, int]:
         (pk, sk) = self.kem.KeyGen()
         (self.m0, m1) = self.adversary.challenge(pk)
         (self.ct1, _) = self.kem.Encaps(pk)
-        ss = Crypto.UniformlySample(SharedSecret)
-        return (ss, "label", len(self.m0))
+        return ("label", len(self.m0))
     def phase2(self, kk: Crypto.ByteString) -> Crypto.Bit:
         ct2 = kk ^ self.m0
         r = self.adversary.guess((self.ct1, ct2))
         return r
 
-proof.addDistinguishingProofStep(KDF.OTKDFsec, KDFScheme, R12)
+proof.addDistinguishingProofStep(KDF.OTKDFsec, KDFScheme, R12, renaming = {'Key': 'SharedSecret'})
 
 # game hop:
 # XOR the mask with m1 rather than m0
@@ -86,18 +85,17 @@ class R34(KDF.OTKDFsec_adversary):
     def setup(self, kdf: KDFScheme) -> None:
         self.kdf = kdf
         return None
-    def phase1(self) -> Tuple[KDF.Key, str, int]:
+    def phase1(self) -> Tuple[str, int]:
         (pk, sk) = self.kem.KeyGen()
         (m0, self.m1) = self.adversary.challenge(pk)
         (self.ct1, _) = self.kem.Encaps(pk)
-        ss = Crypto.UniformlySample(SharedSecret)
-        return (ss, "label", len(self.m1))
+        return ("label", len(self.m1))
     def phase2(self, kk: Crypto.ByteString) -> Crypto.Bit:
         ct2 = kk ^ self.m1
         r = self.adversary.guess((self.ct1, ct2))
         return r
 
-proof.addDistinguishingProofStep(KDF.OTKDFsec, KDFScheme, R34, reverseDirection = True)
+proof.addDistinguishingProofStep(KDF.OTKDFsec, KDFScheme, R34, reverseDirection = True, renaming = {'Key': 'SharedSecret'})
 
 # game hop:
 # replace KEM shared secret with random

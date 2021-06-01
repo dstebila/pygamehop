@@ -10,19 +10,20 @@ class KDFScheme(Crypto.Scheme):
 
 class OTKDFsec_adversary(Crypto.Adversary):
     def setup(self, kdf: KDFScheme): pass
-    def phase1(self) -> Tuple[Key, str, int]: pass
+    def phase1(self) -> Tuple[str, int]: pass
     def phase2(self, kk: Crypto.ByteString) -> Crypto.Bit: pass
 
 class OTKDFsec(proofs.DistinguishingExperiment):
     def main0(self, scheme: KDFScheme, adversary: OTKDFsec_adversary) -> Crypto.Bit:
         dummy = adversary.setup(scheme)
-        (k, label, len) = adversary.phase1()
+        k = Crypto.UniformlySample(Key)
+        (label, len) = adversary.phase1()
         kk = scheme.KDF(k, label, len)
         r = adversary.phase2(kk)
         return r
     def main1(self, scheme: KDFScheme, adversary: OTKDFsec_adversary) -> Crypto.Bit:
         dummy = adversary.setup(scheme)
-        (k, label, len) = adversary.phase1()
+        (label, len) = adversary.phase1()
         kk = Crypto.UniformlySample(Crypto.ByteString)
         r = adversary.phase2(kk)
         return r
