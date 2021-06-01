@@ -53,9 +53,9 @@ class Proof():
                 if step['type'] == 'distinguishingProofStep':
                     leftInlining = inlining.inline_class(step['experiment'].main0, 'adversary', step['reduction'])
                     rightInlining = inlining.inline_class(step['experiment'].main1, 'adversary', step['reduction'])
+                    if step['reverseDirection']: (rightInlining, leftInlining) = (leftInlining, rightInlining)
                     s1 = verification.canonicalize_function(previousGame)
                     s2 = verification.canonicalize_function(leftInlining)
-                    if step['reverseDirection']: (rightInlining, leftInlining) = (leftInlining, rightInlining)
                     leftInliningDescription = "reduction {:s} inlined with {:s}.main{:d}".format(fqn(step['reduction']), fqn(step['experiment']), 0 if not step['reverseDirection'] else 1)
                     rightInliningDescription = "reduction {:s} inlined with {:s}.main{:d}".format(fqn(step['reduction']), fqn(step['experiment']), 1 if not step['reverseDirection'] else 0)
                     print("==== GAME HOP from {:d} to {:d} (distinguishing proof step) ====".format(stepNum, stepNum + 1))
@@ -71,7 +71,7 @@ class Proof():
                     else: print("✅ canoncalizations of ({:s}) and ({:s}) are equal".format(previousGameDescription, leftInliningDescription))
                     previousGame = rightInlining
                     previousGameDescription = rightInliningDescription
-                    if stepNum == len(self.proofSteps) - 1 and print_hops:
+                    if stepNum != len(self.proofSteps) - 1 and print_hops:
                         print("---- {:s} ----".format(rightInliningDescription))
                         print(rightInlining)
                         if print_canonicalizations:

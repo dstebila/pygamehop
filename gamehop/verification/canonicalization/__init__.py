@@ -255,7 +255,8 @@ def canonicalize_line_order_inner(f: ast.FunctionDef) -> None:
         # all of the variables this statement depends on should go at least one level lower in the tree
         dep_vars = dependent_vars(stmt)
         for v in dep_vars:
-            level_for_var[v] = this_should_be_at_level + 1
+            if v in level_for_var: level_for_var[v] = max(level_for_var[v], this_should_be_at_level + 1)
+            else: level_for_var[v] = this_should_be_at_level + 1
             if v not in vars_in_order: vars_in_order.append(v) # keep track of the order of first dependence of every variable
         # make a new level of the tree if it doesn't exist yet
         if len(stmts_at_level) < this_should_be_at_level + 1: stmts_at_level.append(list())
@@ -321,4 +322,35 @@ def canonicalize_argument_order(f: ast.FunctionDef) -> None:
                 new_args.append(a)
                 vars_used.append(v)
     f.args.args = new_args
+    ast.fix_missing_locations(f)
+
+def inline_lambdas(f: ast.FunctionDef) -> None:
+    """Modify (in place) the given function definition to replace all calls to lambdas with their body. 
+    Assumes that expand.variable_reassign has already been called."""
+    # extract all the lambda definitions
+    new_body: List[ast.stmt] = list()
+    lambdas = dict()
+    for stmt in f.body:
+        if isinstance(stmt, ast.Assign) and isinstance(stmt.value, ast.Lambda):
+            for target in stmt.targets:
+                assert isinstance(target, ast.Name)
+                lambdas[target.id] = stmt.value
+        else:
+            new_body.append(stmt)
+    f.body = new_body
+    class LambdaReplacer(ast.NodeTransformer):
+        def __init__(self, lambdas):
+            self.lambdas = lambdas
+        def visit_Call(self, node):
+            if isinstance(node.func, ast.Name) and node.func.id in lambdas:
+                lam = lambdas[node.func.id]
+                lamargs = lam.args.args
+                callargs = node.args
+                assert len(lamargs) == len(callargs)
+                lambody = copy.deepcopy(lam.body)
+                for i in range(len(lamargs)):
+                    lambody = NameNodeReplacer(lamargs[i].arg, callargs[i]).visit(lambody)
+                return lambody
+            else: return node
+    f = LambdaReplacer(lambdas).visit(f)
     ast.fix_missing_locations(f)
