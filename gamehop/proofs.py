@@ -66,7 +66,7 @@ class Proof():
         self.experiment = experiment
         self.scheme = scheme
         self.adversary = adversary
-        self.proofSteps: List[dict] = []
+        self.proofSteps: List[proofStep] = []
 
     def addDistinguishingProofStep(self, experiment: Type[DistinguishingExperiment], scheme, reduction, reverseDirection=False, renaming=dict()):
         self.proofSteps.append(distinguishingProofStep(experiment, scheme, reduction, reverseDirection, renaming))
@@ -84,7 +84,7 @@ class Proof():
                 print(game[0])
                 if print_canonicalizations:
                     print("---- canonicalization ----")
-                    print(gameCanonical[1])
+                    print(game[1])
 
         if issubclass(self.experiment, DistinguishingExperiment):
             startGame = inlining.inline_class(self.experiment.main0, 'scheme', self.scheme)
