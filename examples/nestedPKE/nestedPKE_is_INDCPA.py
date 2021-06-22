@@ -14,9 +14,9 @@ proof1 = Proof(PKE.INDCPA, nestedPKE.Scheme, PKEINDCPA_adversary)
 # game hop:
 # encrypt m1 rather than m0; simulate PKE2's encryption
 # proven by constructing reduction from distinguishing the previous game and this game to distinguishing PKE.INDCPA (with b = 0) from PKE.INDCPA (with b = 1) for PKE1
-class R1(PKEINDCPA_adversary):
+class R1(PKEINDCPA_adversary): # this is an adversary for PKE1
     def __init__(self, adversary: PKEINDCPA_adversary, pke2: PKEScheme) -> None:
-        self.adversary = adversary      # this is the adversary for doublepke
+        self.adversary = adversary # this is the adversary for nestedPKE
         self.pke2 = pke2
     def setup(self, pke1: PKEScheme) -> None:
         self.pke1 = pke1
@@ -45,9 +45,9 @@ proof2 = Proof(PKE.INDCPA, nestedPKE.Scheme, PKEINDCPA_adversary)
 # game hop:
 # encrypt m1 rather than m0; simulate PKE1's encryption
 # proven by constructing reduction from distinguishing the previous game and this game to distinguishing PKE.INDCPA (with b = 0) from PKE.INDCPA (with b = 1) for PKE2
-class R2(PKEINDCPA_adversary):
+class R2(PKEINDCPA_adversary): # this is an adversary for PKE2
     def __init__(self, adversary: PKEINDCPA_adversary, pke1: PKEScheme) -> None:
-        self.adversary = adversary      # this is the adversary for doublepke
+        self.adversary = adversary # this is the adversary for nestedPKE
         self.pke1 = pke1
     def setup(self, pke2: PKEScheme) -> None:
         self.pke2 = pke2

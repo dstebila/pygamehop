@@ -14,11 +14,11 @@ proof = Proof(PKE.INDCPA, parallelPKE.Scheme, PKE.PKEINDCPA_adversary)
 # game hop:
 # for PKE1, encrypt m1 rather than m0
 # proven by constructing reduction from distinguishing the previous game and this game to distinguishing PKE.INDCPA (with b = 0) from PKE.INDCPA (with b = 1) for PKE1
-class R01(PKEINDCPA_adversary):
+class R01(PKEINDCPA_adversary): # this is an adversary for PKE1
     def __init__(self, adversary: PKEINDCPA_adversary, pke2: PKEScheme) -> None:
-        self.adversary = adversary      # this is the adversary for pke1
+        self.adversary = adversary # this is the adversary for parallelPKE
         self.pke2 = pke2
-    def setup(self, pke1: PKEScheme) -> None:        
+    def setup(self, pke1: PKEScheme) -> None:
         self.pke1 = pke1
         dummy = self.adversary.setup(self.pke1)
         return None
@@ -38,9 +38,9 @@ proof.addDistinguishingProofStep(PKE.INDCPA, PKEScheme, R01)
 # game hop:
 # for PKE2, encrypt m1 rather than m0
 # proven by constructing reduction from distinguishing the previous game and this game to distinguishing PKE.INDCPA (with b = 0) from PKE.INDCPA (with b = 1) for PKE2
-class R12(PKEINDCPA_adversary):
+class R12(PKEINDCPA_adversary): # this is an adversary for PKE2
     def __init__(self, adversary: PKEINDCPA_adversary, pke1: PKEScheme) -> None:
-        self.adversary = adversary      # this is the adversary for pke2
+        self.adversary = adversary # this is the adversary for parallelPKE
         self.pke1 = pke1
     def setup(self, pke2: PKEScheme) -> None:
         self.pke2 = pke2
