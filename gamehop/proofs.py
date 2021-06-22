@@ -4,6 +4,7 @@ from typing import List, Type
 import typing
 import ast
 
+from . import stringDiff
 from .primitives import Crypto
 from . import inlining
 from .inlining import internal
@@ -74,6 +75,7 @@ class Proof():
     def gamesEqual(self, lgame, rgame):
         if lgame[1] != rgame[1]:
             print("❌ canoncalizations of ({:s}) and ({:s}) are not equal".format(lgame[2], rgame[2]))
+            stringDiff(lgame[1], rgame[1])
             return False
         print("✅ canoncalizations of ({:s}) and ({:s}) are equal".format(lgame[2], rgame[2]))
         return True
