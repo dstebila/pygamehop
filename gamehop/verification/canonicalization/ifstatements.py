@@ -27,6 +27,7 @@ def if_statements_to_expressions(f: ast.FunctionDef ) -> None:
 
     iftransformer = IfTransformer()
     iftransformer.visit(f.body)
+    ast.fix_missing_locations(f)
 
 
 class IfTransformer(utils.NewNodeTransformer):
@@ -41,7 +42,10 @@ class IfTransformer(utils.NewNodeTransformer):
         # find all the variables written to in the bodies
         body_stored_vars = utils.stored_vars(node.body)
         orelse_stored_vars = utils.stored_vars(node.orelse)
-        all_stored_vars = body_stored_vars | orelse_stored_vars
+        all_stored_vars = list()
+        for var in body_stored_vars: all_stored_vars.append(var)
+        for var in orelse_stored_vars: 
+            if var not in all_stored_vars: all_stored_vars.append(var)
 
         # prefix all variables in the bodies so that they don't conflict
         body_prefix = "body_{:d}_".format(self.replacement_count)
@@ -51,19 +55,35 @@ class IfTransformer(utils.NewNodeTransformer):
         newnodes.extend(utils.prefix_names(node.orelse, orelse_prefix))
 
         # if one of the bodies doesn't assign to a variable that the other does, fix this
-        for v in all_stored_vars - body_stored_vars:
-            newnodes.append(ast.parse(body_prefix + v + " = None"))
-        for v in all_stored_vars - orelse_stored_vars:
-            newnodes.append(ast.parse(orelse_prefix + v + " = None"))
+        for v in all_stored_vars:
+            if v not in body_stored_vars:
+                newnodes.append(ast.Assign(targets=[ast.Name(id=body_prefix + v, ctx=ast.Store())], value=ast.Constant(None)))
+            if v not in orelse_stored_vars:
+                newnodes.append(ast.Assign(targets=[ast.Name(id=orelse_prefix + v, ctx=ast.Store())], value=ast.Constant(None)))
 
         # choose if or else body variables based on node.test
-        vars = list(all_stored_vars)
-        newnodes.append(ast.parse(
-            "(" + ", ".join(vars) + ") = " +
-            "(" + ", ".join( [ body_prefix + v for v in vars ] ) + ")" +
-            " if " + ast.unparse(node.test) + " else " +
-            "(" + ", ".join( [ orelse_prefix + v for v in vars ] ) + ")"
-        ))
+        if len(all_stored_vars) == 1:
+            newnodes.append(
+                ast.Assign(
+                    targets=[ast.Name(id=all_stored_vars[0], ctx=ast.Store())],
+                    value=ast.IfExp(
+                        test=node.test,
+                        body=ast.Name(id=body_prefix + all_stored_vars[0], ctx=ast.Load()),
+                        orelse=ast.Name(id=orelse_prefix + all_stored_vars[0], ctx=ast.Load())
+                    )
+                )
+            )
+        else:
+            newnodes.append(
+                ast.Assign(
+                    targets=[ast.Tuple(elts=[ast.Name(id=var, ctx=ast.Store()) for var in all_stored_vars], ctx=ast.Store())],
+                    value=ast.IfExp(
+                        test=node.test,
+                        body=ast.Tuple(elts=[ast.Name(id=body_prefix + var, ctx=ast.Load()) for var in all_stored_vars], ctx=ast.Load()),
+                        orelse=ast.Tuple(elts=[ast.Name(id=orelse_prefix + var, ctx=ast.Load()) for var in all_stored_vars], ctx=ast.Load())
+                    )
+                )
+            )
 
         self.replacement_count += 1
         return newnodes

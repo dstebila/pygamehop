@@ -97,7 +97,7 @@ def inline_function_helper_lines_of_inlined_function(prefix: str, call: ast.Call
 
 
 
-def inline_function_into_statements(inlinee: list[ast.stmt], inlinand: ast.FunctionDef, search_function_name, dest_function_name,  self_prefix="", replacements=0) -> Tuple[list[ast.stmt], int]:
+def inline_function_into_statements(inlinee: List[ast.stmt], inlinand: ast.FunctionDef, search_function_name, dest_function_name,  self_prefix="", replacements=0) -> Tuple[List[ast.stmt], int]:
     # get the function definitions
     inlinee_def = inlinee # copy.deepcopy(inlinee)
     inlinand_def = inlinand #copy.deepcopy(inlinand)

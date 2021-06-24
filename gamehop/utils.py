@@ -31,14 +31,14 @@ class NewNodeTransformer(ast.NodeTransformer):
 
 class VariableFinder(NewNodeVisitor):
     def __init__(self):
-        self.stored_vars = set()
-        self.loaded_vars = set()
+        self.stored_vars = list()
+        self.loaded_vars = list()
 
     def visit_Name(self, node:ast.Name) -> None:
         if isinstance(node.ctx, ast.Load):
-            self.loaded_vars.add(node.id)
+            if node.id not in self.loaded_vars: self.loaded_vars.append(node.id)
         if isinstance(node.ctx, ast.Store):
-            self.stored_vars.add(node.id)
+            if node.id not in self.stored_vars: self.stored_vars.append(node.id)
 
 class NameRenamer(NewNodeTransformer):
     """Replaces ids in Name nodes based on the provided mapping.  Raises a ValueError if the new name is already used in the function."""
@@ -53,11 +53,11 @@ class NameRenamer(NewNodeTransformer):
 class NamePrefixer(NewNodeTransformer):
     def __init__(self, prefix: str):
         self.prefix = prefix
-        self.stored_vars: Set[str] = set()
+        self.stored_vars: List[str] = list()
     def visit_Name(self, node: ast.Name) -> ast.Name:
         # rename new stored variables, and remember that we did so
         if isinstance(node.ctx, ast.Store):
-            self.stored_vars.add(node.id)
+            self.stored_vars.append(node.id)
             node.id = self.prefix + node.id
 
         # rename loaded variables only if we have already renamed when they were stored
