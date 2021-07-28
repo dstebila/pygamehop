@@ -11,6 +11,7 @@ from . import canonicalization
 from ..inlining import internal
 from .canonicalization import expand
 from .canonicalization import simplify
+from .canonicalization import ifstatements
 
 def debug_helper(functionDef, label):
     if False: # change this to True to print some debugging info
@@ -33,6 +34,8 @@ def canonicalize_function(f: Union[Callable, str]) -> str:
     str_current = ast.unparse(ast.fix_missing_locations(functionDef))
     while str_previous != str_current:
         str_previous = str_current
+        ifstatements.if_statements_to_expressions(functionDef)
+        debug_helper(functionDef, "ifstatements.if_statements_to_expressions")
         expand.call_arguments(functionDef)
         debug_helper(functionDef, "expand.call_arguments")
         expand.variable_reassign(functionDef)

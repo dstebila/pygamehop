@@ -55,6 +55,37 @@ def f_no_assignment_expected_result(a, b):
 def f_no_assignment_with_return(a, b):
     inlinand(a, 3)
 
+def f_if_body(a,b):
+    r = 3
+    if a:
+        r = inlinand(a, b)
+    return r
+def f_if_body_expected_result(a, b):
+    r = 3
+    if a:
+        inlinandᴠ1ⴰc = a + b
+        r = inlinandᴠ1ⴰc
+    return r
+
+def f_if_body_else(a,b):
+    r = 3
+    if a:
+        r = inlinand(a, b)
+    else:
+        r = inlinand(a, b)
+    return r
+def f_if_body_else_expected_result(a, b):
+    r = 3
+    if a:
+        inlinandᴠ1ⴰc = a + b
+        r = inlinandᴠ1ⴰc
+    else:
+        inlinandᴠ2ⴰc = a + b
+        r = inlinandᴠ2ⴰc
+    return r
+
+
+
 def expected_result(f):
     s = inspect.getsource(f)
     s = s.replace('_expected_result', '')
@@ -97,3 +128,11 @@ class TestInlineFunction(unittest.TestCase):
     def test_no_assignment_with_return(self):
         with self.assertRaises(ValueError):
             gamehop.inlining.inline_function(f_no_assignment_with_return, inlinand)
+    def test_if_body(self):
+        self.assertEqual(
+            gamehop.inlining.inline_function(f_if_body, inlinand),
+            expected_result(f_if_body_expected_result))
+    def test_if_body_else(self):
+        self.assertEqual(
+            gamehop.inlining.inline_function(f_if_body_else, inlinand),
+            expected_result(f_if_body_else_expected_result))

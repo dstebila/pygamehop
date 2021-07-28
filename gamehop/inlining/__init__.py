@@ -2,7 +2,7 @@ import ast
 import copy
 import inspect
 import types
-from typing import Any, Callable, List, Union
+from typing import Any, Callable, List, Union, Tuple
 
 from . import internal
 
@@ -10,7 +10,7 @@ __all__ = ['inline_argument', 'inline_class', 'inline_function']
 
 # Note that inlining uses Unicode symbols to make it look like the original code
 # e.g. attribute dereferencing: x.y gets inlined to xⴰy
-#      variables in an inlined function: def f(): a = y gets inlined to 
+#      variables in an inlined function: def f(): a = y gets inlined to
 #      fᴠ1ⴰa (here the ᴠ1 denotes it's the first inlining of this function)
 # https://www.asmeurer.com/python-unicode-variable-names/
 
@@ -66,8 +66,8 @@ def inline_function_helper_lines_of_inlined_function(prefix: str, call: ast.Call
     variables_in_inlinand = internal.find_all_variables(inlinand_def)
     # prefix all variables in inlinand
     mappings = dict()
-    for var in variables_in_inlinand: 
-        if self_prefix != "" and var.startswith('SELF'): 
+    for var in variables_in_inlinand:
+        if self_prefix != "" and var.startswith('SELF'):
             mappings[var] = '{:s}ⴰ{:s}'.format(self_prefix, var[4:])
         else:
             mappings[var] = '{:s}ⴰ{:s}'.format(prefix, var)
@@ -93,6 +93,67 @@ def inline_function_helper_lines_of_inlined_function(prefix: str, call: ast.Call
         else: raise NotImplementedError("Don't know how to inline calls whose arguments are of type {:s}".format(type(arg).__name__))
     return newinlinand_def.body
 
+
+
+
+
+def inline_function_into_statements(inlinee: List[ast.stmt], inlinand: ast.FunctionDef, search_function_name, dest_function_name,  self_prefix="", replacements=0) -> Tuple[List[ast.stmt], int]:
+    # get the function definitions
+    inlinee_def = inlinee # copy.deepcopy(inlinee)
+    inlinand_def = inlinand #copy.deepcopy(inlinand)
+
+    # check that there are no return statements anywhere in the inlinand other than the last line
+    class ContainsReturn(ast.NodeVisitor):
+        def visit_Return(self, node):
+            raise NotImplementedError("Function to be inlined ({:s}) has a return statement somewhere other than the last line".format(inlinand_def.name))
+    for stmt in inlinand_def.body[:-1]:
+        ContainsReturn().visit(stmt)
+
+    # check if the last line of the inlinand is a return statement,
+    inlinand_has_return = isinstance(inlinand_def.body[-1], ast.Return)
+
+    # go through every line of the inlinee and replace all calls that we know how to handle
+    newinlinee = []
+    replacement_count = replacements
+    for stmt in inlinee_def:
+        # replace y = f(x)
+        if isinstance(stmt, ast.Assign) and isinstance(stmt.value, ast.Call) and isinstance(stmt.value.func, ast.Name) and stmt.value.func.id == search_function_name:
+            if not inlinand_has_return: raise ValueError("Trying to inline a function ({:s}) without a return statement into an assignment".format(inlinand_def.name))
+            # copy the expanded lines
+            replacement_count += 1
+            newinlinee.extend(inline_function_helper_lines_of_inlined_function('{:s}ᴠ{:d}'.format(dest_function_name, replacement_count), stmt.value, inlinand_def, self_prefix))
+            # assign the required variables based on the return statement
+            newinlinee[-1] = ast.Assign(
+                targets = stmt.targets, value = newinlinee[-1].value
+            )
+        # replace f(x)
+        elif isinstance(stmt, ast.Expr) and isinstance(stmt.value, ast.Call) and isinstance(stmt.value.func, ast.Name) and stmt.value.func.id == search_function_name:
+            if inlinand_has_return: raise ValueError("Trying to inline a function with a return statement into a standalone statement")
+            # copy the expanded lines
+            replacement_count += 1
+            newinlinee.extend(inline_function_helper_lines_of_inlined_function('{:s}ᴠ{:d}'.format(dest_function_name, replacement_count), stmt.value, inlinand_def, self_prefix))
+
+
+        elif isinstance(stmt, ast.If):
+            (stmt.body, replacement_count) = inline_function_into_statements(stmt.body, inlinand, search_function_name, dest_function_name, self_prefix, replacements=replacement_count)
+            (stmt.orelse, replacement_count) = inline_function_into_statements(stmt.orelse, inlinand, search_function_name, dest_function_name, self_prefix, replacements=replacement_count)
+            newinlinee.append(stmt)
+        else:
+            newinlinee.append(stmt)
+
+    # if there's still a call to our function somewhere, it must have been somewhere other than on a bare Assign line; raise an error
+    class ContainsCall(ast.NodeVisitor):
+        def __init__(self, funcname):
+            self.funcname = funcname
+        def visit_Call(self, node):
+            if isinstance(node.func, ast.Name) and node.func.id == self.funcname:
+                raise NotImplementedError("Can't inline functions that are called on anything other than as a solitary assignment line, e.g., y = f(x)")
+    for stmt in newinlinee:
+        ContainsCall(search_function_name).visit(stmt)
+    return (newinlinee, replacement_count)
+
+
+
 def inline_function(inlinee: Union[Callable, str, ast.FunctionDef], inlinand: Union[Callable, str, ast.FunctionDef], search_function_name=None, dest_function_name=None, self_prefix="") -> str:
     """Returns a string representing (almost) all instances of the second function inlined into the first.  Only works on calls to bare assignments (y = f(x)) or bare calls (f(x)). Normally uses the inlinand's name as the name to search for and the name from which to build prefixes, but can be overridden by search_function_name and dest_function_name. If self_prefix is specified, variables starting with SELF will be renamed using self_prefix instead of prefix."""
     # get the function definitions
@@ -100,45 +161,8 @@ def inline_function(inlinee: Union[Callable, str, ast.FunctionDef], inlinand: Un
     inlinand_def = copy.deepcopy(internal.get_function_def(inlinand))
     if search_function_name == None: search_function_name = inlinand_def.name
     if dest_function_name == None: dest_function_name = inlinand_def.name
-    # check that there are no return statements anywhere in the inlinand other than the last line
-    class ContainsReturn(ast.NodeVisitor):
-        def visit_Return(self, node):
-            raise NotImplementedError("Function to be inlined ({:s}) has a return statement somewhere other than the last line".format(inlinand_def.name))
-    for i in range(len(inlinand_def.body) - 1):
-        ContainsReturn().visit(inlinand_def.body[i])
-    # check if the last line of the inlinand is a return statement,
-    inlinand_has_return = isinstance(inlinand_def.body[-1], ast.Return)
-    # go through every line of the inlinee and replace all calls that we know how to handle
-    newinlinee_body = []
-    replacement_count = 0
-    for stmt in inlinee_def.body:
-        # replace y = f(x)
-        if isinstance(stmt, ast.Assign) and isinstance(stmt.value, ast.Call) and isinstance(stmt.value.func, ast.Name) and stmt.value.func.id == search_function_name:
-            if not inlinand_has_return: raise ValueError("Trying to inline a function ({:s}) without a return statement into an assignment".format(inlinand_def.name))
-            # copy the expanded lines
-            replacement_count += 1
-            newinlinee_body.extend(inline_function_helper_lines_of_inlined_function('{:s}ᴠ{:d}'.format(dest_function_name, replacement_count), stmt.value, inlinand_def, self_prefix))
-            # assign the required variables based on the return statement
-            newinlinee_body[-1] = ast.Assign(
-                targets = stmt.targets, value = newinlinee_body[-1].value
-            )
-        # replace f(x)
-        elif isinstance(stmt, ast.Expr) and isinstance(stmt.value, ast.Call) and isinstance(stmt.value.func, ast.Name) and stmt.value.func.id == search_function_name:
-            if inlinand_has_return: raise ValueError("Trying to inline a function with a return statement into a standalone statement")
-            # copy the expanded lines
-            replacement_count += 1
-            newinlinee_body.extend(inline_function_helper_lines_of_inlined_function('{:s}ᴠ{:d}'.format(dest_function_name, replacement_count), stmt.value, inlinand_def, self_prefix))
-        else:
-            newinlinee_body.append(stmt)
-    inlinee_def.body = newinlinee_body
-    # if there's still a call to our function somewhere, it must have been somewhere other than on a bare Assign line; raise an error
-    class ContainsCall(ast.NodeVisitor):
-        def __init__(self, funcname):
-            self.funcname = funcname
-        def visit_Call(self, node):
-            if isinstance(node.func, ast.Name) and node.func.id == self.funcname: 
-                raise NotImplementedError("Can't inline functions that are called on anything other than as a solitary assignment line, e.g., y = f(x)")
-    ContainsCall(search_function_name).visit(inlinee_def)
+
+    (inlinee_def.body, _ ) = inline_function_into_statements(inlinee_def.body, inlinand_def, search_function_name, dest_function_name, self_prefix)
     return ast.unparse(ast.fix_missing_locations(inlinee_def))
 
 def inline_class(inlinee: Union[Callable, str, ast.FunctionDef], arg: str, inlinand: Union[object, str, ast.ClassDef], inline_init = True, inline_class_props = True) -> str:
@@ -196,7 +220,7 @@ def inline_class(inlinee: Union[Callable, str, ast.FunctionDef], arg: str, inlin
     # remove the inlined argument from the inlinee's list of argments
     newargs = list()
     for i in range(len(inlinee_def.args.args)):
-        if inlinee_def.args.args[i].arg != arg: 
+        if inlinee_def.args.args[i].arg != arg:
             newargs.append(inlinee_def.args.args[i])
     inlinee_def.args.args = newargs
     return ast.unparse(ast.fix_missing_locations(inlinee_def))
