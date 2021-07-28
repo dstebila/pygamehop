@@ -74,16 +74,22 @@ class IfTransformer(utils.NewNodeTransformer):
                 )
             )
         else:
-            newnodes.append(
-                ast.Assign(
-                    targets=[ast.Tuple(elts=[ast.Name(id=var, ctx=ast.Store()) for var in all_stored_vars], ctx=ast.Store())],
-                    value=ast.IfExp(
-                        test=node.test,
-                        body=ast.Tuple(elts=[ast.Name(id=body_prefix + var, ctx=ast.Load()) for var in all_stored_vars], ctx=ast.Load()),
-                        orelse=ast.Tuple(elts=[ast.Name(id=orelse_prefix + var, ctx=ast.Load()) for var in all_stored_vars], ctx=ast.Load())
+            ifcondvar = "ifcond_{:d}".format(self.replacement_count)
+            newnodes.append(ast.Assign(
+                targets=[ast.Name(id=ifcondvar, ctx=ast.Store())],
+                value=node.test
+            ))
+            for var in all_stored_vars:
+                newnodes.append(
+                    ast.Assign(
+                        targets=[ast.Name(id=var, ctx=ast.Store())],
+                        value=ast.IfExp(
+                            test=ast.Name(id=ifcondvar, ctx=ast.Load()),
+                            body=ast.Name(id=body_prefix + var, ctx=ast.Load()),
+                            orelse=ast.Name(id=orelse_prefix + var, ctx=ast.Load())
+                        )
                     )
                 )
-            )
 
         self.replacement_count += 1
         return newnodes

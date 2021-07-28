@@ -30,7 +30,9 @@ def f_if_missing_vars_expected_result(x):
     orelse_0_z = 2
     orelse_0_w = None
     body_0_z = None
-    (w, z) = (body_0_w, body_0_z) if x else (orelse_0_w, orelse_0_z)
+    ifcond_0 = x
+    w = body_0_w if ifcond_0 else orelse_0_w
+    z = body_0_z if ifcond_0 else orelse_0_z
     return z
 
 def f_multiple_ifs(x):
@@ -60,7 +62,10 @@ def f_elif_expected_result(x):
     orelse_1_w = orelse_1_body_0_w if x == 2 else orelse_1_orelse_0_w
     body_1_body_0_w = None
     body_1_orelse_0_w = None
-    (w, body_0_w, orelse_0_w) = (body_1_w, body_1_body_0_w, body_1_orelse_0_w) if x == 1 else (orelse_1_w, orelse_1_body_0_w, orelse_1_orelse_0_w)
+    ifcond_1 = x == 1
+    w = body_1_w if ifcond_1 else orelse_1_w
+    body_0_w = body_1_body_0_w if ifcond_1 else orelse_1_body_0_w
+    orelse_0_w = body_1_orelse_0_w if ifcond_1 else orelse_1_orelse_0_w
     return w
 
 def expected_result(f):
