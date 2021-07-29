@@ -113,6 +113,7 @@ class TestFilterAST(unittest.TestCase):
     def test_Dict(self):
         def f_Dict(): x = {}
         with self.assertRaises(NotImplementedError): gamehop.filterast.filter_AST(internal.get_function_def(f_Dict))
+
     def test_Set(self):
         def f_Set(): x = { 1 }
         with self.assertRaises(NotImplementedError): gamehop.filterast.filter_AST(internal.get_function_def(f_Set))
@@ -148,6 +149,7 @@ class TestFilterAST(unittest.TestCase):
     def test_YieldFrom(self):
         def f_YieldFrom(): yield from myfunc()
         with self.assertRaises(NotImplementedError): gamehop.filterast.filter_AST(internal.get_function_def(f_YieldFrom))
+
     def test_FormattedValue(self):
         def f_FormattedValue(): x = f"{var}"
         with self.assertRaises(NotImplementedError): gamehop.filterast.filter_AST(internal.get_function_def(f_FormattedValue))
