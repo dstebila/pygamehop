@@ -111,7 +111,7 @@ def inline_function_into_statements(inlinee: List[ast.stmt], inlinand: ast.Funct
 
     # check if the last line of the inlinand is a return statement,
     inlinand_has_return = isinstance(inlinand_def.body[-1], ast.Return)
-
+    
     # go through every line of the inlinee and replace all calls that we know how to handle
     newinlinee = []
     replacement_count = replacements
@@ -132,11 +132,14 @@ def inline_function_into_statements(inlinee: List[ast.stmt], inlinand: ast.Funct
             # copy the expanded lines
             replacement_count += 1
             newinlinee.extend(inline_function_helper_lines_of_inlined_function('{:s}ᴠ{:d}'.format(dest_function_name, replacement_count), stmt.value, inlinand_def, self_prefix))
-
-
+        # recurse into if statements
         elif isinstance(stmt, ast.If):
             (stmt.body, replacement_count) = inline_function_into_statements(stmt.body, inlinand, search_function_name, dest_function_name, self_prefix, replacements=replacement_count)
             (stmt.orelse, replacement_count) = inline_function_into_statements(stmt.orelse, inlinand, search_function_name, dest_function_name, self_prefix, replacements=replacement_count)
+            newinlinee.append(stmt)
+        # recurse into function defs
+        elif isinstance(stmt, ast.FunctionDef):
+            (stmt.body, replacement_count) = inline_function_into_statements(stmt.body, inlinand, search_function_name, dest_function_name, self_prefix, replacements=replacement_count)
             newinlinee.append(stmt)
         else:
             newinlinee.append(stmt)

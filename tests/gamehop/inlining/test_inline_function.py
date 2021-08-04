@@ -84,7 +84,21 @@ def f_if_body_else_expected_result(a, b):
         r = inlinandᴠ2ⴰc
     return r
 
-
+def f_contains_def(a,b):
+    r = 3
+    def g(m):
+        z = inlinand(r, m)
+        return z
+    s = g(4)
+    return s
+def f_contains_def_expected_result(a,b):
+    r = 3
+    def g(m):
+        inlinandᴠ1ⴰc = r + m
+        z = inlinandᴠ1ⴰc
+        return z
+    s = g(4)
+    return s
 
 def expected_result(f):
     s = inspect.getsource(f)
@@ -136,3 +150,9 @@ class TestInlineFunction(unittest.TestCase):
         self.assertEqual(
             gamehop.inlining.inline_function(f_if_body_else, inlinand),
             expected_result(f_if_body_else_expected_result))
+    def test_contains_def(self):
+        self.assertEqual(
+            gamehop.inlining.inline_function(f_contains_def, inlinand),
+            expected_result(f_contains_def_expected_result))
+
+TestInlineFunction().test_contains_def()
