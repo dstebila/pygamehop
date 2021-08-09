@@ -38,8 +38,6 @@ def canonicalize_function(f: Union[Callable, str]) -> str:
         debug_helper(functionDef, "ifstatements.if_statements_to_expressions")
         expand.call_arguments(functionDef)
         debug_helper(functionDef, "expand.call_arguments")
-        expand.variable_reassign(functionDef)
-        debug_helper(functionDef, "expand.variable_reassign")
         # canonicalize return statement
         canonicalization.canonicalize_return(functionDef)
         debug_helper(functionDef, "canonicalization.canonicalize_return")

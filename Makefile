@@ -9,9 +9,9 @@ all:
 test: typecheck_library unittest_library test_examples
 
 typecheck_library:
-	$(MYPY) -p gamehop.inlining
-	$(MYPY) -p gamehop.verification
-	$(MYPY) -p gamehop.primitives
+	$(MYPY) --ignore-missing-imports -p gamehop.inlining
+	$(MYPY) --ignore-missing-imports -p gamehop.verification
+	$(MYPY) --ignore-missing-imports -p gamehop.primitives
 
 unittest_library:
 	env PYTHONPATH=. $(PYTEST) -v tests/gamehop

@@ -80,13 +80,16 @@ class Proof():
         print("✅ canoncalizations of ({:s}) and ({:s}) are equal".format(lgame[2], rgame[2]))
         return True
 
-    def check(self, print_hops=False, print_canonicalizations=False):
+    def check(self, print_hops=False, print_canonicalizations=False, show_call_graphs=False):
         def printHop(game):
             if print_hops:
                 print(game[0])
                 if print_canonicalizations:
                     print("---- canonicalization ----")
                     print(game[1])
+                if show_call_graphs:
+                    verification.canonicalization.show_call_graph(internal.get_function_def(game[1]))
+
 
         if issubclass(self.experiment, DistinguishingExperiment):
             startGame = inlining.inline_class(self.experiment.main0, 'scheme', self.scheme)
