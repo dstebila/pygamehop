@@ -2,6 +2,10 @@ import ast
 from . import utils
 
 class ASTFilterer(utils.NewNodeVisitor):
+    def __init__(self, noifs):
+        self.noifs = noifs
+
+
     # We might want to implement these later
     def visit_AnnAssign(self, node):
         raise NotImplementedError(f"Can't handle type annotated assignments, line {node.lineno} column {node.col_offset}")
@@ -100,6 +104,8 @@ class ASTFilterer(utils.NewNodeVisitor):
                 raise NotImplementedError(f"Can't handle function definitions with return statements other than at end of body, line {stmt.lineno} column {stmt.col_offset}")
         self.generic_visit(node)
     def visit_If(self, node):
+        if self.noifs:
+            raise NotImplementedError(f"Can't handle if statements in this procedure, line {node.lineno} column {node.col_offset}")
         for stmt in node.body:
             if type(stmt) == ast.Return:
                 raise NotImplementedError(f"Can't handle if bodies with return statements, line {stmt.lineno} column {stmt.col_offset}")
@@ -133,6 +139,6 @@ class ASTFilterer(utils.NewNodeVisitor):
 
         self.generic_visit(node)
 
-def filter_AST(node):
-    filterer = ASTFilterer()
+def filter_AST(node, noifs=False):
+    filterer = ASTFilterer(noifs)
     filterer.visit(node)

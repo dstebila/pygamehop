@@ -2,6 +2,7 @@ import ast
 import copy
 from ... import utils
 from typing import List
+from ... import filterast
 
 def if_statements_to_expressions(f: ast.FunctionDef ) -> None:
     """Modify, in place, f so that all if statements become if expressions like so:
@@ -31,11 +32,11 @@ def if_statements_to_expressions(f: ast.FunctionDef ) -> None:
 
     so that now the math.sqrt(x) is run even if x < 0, resulting in an exception.
     """
-
+    filterast.filter_AST(f.body, noifs=False)
     iftransformer = IfTransformer()
     iftransformer.visit(f.body)
     ast.fix_missing_locations(f)
-
+    filterast.filter_AST(f.body, noifs=True)
 
 class IfTransformer(utils.NewNodeTransformer):
     def __init__(self):

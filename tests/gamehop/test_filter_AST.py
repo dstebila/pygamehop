@@ -218,7 +218,11 @@ class TestFilterAST(unittest.TestCase):
             else:
                 def blarg(): pass
         with self.assertRaises(NotImplementedError): gamehop.filterast.filter_AST(internal.get_function_def(f_ElseFuncDef))
-
+    def test_NoIfOption(self):
+        def f_NoIfOption():
+            if True:
+                pass
+        with self.assertRaises(NotImplementedError): gamehop.filterast.filter_AST(internal.get_function_def(f_NoIfOption), noifs=True)
 
     def test_Posonlyargs(self):
         def f_posonlyargs():
