@@ -41,6 +41,10 @@ class TestFilterAST(unittest.TestCase):
         with self.assertRaises(NotImplementedError): gamehop.filterast.filter_AST(internal.get_function_def(f_Delete))
 
     def test_For(self):
+        def f_AugAssign(): x += 1
+        with self.assertRaises(NotImplementedError): gamehop.filterast.filter_AST(internal.get_function_def(f_AugAssign))
+
+    def test_For(self):
         def f_For():
             for a in S: pass
         with self.assertRaises(NotImplementedError): gamehop.filterast.filter_AST(internal.get_function_def(f_For))
@@ -173,6 +177,48 @@ class TestFilterAST(unittest.TestCase):
             @mydecorator
             def myfunc(): pass
         with self.assertRaises(NotImplementedError): gamehop.filterast.filter_AST(internal.get_function_def(f_decorators))
+
+    def test_LastReturn(self):
+        def f_LastReturn():
+            def myfunc():
+                x = 1
+        with self.assertRaises(NotImplementedError): gamehop.filterast.filter_AST(internal.get_function_def(f_LastReturn))
+
+    def test_MiddleReturn(self):
+        def f_MiddleReturn():
+            def myfunc():
+                return 1
+                return 2
+        with self.assertRaises(NotImplementedError): gamehop.filterast.filter_AST(internal.get_function_def(f_MiddleReturn))
+
+    def test_IfReturn(self):
+        def f_IfReturn():
+            if True:
+                return 1
+        with self.assertRaises(NotImplementedError): gamehop.filterast.filter_AST(internal.get_function_def(f_IfReturn))
+
+    def test_IfFunctDef(self):
+        def f_IfFuncDef():
+            if True:
+                def blarg(): pass
+        with self.assertRaises(NotImplementedError): gamehop.filterast.filter_AST(internal.get_function_def(f_IfFuncDef))
+
+    def test_ElseReturn(self):
+        def f_ElseReturn():
+            if True:
+                pass
+            else:
+                return
+        with self.assertRaises(NotImplementedError): gamehop.filterast.filter_AST(internal.get_function_def(f_ElseReturn))
+
+    def test_ElseFunctDef(self):
+        def f_ElseFuncDef():
+            if True:
+                pass
+            else:
+                def blarg(): pass
+        with self.assertRaises(NotImplementedError): gamehop.filterast.filter_AST(internal.get_function_def(f_ElseFuncDef))
+
 
     def test_Posonlyargs(self):
         def f_posonlyargs():
