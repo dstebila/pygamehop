@@ -2,11 +2,15 @@ import ast
 from . import utils
 
 class ASTFilterer(utils.NewNodeVisitor):
+    def __init__(self, noifs):
+        self.noifs = noifs
+
+
     # We might want to implement these later
     def visit_AnnAssign(self, node):
-        raise NotImplementedError("Can't handle type annotated assignments")
+        raise NotImplementedError(f"Can't handle type annotated assignments, line {node.lineno} column {node.col_offset}")
     def visit_While(self, node):
-        raise NotImplementedError(f"Can't handle, line {node.lineno} column {node.col_offset}")
+        raise NotImplementedError(f"Can't handle, while statements line {node.lineno} column {node.col_offset}")
 
         # even if we implement we won't want orelse bodies
         if len(node.orelse) != 0:
@@ -26,6 +30,8 @@ class ASTFilterer(utils.NewNodeVisitor):
         raise NotImplementedError(f"Can't handle class definitions, line {node.lineno} column {node.col_offset}")
     def visit_Delete(self, node):
         raise NotImplementedError(f"Can't handle delete statements, line {node.lineno} column {node.col_offset}")
+    def visit_AugAssign(self, node):
+        raise NotImplementedError(f"Can't handle type augmenting assignments, line {node.lineno} column {node.col_offset}")
     def visit_For(self, node):
         raise NotImplementedError(f"Can't handle for statements, line {node.lineno} column {node.col_offset}")
     def visit_With(self, node):
@@ -90,7 +96,27 @@ class ASTFilterer(utils.NewNodeVisitor):
     def visit_FunctionDef(self, node):
         if len(node.decorator_list) != 0:
             raise NotImplementedError(f"Can't handle decorators, line {node.lineno} column {node.col_offset}")
+        lastBodyNode = node.body[-1]
+        if type(lastBodyNode) != ast.Return:
+            raise NotImplementedError(f"Can't handle function definitions without a return statements at end of body, line {lastBodyNode.lineno} column {lastBodyNode.col_offset}")
+        for stmt in node.body[:-1]:
+            if type(stmt) == ast.Return:
+                raise NotImplementedError(f"Can't handle function definitions with return statements other than at end of body, line {stmt.lineno} column {stmt.col_offset}")
         self.generic_visit(node)
+    def visit_If(self, node):
+        if self.noifs:
+            raise NotImplementedError(f"Can't handle if statements in this procedure, line {node.lineno} column {node.col_offset}")
+        for stmt in node.body:
+            if type(stmt) == ast.Return:
+                raise NotImplementedError(f"Can't handle if bodies with return statements, line {stmt.lineno} column {stmt.col_offset}")
+            if type(stmt) == ast.FunctionDef:
+                raise NotImplementedError(f"Can't handle if bodies with function definitions, line {stmt.lineno} column {stmt.col_offset}")
+
+        for stmt in node.orelse:
+            if type(stmt) == ast.Return:
+                raise NotImplementedError(f"Can't handle else bodies with return statements, line {stmt.lineno} column {stmt.col_offset}")
+            if type(stmt) == ast.FunctionDef:
+                raise NotImplementedError(f"Can't handle else bodies with function definitions, line {stmt.lineno} column {stmt.col_offset}")
 
     def visit_arguments(self, node):
         if len(node.kwonlyargs) != 0:
@@ -113,6 +139,6 @@ class ASTFilterer(utils.NewNodeVisitor):
 
         self.generic_visit(node)
 
-def filter_AST(node):
-    filterer = ASTFilterer()
+def filter_AST(node, noifs=False):
+    filterer = ASTFilterer(noifs)
     filterer.visit(node)

@@ -2,6 +2,7 @@ import ast
 import copy
 from ... import utils
 from typing import List
+from ... import filterast
 
 def if_statements_to_expressions(f: ast.FunctionDef ) -> None:
     """Modify, in place, f so that all if statements become if expressions like so:
@@ -16,19 +17,26 @@ def if_statements_to_expressions(f: ast.FunctionDef ) -> None:
     v_else = expression2
     v = v_if if condition else v_else
 
-    Currently this will mess things up if the body or orelse depend on condition being true to run.  For example:
+    Limitations:
+    The resulting code will only be correct if there are no side effects in the body or orelse.  Also, the resulting
+    code may not be safe to run, for example
+
     if x >= 0:
         v = math.sqrt(x)
 
-    will result in code that will always try to evaluate sqrt(x)
+    will result in
 
-    also messes up everything if there are any side effects in the test, body or orelse 
+    v_if = math.sqrt(x)
+    v_else = None
+    v = v_if if x >= 0 else v_else
+
+    so that now the math.sqrt(x) is run even if x < 0, resulting in an exception.
     """
-
+    filterast.filter_AST(f.body, noifs=False)
     iftransformer = IfTransformer()
     iftransformer.visit(f.body)
     ast.fix_missing_locations(f)
-
+    filterast.filter_AST(f.body, noifs=True)
 
 class IfTransformer(utils.NewNodeTransformer):
     def __init__(self):
@@ -44,7 +52,7 @@ class IfTransformer(utils.NewNodeTransformer):
         orelse_stored_vars = utils.stored_vars(node.orelse)
         all_stored_vars = list()
         for var in body_stored_vars: all_stored_vars.append(var)
-        for var in orelse_stored_vars: 
+        for var in orelse_stored_vars:
             if var not in all_stored_vars: all_stored_vars.append(var)
 
         # prefix all variables in the bodies so that they don't conflict
