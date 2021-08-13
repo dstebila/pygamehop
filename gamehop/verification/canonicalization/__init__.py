@@ -249,16 +249,17 @@ def canonicalize_line_order(f: ast.FunctionDef) -> None:
         if not G.has_node(curr_node): continue
         neighbors = list(G.neighbors(curr_node))
         G.remove_node(curr_node)
-        for n in neighbors:
-            if G.in_degree(n) > 0: neighbors.remove(n)
+        filteredneighbors = list(filter(lambda n: G.in_degree(n) == 0, neighbors))
         def keyfn(k):
             for v in utils.vars_assigns_to(k):
                 if v in utils.vars_depends_on(curr_node): return -utils.vars_depends_on(curr_node).index(v)
             return 0
-        neighbors.sort(key=keyfn)
-        for n in neighbors:
-            if n not in ret: ret.append(n)
-            if n not in left_to_process: left_to_process.append(n)
+        filteredneighbors.sort(key=keyfn)
+        for n in filteredneighbors:
+            if n not in ret: 
+                ret.append(n)
+            if n not in left_to_process:
+                left_to_process.append(n)
     f.body = list(reversed(ret))
 
 def show_call_graph(f: ast.FunctionDef) -> None:

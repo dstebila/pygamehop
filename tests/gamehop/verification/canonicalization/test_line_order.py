@@ -125,3 +125,29 @@ class TestCanonicalizeLineOrder(unittest.TestCase):
             ast.unparse(f),
             expected_result(f_degenerate_expected_result)
         )
+    
+    def test_KEMfromPKEtestcase2(self):
+        def f(self, scheme, adversaryⴰinitⴰkem_adversary):
+            (pk, sk) = scheme.KeyGen()
+            adversaryⴰss0 = Crypto.UniformlySample(SharedSecret)
+            adversaryⴰct0 = scheme.Encrypt(pk, adversaryⴰss0)
+            adversaryⴰss1 = Crypto.UniformlySample(SharedSecret)
+            adversaryⴰct1 = scheme.Encrypt(pk, adversaryⴰss1)
+            ct = scheme.Encrypt(pk, adversaryⴰss1)
+            r = adversaryⴰinitⴰkem_adversary.guess(pk, ct, adversaryⴰss0)
+            ifexp0 = len(adversaryⴰss0) == len(adversaryⴰss1)
+            return (r, ifexp0)
+        def f_expected_result(self, scheme, adversaryⴰinitⴰkem_adversary):
+            (pk, sk) = scheme.KeyGen()
+            adversaryⴰss1 = Crypto.UniformlySample(SharedSecret)
+            ct = scheme.Encrypt(pk, adversaryⴰss1)
+            adversaryⴰss0 = Crypto.UniformlySample(SharedSecret)
+            r = adversaryⴰinitⴰkem_adversary.guess(pk, ct, adversaryⴰss0)
+            ifexp0 = len(adversaryⴰss0) == len(adversaryⴰss1)
+            return (r, ifexp0)
+        f1 = gamehop.utils.get_function_def(f)
+        f2 = gamehop.utils.get_function_def(f_expected_result)
+        gamehop.verification.canonicalization.canonicalize_line_order(f1)
+        s1 = ast.unparse(f1)
+        s2 = ast.unparse(f2).replace('f_expected_result', 'f')
+        self.assertEqual(s1, s2)
