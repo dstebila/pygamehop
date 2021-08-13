@@ -53,5 +53,3 @@ class TestExpandIfExp(unittest.TestCase):
             φifexp5 = φifexp2 if φifexp3 else φifexp4
             a = φifexp0 if φifexp1 else φifexp5
         do_it(self, f, f_expected_result)
-
-TestExpandIfExp().test_many()

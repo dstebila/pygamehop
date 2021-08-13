@@ -20,20 +20,28 @@ jobs:
       with:
         python-version: ${{ matrix.python-version }}
     - name: Cache pip install
-      uses: actions/cache@v1
-      id: cache-pip
+      uses: actions/cache@v2
+      id: cache-venv
       with:
-        path: ~/.cache/pip
-        key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
-        restore-keys: ${{ runner.os }}-pip-
-    - name: Install dependencies
-      if: steps.cache-pip.outputs.cache-hit != 'true'
+        path: ./.venv/
+        key: ${{ runner.os }}-venv-0-${{ hashFiles('requirements.txt') }}
+        restore-keys: ${{ runner.os }}-venv-0-
+    - name: Build virtual environment with dependencies
+      if: steps.cache-venv.outputs.cache-hit != 'true'
       run: |
+        python -m venv ./.venv
+        . ./.venv/bin/activate
         python -m pip install --upgrade pip
         if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
     - name: Run typechecker on library
-      run: make typecheck_library
+      run: |
+        . ./.venv/bin/activate
+        make typecheck_library
     - name: Run library unit tests
-      run: env PYTHONPATH=. make unittest_library
+      run: |
+        . ./.venv/bin/activate
+        env PYTHONPATH=. make unittest_library
     - name: Run examples
-      run: env PYTHONPATH=. make test_examples
+      run: |
+        . ./.venv/bin/activate
+        env PYTHONPATH=. make test_examples
