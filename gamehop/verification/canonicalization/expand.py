@@ -60,3 +60,6 @@ def call_arguments(f: ast.FunctionDef) -> None:
         newbody.append(stmt)
     f.body = newbody
     ast.fix_missing_locations(f)
+
+def ifexpressions(f: ast.FunctionDef) -> None:
+    pass
