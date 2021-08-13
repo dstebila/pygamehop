@@ -186,84 +186,84 @@ def expected_result(f):
 
 class TestSimplifyBinaryOperators(unittest.TestCase):
     def test_add(self):
-        f = gamehop.inlining.internal.get_function_def(f_add)
+        f = gamehop.utils.get_function_def(f_add)
         f = simplify.binary_operators(f)
         self.assertEqual(
             ast.unparse(f),
             expected_result(f_add_expected_result)
         )
     def test_sub(self):
-        f = gamehop.inlining.internal.get_function_def(f_sub)
+        f = gamehop.utils.get_function_def(f_sub)
         f = simplify.binary_operators(f)
         self.assertEqual(
             ast.unparse(f),
             expected_result(f_sub_expected_result)
         )
     def test_mult(self):
-        f = gamehop.inlining.internal.get_function_def(f_mult)
+        f = gamehop.utils.get_function_def(f_mult)
         f = simplify.binary_operators(f)
         self.assertEqual(
             ast.unparse(f),
             expected_result(f_mult_expected_result)
         )
     def test_div(self):
-        f = gamehop.inlining.internal.get_function_def(f_div)
+        f = gamehop.utils.get_function_def(f_div)
         f = simplify.binary_operators(f)
         self.assertEqual(
             ast.unparse(f),
             expected_result(f_div_expected_result)
         )
     def test_floordiv(self):
-        f = gamehop.inlining.internal.get_function_def(f_floordiv)
+        f = gamehop.utils.get_function_def(f_floordiv)
         f = simplify.binary_operators(f)
         self.assertEqual(
             ast.unparse(f),
             expected_result(f_floordiv_expected_result)
         )
     def test_mod(self):
-        f = gamehop.inlining.internal.get_function_def(f_mod)
+        f = gamehop.utils.get_function_def(f_mod)
         f = simplify.binary_operators(f)
         self.assertEqual(
             ast.unparse(f),
             expected_result(f_mod_expected_result)
         )
     def test_pow(self):
-        f = gamehop.inlining.internal.get_function_def(f_pow)
+        f = gamehop.utils.get_function_def(f_pow)
         f = simplify.binary_operators(f)
         self.assertEqual(
             ast.unparse(f),
             expected_result(f_pow_expected_result)
         )
     def test_lshift(self):
-        f = gamehop.inlining.internal.get_function_def(f_lshift)
+        f = gamehop.utils.get_function_def(f_lshift)
         f = simplify.binary_operators(f)
         self.assertEqual(
             ast.unparse(f),
             expected_result(f_lshift_expected_result)
         )
     def test_rshift(self):
-        f = gamehop.inlining.internal.get_function_def(f_rshift)
+        f = gamehop.utils.get_function_def(f_rshift)
         f = simplify.binary_operators(f)
         self.assertEqual(
             ast.unparse(f),
             expected_result(f_rshift_expected_result)
         )
     def test_bitor(self):
-        f = gamehop.inlining.internal.get_function_def(f_bitor)
+        f = gamehop.utils.get_function_def(f_bitor)
         f = simplify.binary_operators(f)
         self.assertEqual(
             ast.unparse(f),
             expected_result(f_bitor_expected_result)
         )
     def test_bitxor(self):
-        f = gamehop.inlining.internal.get_function_def(f_bitxor)
+        f = gamehop.utils.get_function_def(f_bitxor)
         f = simplify.binary_operators(f)
         self.assertEqual(
             ast.unparse(f),
             expected_result(f_bitxor_expected_result)
         )
     def test_bitand(self):
-        f = gamehop.inlining.internal.get_function_def(f_bitand)
+        f = gamehop.utils.get_function_def(f_bitand)
         f = simplify.binary_operators(f)
         self.assertEqual(
             ast.unparse(f),

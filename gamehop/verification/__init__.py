@@ -8,7 +8,7 @@ from typing import Any, Callable, List, Set, Union
 from types import FunctionType
 
 from . import canonicalization
-from ..inlining import internal
+from .. import utils
 from .canonicalization import expand
 from .canonicalization import simplify
 from .canonicalization import ifstatements
@@ -28,7 +28,7 @@ def canonicalize_function(f: Union[Callable, str]) -> str:
     - variable names are 'v0', 'v1', ...
     - lines are reordered based on variable dependencies"""
     # parse the function
-    functionDef = internal.get_function_def(f)
+    functionDef = utils.get_function_def(f)
     assert isinstance(functionDef, ast.FunctionDef)
     str_previous = ""
     str_current = ast.unparse(ast.fix_missing_locations(functionDef))

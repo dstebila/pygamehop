@@ -5,6 +5,7 @@ import types
 from typing import Any, Callable, List, Union, Tuple
 
 from . import internal
+from .. import utils
 
 __all__ = ['inline_argument', 'inline_class', 'inline_function']
 
@@ -42,7 +43,7 @@ def ast_from_literal(x: Union[bool, float, int, str, tuple, list, set]) -> ast.A
 
 def inline_argument(f: Union[Callable, str, ast.FunctionDef], arg: str, val: Union[bool, float, int, str, tuple, list, set, ast.AST]) -> str:
     """Returns a string representing the provided function with the given argument inlined to the given value.  Works on values of type bool, float, int, str, tuple, list, set, or an AST object.  Cannot handle cases where the variable to be inlined is assigned to."""
-    fdef = internal.get_function_def(f)
+    fdef = utils.get_function_def(f)
     checkusage = IsNameNodeEverAssignedTo(arg)
     checkusage.visit(fdef)
     if checkusage.isassignedto: raise NotImplementedError("Cannot handle cases where the inlined variable is assigned to")
@@ -89,7 +90,7 @@ def inline_function_helper_lines_of_inlined_function(prefix: str, call: ast.Call
             mapping = {newinlinand_def.args.args[i].arg: arg.id}
             newinlinand_def = internal.rename_variables(newinlinand_def, mapping, error_if_exists = False)
         elif isinstance(arg, ast.Constant):
-            newinlinand_def = internal.get_function_def(inline_argument(newinlinand_def, newinlinand_def.args.args[i].arg, arg.value))
+            newinlinand_def = utils.get_function_def(inline_argument(newinlinand_def, newinlinand_def.args.args[i].arg, arg.value))
         else: raise NotImplementedError("Don't know how to inline calls whose arguments are of type {:s}".format(type(arg).__name__))
     return newinlinand_def.body
 
@@ -160,8 +161,8 @@ def inline_function_into_statements(inlinee: List[ast.stmt], inlinand: ast.Funct
 def inline_function(inlinee: Union[Callable, str, ast.FunctionDef], inlinand: Union[Callable, str, ast.FunctionDef], search_function_name=None, dest_function_name=None, self_prefix="") -> str:
     """Returns a string representing (almost) all instances of the second function inlined into the first.  Only works on calls to bare assignments (y = f(x)) or bare calls (f(x)). Normally uses the inlinand's name as the name to search for and the name from which to build prefixes, but can be overridden by search_function_name and dest_function_name. If self_prefix is specified, variables starting with SELF will be renamed using self_prefix instead of prefix."""
     # get the function definitions
-    inlinee_def = copy.deepcopy(internal.get_function_def(inlinee))
-    inlinand_def = copy.deepcopy(internal.get_function_def(inlinand))
+    inlinee_def = copy.deepcopy(utils.get_function_def(inlinee))
+    inlinand_def = copy.deepcopy(utils.get_function_def(inlinand))
     if search_function_name == None: search_function_name = inlinand_def.name
     if dest_function_name == None: dest_function_name = inlinand_def.name
 
@@ -171,7 +172,7 @@ def inline_function(inlinee: Union[Callable, str, ast.FunctionDef], inlinand: Un
 def inline_class(inlinee: Union[Callable, str, ast.FunctionDef], arg: str, inlinand: Union[object, str, ast.ClassDef], inline_init = True, inline_class_props = True) -> str:
     """Returns a string representing the given class definition inlined into an argument of the given function.."""
     # get the function definitions
-    inlinee_def = copy.deepcopy(internal.get_function_def(inlinee))
+    inlinee_def = copy.deepcopy(utils.get_function_def(inlinee))
     inlinand_def = copy.deepcopy(internal.get_class_def(inlinand))
     # inline class properties
     class_props_to_add: List[ast.stmt] = []
@@ -195,7 +196,7 @@ def inline_class(inlinee: Union[Callable, str, ast.FunctionDef], arg: str, inlin
                 # dereference self.whatever in __init__
                 formatstr = '{:s}ⴰ'.format(arg) + '{:s}'
                 selfname = initdef.args.args[0].arg
-                initdef = internal.get_function_def(internal.dereference_attribute(initdef, selfname, formatstr))
+                initdef = utils.get_function_def(internal.dereference_attribute(initdef, selfname, formatstr))
                 # rename any of __init__'s (non-self) parameters and add them to inlinee's list of arguments
                 for a in initdef.args.args[1:]:
                     newname = '{:s}ⴰinitⴰ{:s}'.format(arg, a.arg)
@@ -208,7 +209,7 @@ def inline_class(inlinee: Union[Callable, str, ast.FunctionDef], arg: str, inlin
     inlinee_def.body = class_props_to_add + init_stmts_to_add + inlinee_def.body
     # dereference attribute calls in the new body
     formatstr = '{:s}ⴰ'.format(arg) + '{:s}'
-    inlinee_def = internal.get_function_def(internal.dereference_attribute(inlinee_def, arg, formatstr))
+    inlinee_def = utils.get_function_def(internal.dereference_attribute(inlinee_def, arg, formatstr))
     # inline all remaining methods
     for f in inlinand_def.body:
         if isinstance(f, ast.FunctionDef) and f.name != '__init__':
@@ -216,10 +217,10 @@ def inline_class(inlinee: Union[Callable, str, ast.FunctionDef], arg: str, inlin
             # dereference self.whatever in the function
             formatstr = 'SELF{:s}'
             selfname = fdef.args.args[0].arg
-            fdef = internal.get_function_def(internal.dereference_attribute(fdef, selfname, formatstr))
+            fdef = utils.get_function_def(internal.dereference_attribute(fdef, selfname, formatstr))
             del fdef.args.args[0]
             # inline the method; we've already done the prefixing so we tell inline_function not to add its own prefixes
-            inlinee_def = internal.get_function_def(inline_function(inlinee_def, fdef, search_function_name='{:s}ⴰ{:s}'.format(arg, fdef.name), dest_function_name='{:s}ⴰ{:s}'.format(arg, fdef.name), self_prefix='{:s}'.format(arg)))
+            inlinee_def = utils.get_function_def(inline_function(inlinee_def, fdef, search_function_name='{:s}ⴰ{:s}'.format(arg, fdef.name), dest_function_name='{:s}ⴰ{:s}'.format(arg, fdef.name), self_prefix='{:s}'.format(arg)))
     # remove the inlined argument from the inlinee's list of argments
     newargs = list()
     for i in range(len(inlinee_def.args.args)):

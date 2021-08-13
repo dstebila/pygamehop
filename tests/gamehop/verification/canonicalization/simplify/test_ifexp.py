@@ -30,7 +30,7 @@ def expected_result(f):
 
 class TestSimplifyIfExp(unittest.TestCase):
     def test_ifexp(self):
-        f = gamehop.inlining.internal.get_function_def(f_ifexp)
+        f = gamehop.utils.get_function_def(f_ifexp)
         f = simplify.ifexp(f)
         self.assertEqual(
             ast.unparse(f),

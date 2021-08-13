@@ -1,5 +1,7 @@
 import ast
-from typing import Optional, Set, Union, List
+import inspect
+import types
+from typing import Callable, Optional, Set, Union, List
 
 class NewNodeVisitor(ast.NodeVisitor):
     """Adds the ability to handle List[ast.stmt] to ast.NodeVistor"""
@@ -95,3 +97,23 @@ def vars_assigns_to(node: ast.AST) -> List[str]:
     elif isinstance(node, ast.Return): return []
     elif isinstance(node, ast.Tuple): return sum([vars_assigns_to(e) for e in node.elts], start=[])
     else: raise NotImplementedError("Cannot handle AST objects of type {:s}".format(type(node).__name__))
+
+def get_function_def(f: Union[Callable, str, ast.FunctionDef]) -> ast.FunctionDef:
+    """Gets the ast.FunctionDef for a function that is given as a function or as a string."""
+    # parse the function
+    if isinstance(f, types.FunctionType): 
+        src = inspect.getsource(f)
+        indentation = src.find('def')
+        if indentation > 0:
+            newsrc = []
+            for line in src.splitlines():
+                newsrc.append(line[indentation:])
+            src = "\n".join(newsrc)
+        t = ast.parse(src)
+    elif isinstance(f, str): t = ast.parse(f)
+    elif isinstance(f, ast.FunctionDef): return f
+    else: raise TypeError("Cannot handle functions provided as {:s}".format(type(f).__name__))
+    # get the function definition
+    fdef = t.body[0]
+    assert isinstance(fdef, ast.FunctionDef)
+    return fdef

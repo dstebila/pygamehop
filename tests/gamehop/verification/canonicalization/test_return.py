@@ -57,35 +57,35 @@ def expected_result(f):
 
 class TestCanonicalizeReturn(unittest.TestCase):
     def test_constant(self):
-        f = gamehop.inlining.internal.get_function_def(f_constant)
+        f = gamehop.utils.get_function_def(f_constant)
         gamehop.verification.canonicalization.canonicalize_return(f)
         self.assertEqual(
             ast.unparse(f),
             expected_result(f_constant_expected_result)
         )
     def test_variable(self):
-        f = gamehop.inlining.internal.get_function_def(f_variable)
+        f = gamehop.utils.get_function_def(f_variable)
         gamehop.verification.canonicalization.canonicalize_return(f)
         self.assertEqual(
             ast.unparse(f),
             expected_result(f_variable_expected_result)
         )
     def test_attribute(self):
-        f = gamehop.inlining.internal.get_function_def(f_attribute)
+        f = gamehop.utils.get_function_def(f_attribute)
         gamehop.verification.canonicalization.canonicalize_return(f)
         self.assertEqual(
             ast.unparse(f),
             expected_result(f_attribute_expected_result)
         )
     def test_operator(self):
-        f = gamehop.inlining.internal.get_function_def(f_operator)
+        f = gamehop.utils.get_function_def(f_operator)
         gamehop.verification.canonicalization.canonicalize_return(f)
         self.assertEqual(
             ast.unparse(f),
             expected_result(f_operator_expected_result)
         )
     def test_multiple_return(self):
-        f = gamehop.inlining.internal.get_function_def(f_multiple_return)
+        f = gamehop.utils.get_function_def(f_multiple_return)
         gamehop.verification.canonicalization.canonicalize_return(f)
         self.assertEqual(
             ast.unparse(f),

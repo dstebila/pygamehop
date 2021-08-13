@@ -3,6 +3,7 @@ import inspect
 import unittest
 
 import gamehop.inlining
+import gamehop.utils
 import gamehop.verification.canonicalization
 
 class class_with_no_methods(object):
@@ -163,7 +164,7 @@ class TestInlineClass(unittest.TestCase):
             expected_result(f_double_attributing_expected_result))
     def test_intermediate_value(self):
         step1 = gamehop.inlining.inline_class(f_intermediate_value, 'v', class_intermediate_value)
-        step2 = gamehop.inlining.internal.get_function_def(step1)
+        step2 = gamehop.utils.get_function_def(step1)
         gamehop.verification.canonicalization.collapse_useless_assigns(step2)
         self.assertEqual(
             ast.unparse(step2),

@@ -75,28 +75,28 @@ def expected_result(f):
 
 class TestIfStatementsToExpressions(unittest.TestCase):
     def test_basic1(self):
-        f = gamehop.inlining.internal.get_function_def(f_basic_if)
+        f = gamehop.utils.get_function_def(f_basic_if)
         gamehop.verification.canonicalization.ifstatements.if_statements_to_expressions(f)
         self.assertEqual(
             ast.unparse(f),
             expected_result(f_basic_if_expected_result)
         )
     def test_if_missing_vars(self):
-        f = gamehop.inlining.internal.get_function_def(f_if_missing_vars)
+        f = gamehop.utils.get_function_def(f_if_missing_vars)
         gamehop.verification.canonicalization.ifstatements.if_statements_to_expressions(f)
         self.assertEqual(
             ast.unparse(f),
             expected_result(f_if_missing_vars_expected_result)
         )
     def test_multiple_ifs(self):
-        f = gamehop.inlining.internal.get_function_def(f_multiple_ifs)
+        f = gamehop.utils.get_function_def(f_multiple_ifs)
         gamehop.verification.canonicalization.ifstatements.if_statements_to_expressions(f)
         self.assertEqual(
             ast.unparse(f),
             expected_result(f_multiple_ifs_expected_result)
         )
     def test_elif(self):
-        f = gamehop.inlining.internal.get_function_def(f_elif)
+        f = gamehop.utils.get_function_def(f_elif)
         gamehop.verification.canonicalization.ifstatements.if_statements_to_expressions(f)
         self.assertEqual(
             ast.unparse(f),

@@ -9,6 +9,7 @@ from .primitives import Crypto
 from . import inlining
 from .inlining import internal
 from . import verification
+from . import utils
 
 class Experiment(): pass
 class DistinguishingExperiment(Experiment):
@@ -88,7 +89,7 @@ class Proof():
                     print("---- canonicalization ----")
                     print(game[1])
                 if show_call_graphs:
-                    verification.canonicalization.show_call_graph(internal.get_function_def(game[1]))
+                    verification.canonicalization.show_call_graph(utils.get_function_def(game[1]))
 
 
         if issubclass(self.experiment, DistinguishingExperiment):

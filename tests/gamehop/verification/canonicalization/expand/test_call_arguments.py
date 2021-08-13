@@ -38,28 +38,28 @@ def expected_result(f):
 
 class TestExpandCallArguments(unittest.TestCase):
     def test_noop(self):
-        f = gamehop.inlining.internal.get_function_def(f_noop)
+        f = gamehop.utils.get_function_def(f_noop)
         expand.call_arguments(f)
         self.assertEqual(
             ast.unparse(f),
             expected_result(f_noop_expected_result)
         )
     def test_basic(self):
-        f = gamehop.inlining.internal.get_function_def(f_basic)
+        f = gamehop.utils.get_function_def(f_basic)
         expand.call_arguments(f)
         self.assertEqual(
             ast.unparse(f),
             expected_result(f_basic_expected_result)
         )
     def test_many(self):
-        f = gamehop.inlining.internal.get_function_def(f_many)
+        f = gamehop.utils.get_function_def(f_many)
         expand.call_arguments(f)
         self.assertEqual(
             ast.unparse(f),
             expected_result(f_many_expected_result)
         )
     def test_barecall(self):
-        f = gamehop.inlining.internal.get_function_def(f_barecall)
+        f = gamehop.utils.get_function_def(f_barecall)
         expand.call_arguments(f)
         self.assertEqual(
             ast.unparse(f),

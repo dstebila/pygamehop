@@ -4,25 +4,7 @@ import inspect
 import types
 from typing import Any, Callable, List, Optional, Set, Union
 
-def get_function_def(f: Union[Callable, str, ast.FunctionDef]) -> ast.FunctionDef:
-    """Gets the ast.FunctionDef for a function that is given as a function or as a string."""
-    # parse the function
-    if isinstance(f, types.FunctionType): 
-        src = inspect.getsource(f)
-        indentation = src.find('def')
-        if indentation > 0:
-            newsrc = []
-            for line in src.splitlines():
-                newsrc.append(line[indentation:])
-            src = "\n".join(newsrc)
-        t = ast.parse(src)
-    elif isinstance(f, str): t = ast.parse(f)
-    elif isinstance(f, ast.FunctionDef): return f
-    else: raise TypeError("Cannot handle functions provided as {:s}".format(type(f).__name__))
-    # get the function definition
-    fdef = t.body[0]
-    assert isinstance(fdef, ast.FunctionDef)
-    return fdef
+from .. import utils
 
 def get_class_def(c: Union[Any, str, ast.ClassDef]) -> ast.ClassDef:
     """Gets the ast.ClassDef for a class that is given as a class or as a string."""
@@ -48,7 +30,7 @@ class NameRenamer(ast.NodeTransformer):
 
 def rename_variables(f: Union[Callable, str, ast.FunctionDef], mapping: dict, error_if_exists = True) -> ast.FunctionDef:
     """Returns a copy of the function with all the variables in the given function definition renamed based on the provided mapping.  Raises a ValueError if the new name is already used in the function."""
-    retvalue = NameRenamer(mapping, error_if_exists).visit(get_function_def(copy.deepcopy(f)))
+    retvalue = NameRenamer(mapping, error_if_exists).visit(utils.get_function_def(copy.deepcopy(f)))
     # rename any relevant variables in the function arguments
     for arg in retvalue.args.args:
         if error_if_exists and (arg.arg in mapping.values()): raise ValueError("New name '{:s}' already exists in function".format(arg.arg))
@@ -57,7 +39,7 @@ def rename_variables(f: Union[Callable, str, ast.FunctionDef], mapping: dict, er
 
 def find_all_variables(f: Union[Callable, str, ast.FunctionDef]) -> List[str]:
     """Return a set of all variables in the function, including function parameters."""
-    fdef = get_function_def(f)
+    fdef = utils.get_function_def(f)
     vars = list()
     # function arguments
     args = fdef.args
@@ -85,7 +67,7 @@ def find_all_variables(f: Union[Callable, str, ast.FunctionDef]) -> List[str]:
 
 def dereference_attribute(f: Union[Callable, str, ast.FunctionDef], name: str, formatstr: str) -> str:
     """Returns a string representing a function with all references to 'name.whatever' replaced with formatstr.format(whatever) (e.g., with 'name_whatever').  Only replaces top-level calls (a.b.c -> a_b.c) but not within (w.a.b does not go to w.a_b)."""
-    fdef = copy.deepcopy(get_function_def(f))
+    fdef = copy.deepcopy(utils.get_function_def(f))
     # fortunately a.b.c is parsed as ((a.b).c)
     # and we only want to replace the a.b
     class AttributeDereferencer(ast.NodeTransformer):

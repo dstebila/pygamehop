@@ -83,43 +83,43 @@ def expected_result(f):
 
 class TestCanonicalizeLineOrder(unittest.TestCase):
     def test_basic1(self):
-        f = gamehop.inlining.internal.get_function_def(f_basic1)
+        f = gamehop.utils.get_function_def(f_basic1)
         gamehop.verification.canonicalization.canonicalize_line_order(f)
         self.assertEqual(
             ast.unparse(f),
             expected_result(f_basic1_expected_result)
         )
     def test_basic2(self):
-        f = gamehop.inlining.internal.get_function_def(f_basic2)
+        f = gamehop.utils.get_function_def(f_basic2)
         gamehop.verification.canonicalization.canonicalize_line_order(f)
         self.assertEqual(
             ast.unparse(f),
             expected_result(f_basic2_expected_result)
         )
     def test_basic3(self):
-        f = gamehop.inlining.internal.get_function_def(f_basic3)
+        f = gamehop.utils.get_function_def(f_basic3)
         gamehop.verification.canonicalization.canonicalize_line_order(f)
         self.assertEqual(
             ast.unparse(f),
             expected_result(f_basic3_expected_result)
         )
     def test_ordering(self):
-        f = gamehop.inlining.internal.get_function_def(f_ordering)
+        f = gamehop.utils.get_function_def(f_ordering)
         gamehop.verification.canonicalization.canonicalize_line_order(f)
         self.assertEqual(
             ast.unparse(f),
             expected_result(f_ordering_expected_result)
         )
     def test_KEMfromPKEtestcase(self):
-        f1 = gamehop.inlining.internal.get_function_def(f_KEMfromPKEtestcase1)
-        f2 = gamehop.inlining.internal.get_function_def(f_KEMfromPKEtestcase2)
+        f1 = gamehop.utils.get_function_def(f_KEMfromPKEtestcase1)
+        f2 = gamehop.utils.get_function_def(f_KEMfromPKEtestcase2)
         gamehop.verification.canonicalization.canonicalize_line_order(f1)
         gamehop.verification.canonicalization.canonicalize_line_order(f2)
         s1 = ast.unparse(f1).replace('f_KEMfromPKEtestcase1', 'f')
         s2 = ast.unparse(f2).replace('f_KEMfromPKEtestcase2', 'f')
         self.assertEqual(s1, s2)
     def test_degenerate(self):
-        f = gamehop.inlining.internal.get_function_def(f_degenerate)
+        f = gamehop.utils.get_function_def(f_degenerate)
         gamehop.verification.canonicalization.canonicalize_line_order(f)
         self.assertEqual(
             ast.unparse(f),

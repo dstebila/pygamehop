@@ -56,42 +56,42 @@ def expected_result(f):
 
 class TestCollapseAssigns(unittest.TestCase):
     def test_constant(self):
-        f = gamehop.inlining.internal.get_function_def(f_constant)
+        f = gamehop.utils.get_function_def(f_constant)
         gamehop.verification.canonicalization.collapse_useless_assigns(f)
         self.assertEqual(
             ast.unparse(f),
             expected_result(f_constant_expected_result)
         )
     def test_variable(self):
-        f = gamehop.inlining.internal.get_function_def(f_variable)
+        f = gamehop.utils.get_function_def(f_variable)
         gamehop.verification.canonicalization.collapse_useless_assigns(f)
         self.assertEqual(
             ast.unparse(f),
             expected_result(f_variable_expected_result)
         )
     def test_reassign(self):
-        f = gamehop.inlining.internal.get_function_def(f_reassign)
+        f = gamehop.utils.get_function_def(f_reassign)
         gamehop.verification.canonicalization.collapse_useless_assigns(f)
         self.assertEqual(
             ast.unparse(f),
             expected_result(f_reassign_expected_result)
         )
     def test_tuple(self):
-        f = gamehop.inlining.internal.get_function_def(f_tuple)
+        f = gamehop.utils.get_function_def(f_tuple)
         gamehop.verification.canonicalization.collapse_useless_assigns(f)
         self.assertEqual(
             ast.unparse(f),
             expected_result(f_tuple_expected_result)
         )
     def test_tuple2(self):
-        f = gamehop.inlining.internal.get_function_def(f_tuple2)
+        f = gamehop.utils.get_function_def(f_tuple2)
         gamehop.verification.canonicalization.collapse_useless_assigns(f)
         self.assertEqual(
             ast.unparse(f),
             expected_result(f_tuple2_expected_result)
         )
     def test_tuple3(self):
-        f = gamehop.inlining.internal.get_function_def(f_tuple3)
+        f = gamehop.utils.get_function_def(f_tuple3)
         gamehop.verification.canonicalization.collapse_useless_assigns(f)
         self.assertEqual(
             ast.unparse(f),

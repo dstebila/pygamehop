@@ -55,34 +55,34 @@ def expected_result(f):
 
 class TestExpandVariableReassign(unittest.TestCase):
     def test_noop(self):
-        f = gamehop.inlining.internal.get_function_def(f_noop)
+        f = gamehop.utils.get_function_def(f_noop)
         expand.variable_reassign(f)
         self.assertEqual(
             ast.unparse(f),
             expected_result(f_noop_expected_result)
         )
     def test_basic(self):
-        f = gamehop.inlining.internal.get_function_def(f_basic)
+        f = gamehop.utils.get_function_def(f_basic)
         expand.variable_reassign(f)
         self.assertEqual(
             ast.unparse(f),
             expected_result(f_basic_expected_result)
         )
     def test_multit(self):
-        f = gamehop.inlining.internal.get_function_def(f_multitarget)
+        f = gamehop.utils.get_function_def(f_multitarget)
         expand.variable_reassign(f)
         self.assertEqual(
             ast.unparse(f),
             expected_result(f_multitarget_expected_result)
         )
     def test_tuple(self):
-        f = gamehop.inlining.internal.get_function_def(f_tuple)
+        f = gamehop.utils.get_function_def(f_tuple)
         expand.variable_reassign(f)
         self.assertEqual(
             ast.unparse(f),
             expected_result(f_tuple_expected_result)
         )
     def test_if(self):
-        f = gamehop.inlining.internal.get_function_def(f_if)
+        f = gamehop.utils.get_function_def(f_if)
         with self.assertRaises(NotImplementedError):
             expand.variable_reassign(f)

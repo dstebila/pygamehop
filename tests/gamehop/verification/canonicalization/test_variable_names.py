@@ -20,7 +20,7 @@ def expected_result(f):
 
 class TestCanonicalizeVariableNames(unittest.TestCase):
     def test_basic(self):
-        f = gamehop.inlining.internal.get_function_def(f_basic)
+        f = gamehop.utils.get_function_def(f_basic)
         gamehop.verification.canonicalization.canonicalize_variable_names(f)
         self.assertEqual(
             ast.unparse(f),

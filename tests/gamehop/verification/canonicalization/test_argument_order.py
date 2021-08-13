@@ -37,28 +37,28 @@ def expected_result(f):
 
 class TestCanonicalizeArgumentOrder(unittest.TestCase):
     def test_basic1(self):
-        f = gamehop.inlining.internal.get_function_def(f_basic1)
+        f = gamehop.utils.get_function_def(f_basic1)
         gamehop.verification.canonicalization.canonicalize_argument_order(f)
         self.assertEqual(
             ast.unparse(f),
             expected_result(f_basic1_expected_result)
         )
     def test_basic2(self):
-        f = gamehop.inlining.internal.get_function_def(f_basic2)
+        f = gamehop.utils.get_function_def(f_basic2)
         gamehop.verification.canonicalization.canonicalize_argument_order(f)
         self.assertEqual(
             ast.unparse(f),
             expected_result(f_basic2_expected_result)
         )
     def test_unused_arg(self):
-        f = gamehop.inlining.internal.get_function_def(f_unused_arg)
+        f = gamehop.utils.get_function_def(f_unused_arg)
         gamehop.verification.canonicalization.canonicalize_argument_order(f)
         self.assertEqual(
             ast.unparse(f),
             expected_result(f_unused_arg_expected_result)
         )
     def test_arith(self):
-        f = gamehop.inlining.internal.get_function_def(f_arith)
+        f = gamehop.utils.get_function_def(f_arith)
         gamehop.verification.canonicalization.canonicalize_argument_order(f)
         self.assertEqual(
             ast.unparse(f),
