@@ -29,7 +29,8 @@ class R01(KEM.KEMINDCPA_adversary):
         mask = self.kdf.KDF(ss, "label", len(m0))
         ctprime = mask ^ m0
         r = self.adversary.guess((ct, ctprime))
-        return r
+        ret = r if len(m0) == len(m1) else Crypto.Bit(0)
+        return ret
 
 proof.addDistinguishingProofStep(KEM.INDCPA, KEMScheme, R01)
 
@@ -43,14 +44,15 @@ class R12(KDF.KDFsec_adversary):
     def setup(self, kdf: KDFScheme) -> None:
         self.kdf = kdf
         return None
-    def run(self, o_eval: Callable[[str, int], Crypto.ByteString]) -> Crypto.Bit:
+    def run(self, o_eval: Callable[[str, int], Crypto.BitString]) -> Crypto.Bit:
         (pk, sk) = self.kem.KeyGen()
         (self.m0, m1) = self.adversary.challenge(pk)
         (self.ct1, _) = self.kem.Encaps(pk)
         mask = o_eval("label", len(self.m0))
         ct2 = mask ^ self.m0
         r = self.adversary.guess((self.ct1, ct2))
-        return r
+        ret = r if len(self.m0) == len(m1) else Crypto.Bit(0)
+        return ret
 
 proof.addDistinguishingProofStep(KDF.KDFsec, KDFScheme, R12, renaming = {'Key': 'SharedSecret'})
 
@@ -69,7 +71,7 @@ class R23(OTP.OTIND_adversary):
         (m0, m1) = self.adversary.challenge(pk)
         (self.ct1, _) = self.kem.Encaps(pk)
         return (m0, m1)
-    def guess(self, ct: Crypto.ByteString) -> Crypto.Bit:
+    def guess(self, ct: Crypto.BitString) -> Crypto.Bit:
         return self.adversary.guess((self.ct1, ct))
 
 proof.addDistinguishingProofStep(OTP.OTIND, OTPScheme, R23)
@@ -84,14 +86,15 @@ class R34(KDF.KDFsec_adversary):
     def setup(self, kdf: KDFScheme) -> None:
         self.kdf = kdf
         return None
-    def run(self, o_eval: Callable[[str, int], Crypto.ByteString]) -> Crypto.Bit:
+    def run(self, o_eval: Callable[[str, int], Crypto.BitString]) -> Crypto.Bit:
         (pk, sk) = self.kem.KeyGen()
         (m0, self.m1) = self.adversary.challenge(pk)
         (self.ct1, _) = self.kem.Encaps(pk)
         mask = o_eval("label", len(self.m1))
         ct2 = mask ^ self.m1
         r = self.adversary.guess((self.ct1, ct2))
-        return r
+        ret = r if len(m0) == len(self.m1) else Crypto.Bit(0)
+        return ret
 
 proof.addDistinguishingProofStep(KDF.KDFsec, KDFScheme, R34, reverseDirection = True, renaming = {'Key': 'SharedSecret'})
 
@@ -110,7 +113,8 @@ class R45(KEM.KEMINDCPA_adversary):
         mask = self.kdf.KDF(ss, "label", len(m1))
         ctprime = mask ^ m1
         r = self.adversary.guess((ct, ctprime))
-        return r
+        ret = r if len(m0) == len(m1) else Crypto.Bit(0)
+        return ret
 
 proof.addDistinguishingProofStep(KEM.INDCPA, KEMScheme, R45, reverseDirection = True)
 
