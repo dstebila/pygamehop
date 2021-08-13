@@ -65,8 +65,8 @@ def rewrite_left1(v0: KEMINDCPA_adversary, v1: PKEScheme) -> Crypto.Bit:
     v4 = Crypto.UniformlySample(SharedSecret)
     v5 = v1.Encrypt(v2, v4)
     v6 = Crypto.UniformlySample(SharedSecret)
-    v7 = v0.guess(v2, v5, v4)
-    v8 = len(v4) == len(v6)
+    v7 = v0.guess(v2, v5, v6)
+    v8 = len(v6) == len(v4)
     v9 = Crypto.Bit(0)
     v10 = v7 if v8 else v9
     return v10
@@ -76,7 +76,7 @@ def rewrite_right1(v0: KEMINDCPA_adversary, v1: PKEScheme) -> Crypto.Bit:
     v4 = Crypto.UniformlySample(SharedSecret)
     v5 = v1.Encrypt(v2, v4)
     v6 = Crypto.UniformlySample(SharedSecret)
-    v7 = v0.guess(v2, v5, v4)
+    v7 = v0.guess(v2, v5, v6)
     v8 = True
     v9 = Crypto.Bit(0)
     v10 = v7 if v8 else v9
