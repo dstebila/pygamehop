@@ -2,6 +2,8 @@ import ast
 import copy
 import secrets
 from typing import cast, Dict, List, Optional, Union
+import matplotlib.pyplot
+import networkx
 
 from ...inlining import internal
 
@@ -190,101 +192,79 @@ def dependent_vars(stmt: ast.Assign) -> List[str]:
     finder.visit(stmt.value)
     return finder.found
 
+# generate a graph of the lines of the function
+def function_to_graph(t: ast.FunctionDef):
+    G = networkx.DiGraph()
+    last_stmt_that_assigned_var: Dict[str, ast.AST] = dict() # keep track of the last statement that assigned to each variable
+    # go through the lines of the statement in order
+    for stmt in t.body:
+        # add this statement to the graph as a node
+        G.add_node(stmt)
+        # add directed edges from this node to the last statement that assigned to each of its dependencies
+        for v in internal.vars_depends_on(stmt):
+            if v in last_stmt_that_assigned_var:
+                G.add_edge(stmt, last_stmt_that_assigned_var[v])
+        # record that this statement was the last statement to assign to each variable it assigned to
+        for v in internal.vars_assigns_to(stmt):
+            last_stmt_that_assigned_var[v] = stmt
+    # we should now have a directed acyclic graph
+    assert networkx.algorithms.dag.is_directed_acyclic_graph(G)
+    return G
+
+# find all the nodes that the return statement depends on
+# (assumes that the return statement is the last statement in the function body)
+def remove_irrelvant_nodes(G, f):
+    assert isinstance(f.body[-1], ast.Return)
+    return_stmt = f.body[-1]
+    relevant_nodes = networkx.algorithms.dag.descendants(G, return_stmt) | {return_stmt}
+    # remove all nodes that don't contribute to the return statement
+    return G.subgraph(relevant_nodes).copy()
+
 def canonicalize_line_order(f: ast.FunctionDef) -> None:
     """Modify (in place) the given function definition to canonicalize the order of lines
     based on the order in which the returned variable depends on previous lines. Lines
-    that do not affect the return variable are removed. Assumes expand.variable_reassign
-    has been called."""
-    # It may seem hacky that this function keeps calling canonicalize_line_order_inner
-    # until it stops changing, but there's a good reason for that, see its comment.
-    f_before = None
-    f_after = ast.unparse(f)
-    while f_before != f_after:
-        f_before = f_after
-        canonicalize_line_order_inner(f)
-        f_after = ast.unparse(f)
+    that do not affect the return variable are removed.  Assumes that the return statement
+    is the last statement in the function body"""
+    G = function_to_graph(f)
+    G = remove_irrelvant_nodes(G, f)
+    # algorithm idea is as follows:
+    # 0. add the return statement to the output list
+    # 1. start from the return statement; call it the current node
+    # 2. get the neighbours of the current node (i.e., the statements that most recently set the variables this statement depends on)
+    # 3. remove this node from the graph
+    # 4. remove from the list of neighbours any statements that still have other dependencies beyond this node
+    # 5. order the remaining neighbours of the current node by the order in which the variables they set appear in the list of variables the current statement depends on
+    # 6. add this statement's neighbours to the output list, if they haven't already been output
+    # 7. add all of this statement's neighbours to the list of nodes to be processed, if they aren't already there
+    # 8. set the current node to be the next node in the list of nodes to be processed, then go to step 2
+    # 9. once there are no more nodes to be processed, output the output list in reverse order (so that the return statement is at the end)
+    assert isinstance(f.body[-1], ast.Return)
+    return_stmt = f.body[-1]
+    ret = [return_stmt]
+    left_to_process = [return_stmt]
+    while len(left_to_process) > 0:
+        curr_node = left_to_process[0]
+        left_to_process = left_to_process[1:]
+        if not G.has_node(curr_node): continue
+        neighbors = list(G.neighbors(curr_node))
+        G.remove_node(curr_node)
+        for n in neighbors:
+            if G.in_degree(n) > 0: neighbors.remove(n)
+        def keyfn(k):
+            for v in internal.vars_assigns_to(k):
+                if v in internal.vars_depends_on(curr_node): return -internal.vars_depends_on(curr_node).index(v)
+            return 0
+        neighbors.sort(key=keyfn)
+        for n in neighbors:
+            if n not in ret: ret.append(n)
+            if n not in left_to_process: left_to_process.append(n)
+    f.body = list(reversed(ret))
 
-def canonicalize_line_order_inner(f: ast.FunctionDef) -> None:
-    # Idea of the algorithm is as follows: build a tree of statements rooted at the 
-    # return statement; node Y is a child of node X if node X depends on node Y.
-    # We keep track of the level in the tree that each node is at, in terms of distance
-    # from the return statement. Statements at the same level of the tree are ordered
-    # based on the order in which their assigned variables were first depended on
-    #
-    # This doesn't fully canonicalize the line order on a single pass.  In particular,
-    # after n passes, vars_in_order is in the correct order up until the n levels 
-    # closest to the return statement, but not necessarily beyond that, because 
-    # the order of variables in the parts of vars_in_order corresponding to levels
-    # further out was set before those statements were ordered, so that may have
-    # induced the wrong otder.  
-    #
-    # The solution is to updates vars_in_order after each level has been ordered.
-    # But that would require a lot of complex logic here.  An equivalent way would
-    # be to just call the function again, and that will cause at least one more 
-    # level to be set correctly.  That's why (the outer) canonicalize_line_order
-    # keeps calling this inner function until the order stops changing.
-    level_for_var: Dict[str, int] = dict() # what level the assignment statement for a variable should be put at
-    stmts_at_level: List[List[ast.stmt]] = list() # what statements are at a given level
-    vars_in_order = list() # the order of variables added
-    # get the return statement
-    ret_stmt = f.body[-1]
-    if not isinstance(ret_stmt, ast.Return): return None
-    val = ret_stmt.value
-    # if return value is just a constant, we're done
-    if isinstance(ret_stmt.value, ast.Constant): 
-        f.body = [ret_stmt]
-        ast.fix_missing_locations(f)
-        return
-    elif not isinstance(ret_stmt.value, ast.Name): raise NotImplementedError("Cannot handle functions with return type " + str(type(ret_stmt.value).__name__))
-    # the statement assigning the return variable should be at level 0
-    return_variable = ret_stmt.value.id
-    level_for_var[return_variable] = 0
-    vars_in_order.append(return_variable)
-    # go through all remaining statements
-    for i in range(len(f.body) - 2, -1, -1):
-        stmt = f.body[i]
-        if not isinstance(stmt, ast.Assign): raise NotImplementedError("Cannot handle statements of type {:s}".format(str(type(stmt).__name__)))
-        # this statement should go at the level specified by all of its assignees
-        as_vars = assignee_vars(stmt)
-        this_should_be_at_level = -1
-        for a in as_vars:
-            if a in level_for_var: this_should_be_at_level = max(level_for_var[a], this_should_be_at_level)
-        # if none of its assignees had a level, then this statement is useless, and we don't need to add it to anything
-        if this_should_be_at_level < 0:
-            continue
-        # all of the variables this statement depends on should go at least one level lower in the tree
-        dep_vars = dependent_vars(stmt)
-        for v in dep_vars:
-            if v in level_for_var: level_for_var[v] = max(level_for_var[v], this_should_be_at_level + 1)
-            else: level_for_var[v] = this_should_be_at_level + 1
-            if v not in vars_in_order: vars_in_order.append(v) # keep track of the order of first dependence of every variable
-        # make a new level of the tree if it doesn't exist yet
-        if len(stmts_at_level) < this_should_be_at_level + 1: stmts_at_level.append(list())
-        # add this statement at its level in the tree
-        stmts_at_level[this_should_be_at_level].append(stmt)
-    # now we can construct the new body of the function
-    new_body: List[ast.stmt] = list()
-    # this is a helper function for sorting multiple statements at the same level
-    # for an assignment statement, the idea is to sort based on the order in which 
-    # that variable is depended on by the return statement
-    # for assignment statements that have multiple assignees, we construct a compound 
-    # sort key
-    def sort_order(stmt):
-        stmtvars = assignee_vars(stmt)
-        r = ''
-        for v in stmtvars:
-            if v in vars_in_order: r = r + '.{:d}'.format(vars_in_order.index(v))
-        return r
-    # starting at the bottom of the tree (i.e., furthest from the return statement),
-    # add statements to the body for each level of the tree
-    # statements at each level are sorted based on the sort order defined above
-    for i in range(len(stmts_at_level) - 1, -1, -1):
-        stmts_at_level[i].sort(key=sort_order)
-        new_body.extend(stmts_at_level[i])
-    # don't forget the return statement
-    new_body.append(ret_stmt)
-    f.body = new_body
-    ast.fix_missing_locations(f)
+def show_call_graph(f: ast.FunctionDef) -> None:
+    G = function_to_graph(f)
+    pos = networkx.shell_layout(G)
+    networkx.draw(G, pos=pos, with_labels=True)
+    matplotlib.pyplot.show()
 
 def canonicalize_argument_order(f: ast.FunctionDef) -> None:
     """Modify (in place) the given function definition to canonicalize the order of the arguments

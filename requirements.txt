@@ -1,3 +1,7 @@
+matplotlib
 mypy
+networkx
+numpy
 pytest
 pytest-mypy
+scipy
