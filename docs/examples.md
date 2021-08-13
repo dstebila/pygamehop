@@ -15,16 +15,21 @@ The `examples` directory contains several examples of constructions and correspo
 
 The proof consists of the following game hops:
 
-- Game 0: `KEMfromPKE` inlined into the "real" version of the KEM IND-CPA game (`KEM.INDCPA.main0`).
-- Game 1: `KEMfromPKE` inlined into the "random" version of the KEM IND-CPA game (`KEM.INDCPA.main`).
-	- Reduction `R01`: This reduction interpolates between Game 0 and Game 1. It is an IND-CPA adversary against the PKE scheme.
+- Starting game: `KEMfromPKE` inlined into the "real" version of the KEM IND-CPA game (`KEM.INDCPA.main0`), where the KEM ciphertext encapsulates the real shared secret.
+- Hop 1: A rewriting step that two shared secrets selected uniformly at random have the same length.
+- Hop 2: A distinguishing step in which the "random" shared secret is encrypted by the PKE, rather than the "real" shared secret.
+	- Reduction `R12` is an IND-CPA adversary against the PKE scheme that interpolates between Game 1 and Game 2.
+- Hop 3: A rewriting step that two shared secrets selected uniformly at random have the same length.
+- Ending game: `KEMfromPKE` inlined into the "random" version of the KEM IND-CPA game (`KEM.INDCPA.main1`), where the KEM ciphertext encapsulates the random shared secret.
 
-Note that Game 0 and 1 are not explicitly written out in `KEMfromPKE_is_INDCPA.py`, they are derived from the starting and ending points of the proof.
+Note that the starting and ending games are not explicitly written out in `KEMfromPKE_is_INDCPA.py`, they are derived from the starting and ending points of the proof. Furthermore, intermediate games are not explicitly written out, they are derived from the relevant transformations.
 
 The proof engine checks that:
 
-- Game 0 (`KEMfromPKE` inlined into `KEM.INDCPA.main0`) is equivalent to `R01` inlined into `PKE.INDCPA.main0`.
-- `R01` inlined into `PKE.INDCPA.main1` is equivalent to Game 1 (`KEMfromPKE` inlined into `KEM.INDCPA.main1`).
+- The starting game (`KEMfromPKE` inlined into `KEM.INDCPA.main0`) is equivalent to hop 1 before rewriting is applied.
+- Hop 1 after rewriting is applied is equivalent to `R12` inlined into `PKE.INDCPA.main0`.
+- `R12` inlined into `PKE.INDCPA.main1` is equivalent to hop 3 before rewriting is applied.
+- Hop 3 after rewriting is applied is equivalent to the ending game (`KEMfromPKE` inlined into `KEM.INDCPA.main1`).
 
 ### PKEfromKEM
 
