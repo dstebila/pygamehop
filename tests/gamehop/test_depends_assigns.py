@@ -3,14 +3,6 @@ import inspect
 import unittest
 
 import gamehop.utils
-    # if isinstance(node, ast.Assign): return vars_depends_on(node.value)
-    # elif isinstance(node, ast.Attribute): return vars_depends_on(node.value)
-    # elif isinstance(node, ast.BinOp): return vars_depends_on(node.left) + vars_depends_on(node.right)
-    # elif isinstance(node, ast.Call): return vars_depends_on(node.func) + sum([vars_depends_on(arg) for arg in node.args], start=[])
-    # elif isinstance(node, ast.Constant): return []
-    # elif isinstance(node, ast.Name): return [node.id] if isinstance(node.ctx, ast.Load) else []
-    # elif isinstance(node, ast.Return): return [] if node.value == None else vars_depends_on(node.value)
-    # elif isinstance(node, ast.Tuple): return sum([vars_depends_on(e) for e in node.elts], start=[])
 
 class TestDependsOn(unittest.TestCase):
 
@@ -33,6 +25,10 @@ class TestDependsOn(unittest.TestCase):
     def test_CallAttribute(self):
         s = 'a = b.x(y, z)'
         self.assertEqual(gamehop.utils.vars_depends_on(ast.parse(s).body[0]), ['b', 'y', 'z'])
+
+    def test_Compare(self):
+        s = 'r = a == b'
+        self.assertEqual(gamehop.utils.vars_depends_on(ast.parse(s).body[0]), ['a', 'b'])
 
     def test_Constant(self):
         s = 'a = 7'
@@ -71,6 +67,10 @@ class TestAssignsTo(unittest.TestCase):
     def test_CallAttribute(self):
         s = 'a = b.x(y, z)'
         self.assertEqual(gamehop.utils.vars_assigns_to(ast.parse(s).body[0]), ['a'])
+
+    def test_Compare(self):
+        s = 'r = a == b'
+        self.assertEqual(gamehop.utils.vars_assigns_to(ast.parse(s).body[0]), ['r'])
 
     def test_Constant(self):
         s = 'a = 7'
