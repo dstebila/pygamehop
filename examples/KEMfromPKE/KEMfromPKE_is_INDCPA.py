@@ -6,12 +6,36 @@ from gamehop.proofs import Proof
 
 import KEMfromPKE
 
+PKEScheme = PKE.PKEScheme
+
 KEMINDCPA_adversary = KEM.KEMINDCPA_adversary
 
 # statement we're trying to prove
 proof = Proof(KEM.INDCPA, KEMfromPKE.Scheme, KEMINDCPA_adversary)
 
-# game hop:
+# game hop: rewriting step
+# len(Crypto.UniformlySample(SharedSecret)) == len(Crypto.UniformlySample(SharedSecret))
+def rewrite_left0(v0: KEMINDCPA_adversary, v1: PKEScheme) -> Crypto.Bit:
+    (v2, v3) = v1.KeyGen()
+    v4 = Crypto.UniformlySample(SharedSecret)
+    v5 = v1.Encrypt(v2, v4)
+    v6 = v0.guess(v2, v5, v4)
+    v7 = Crypto.UniformlySample(SharedSecret)
+    v10 = v6 if True else Crypto.Bit(0)
+    return v10
+
+def rewrite_right0(v0: KEMINDCPA_adversary, v1: PKEScheme) -> Crypto.Bit:
+    (v2, v3) = v1.KeyGen()
+    v4 = Crypto.UniformlySample(SharedSecret)
+    v5 = v1.Encrypt(v2, v4)
+    v6 = v0.guess(v2, v5, v4)
+    v7 = Crypto.UniformlySample(SharedSecret)
+    v10 = v6 if len(v4) == len(v7) else Crypto.Bit(0)
+    return v10
+
+proof.addRewritingStep(rewrite_left0, rewrite_right0)
+
+# game hop: distinguishing step
 # send the encryption of an independent random value instead of the actual shared secret
 # proven by constructing reduction from distinguishing the previous game and this game to distinguishing PKE.INDCPA (with b = 0) from PKE.INDCPA (with b = 1)
 class R01(PKE.PKEINDCPA_adversary):
@@ -33,6 +57,32 @@ class R01(PKE.PKEINDCPA_adversary):
         return self.kem_adversary.guess(self.pk, ct, self.m0)
 
 proof.addDistinguishingProofStep(PKE.INDCPA, PKE.PKEScheme, R01)
+
+# game hop: rewriting step
+# len(Crypto.UniformlySample(SharedSecret)) == len(Crypto.UniformlySample(SharedSecret))
+def rewrite_left1(v0: KEMINDCPA_adversary, v1: PKEScheme) -> Crypto.Bit:
+    (v2, v3) = v1.KeyGen()
+    v4 = Crypto.UniformlySample(SharedSecret)
+    v5 = v1.Encrypt(v2, v4)
+    v6 = Crypto.UniformlySample(SharedSecret)
+    v7 = v0.guess(v2, v5, v4)
+    v8 = len(v4) == len(v6)
+    v9 = Crypto.Bit(0)
+    v10 = v7 if v8 else v9
+    return v10
+
+def rewrite_right1(v0: KEMINDCPA_adversary, v1: PKEScheme) -> Crypto.Bit:
+    (v2, v3) = v1.KeyGen()
+    v4 = Crypto.UniformlySample(SharedSecret)
+    v5 = v1.Encrypt(v2, v4)
+    v6 = Crypto.UniformlySample(SharedSecret)
+    v7 = v0.guess(v2, v5, v4)
+    v8 = True
+    v9 = Crypto.Bit(0)
+    v10 = v7 if v8 else v9
+    return v10
+
+proof.addRewritingStep(rewrite_left1, rewrite_right1)
 
 assert proof.check(print_hops=True, print_canonicalizations=True)
 print()

@@ -27,7 +27,12 @@ def fqn(o):
     else: raise ValueError("Don't know how to find the name of objects of type {:s}".format(str(type(o))))
 
 class proofStep():
-    pass
+    def stepType(self): pass
+    def leftGameSrc(self): pass
+    def rightGameSrc(self): pass
+    def leftDescription(self): pass
+    def rightDescription(self): pass
+    def advantage(self): pass
 
 class distinguishingProofStep(proofStep):
     def __init__(self, experiment, scheme, reduction, reverseDirection, renaming):
@@ -37,30 +42,43 @@ class distinguishingProofStep(proofStep):
         self.reverseDirection = reverseDirection
         self.renaming = renaming
 
-    def inlinedGame(self, game):
+    def stepType(self): return "distinguishing step"
+
+    def _inlinedGame(self, game):
         inlined = inlining.inline_class(game, 'adversary', self.reduction)
         return ast.unparse(internal.rename_variables(inlined, self.renaming, error_if_exists = False))
-    def leftGame(self):
-        return self.inlinedGame(self.experiment.main0 if not self.reverseDirection else self.experiment.main1)
-    def rightGame(self):
-        return self.inlinedGame(self.experiment.main0 if self.reverseDirection else self.experiment.main1)
+    def leftGameSrc(self):
+        return self._inlinedGame(self.experiment.main0 if not self.reverseDirection else self.experiment.main1)
+    def rightGameSrc(self):
+        return self._inlinedGame(self.experiment.main0 if self.reverseDirection else self.experiment.main1)
 
-    def gameDescription(self, game):
-        return "reduction {:s} inlined with {:s}.main{:d}".format(fqn(self.reduction), fqn(self.experiment), game)
     def leftDescription(self):
-        return  self.gameDescription(0 if not self.reverseDirection else 1)
+        return f"{fqn(self.experiment)}.main{0 if not self.reverseDirection else 1} with reduction {fqn(self.reduction)} inlined"
     def rightDescription(self):
-        return  self.gameDescription(0 if self.reverseDirection else 1)
-
-    def gameCanonical(self, game):
-        return verification.canonicalize_function(game)
-    def leftCanonical(self):
-        return self.gameCanonical(self.leftGame())
-    def rightCanonical(self):
-        return self.gameCanonical(self.rightGame())
+        return f"{fqn(self.experiment)}.main{0 if self.reverseDirection else 1} with reduction {fqn(self.reduction)} inlined"
 
     def advantage(self):
         return "Advantage of {:s} in experiment {:s} for scheme {:s}".format(fqn(self.reduction), fqn(self.experiment), "TODO")
+
+class rewritingStep(proofStep):
+    def __init__(self, left, right):
+        self.left = left
+        self.right = right
+
+    def stepType(self): return "rewriting step"
+
+    def leftGameSrc(self):
+        return ast.unparse(utils.get_function_def(self.left))
+    def rightGameSrc(self):
+        return ast.unparse(utils.get_function_def(self.right))
+
+    def leftDescription(self):
+        return "Rewriting step (left)"
+    def rightDescription(self):
+        return "Rewriting step (right)"
+
+    def advantage(self):
+        return "0 (Rewriting step)"
 
 
 class Proof():
@@ -73,57 +91,72 @@ class Proof():
     def addDistinguishingProofStep(self, experiment: Type[DistinguishingExperiment], scheme, reduction, reverseDirection=False, renaming=dict()):
         self.proofSteps.append(distinguishingProofStep(experiment, scheme, reduction, reverseDirection, renaming))
 
-    def gamesEqual(self, lgame, rgame):
-        if lgame[1] != rgame[1]:
-            print("❌ canoncalizations of ({:s}) and ({:s}) are not equal".format(lgame[2], rgame[2]))
-            stringDiff(lgame[1], rgame[1])
+    def addRewritingStep(self, left, right):
+        self.proofSteps.append(rewritingStep(left, right))
+
+    @staticmethod
+    def gamesEqual(lgameDescription, lgameSrcCanonicalized, rgameDescription, rgameSrcCanonicalized):
+        if lgameSrcCanonicalized == rgameSrcCanonicalized:
+            print(f"✅ canoncalizations of ({lgameDescription}) and ({rgameDescription}) are equal")
+            return True
+        else:
+            print(f"❌ canoncalizations of ({lgameDescription}) and ({rgameDescription}) are NOT equal")
+            stringDiff(lgameSrcCanonicalized, rgameSrcCanonicalized)
             return False
-        print("✅ canoncalizations of ({:s}) and ({:s}) are equal".format(lgame[2], rgame[2]))
-        return True
 
     def check(self, print_hops=False, print_canonicalizations=False, show_call_graphs=False):
-        def printHop(game):
+        def printHop(gameSrc, gameSrcCanonicalized):
             if print_hops:
-                print(game[0])
+                print(gameSrc)
                 if print_canonicalizations:
                     print("---- canonicalization ----")
-                    print(game[1])
-                if show_call_graphs:
-                    verification.canonicalization.show_call_graph(utils.get_function_def(game[1]))
+                    print(gameSrcCanonicalized)
+                if show_call_graphs: verification.canonicalization.show_call_graph(utils.get_function_def(gameSrcCanonicalized))
 
 
         if issubclass(self.experiment, DistinguishingExperiment):
-            startGame = inlining.inline_class(self.experiment.main0, 'scheme', self.scheme)
             print("==== STARTING GAME ====");
-            startGameDescription = "experiment {:s}.main0 inlined with scheme {:s}".format(fqn(self.experiment), fqn(self.scheme))
+            startGameDescription = "experiment {:s}.main0 with scheme {:s} inlined".format(fqn(self.experiment), fqn(self.scheme))
             print("---- {:s} ----".format(startGameDescription))
+            startGameSrc = inlining.inline_class(self.experiment.main0, 'scheme', self.scheme)
+            startGameSrcCanonicalized = verification.canonicalize_function(startGameSrc)
+            printHop(startGameSrc, startGameSrcCanonicalized)
 
-            previousGame = (startGame, verification.canonicalize_function(startGame), startGameDescription)
-            printHop(previousGame)
+            previousGameDescription = startGameDescription
+            previousGameSrc = startGameSrc
+            previousGameSrcCanonicalized = startGameSrcCanonicalized
 
             for stepNum, step in enumerate(self.proofSteps):
-                nextGame = (step.leftGame(), step.leftCanonical(), step.leftDescription())
-                print("==== GAME HOP from {:d} to {:d} (distinguishing proof step) ====".format(stepNum, stepNum + 1))
-                print("---- {:s} ----".format(nextGame[2]))
-                printHop(nextGame)
+                print("==== GAME HOP from {:d} to {:d} ({:s}) ====".format(stepNum, stepNum + 1, step.stepType()))
+                nextGameDescription = step.leftDescription()
+                print(f"---- {nextGameDescription} ----")
+                nextGameSrc = step.leftGameSrc()
+                nextGameSrcCanonicalized = verification.canonicalize_function(nextGameSrc)
+                printHop(nextGameSrc, nextGameSrcCanonicalized)
 
-                if not self.gamesEqual(previousGame, nextGame):
+                if not Proof.gamesEqual(previousGameDescription, previousGameSrcCanonicalized, nextGameDescription, nextGameSrcCanonicalized):
                     return False
+                
+                if isinstance(step, rewritingStep) and print_hops:
+                    print(f"---- diff of rewriting step ----")
+                    stringDiff(step.leftGameSrc(), step.rightGameSrc())
 
-                previousGame = (step.rightGame(), step.rightCanonical(), step.rightDescription())
+                previousGameDescription = step.rightDescription()
+                previousGameSrc = step.rightGameSrc()
+                previousGameSrcCanonicalized = verification.canonicalize_function(previousGameSrc)
+
                 if stepNum != len(self.proofSteps) - 1 and print_hops:
-                    print("---- {:s} ----".format(previousGame[2]))
-                    printHop(previousGame)
+                    print(f"---- {previousGameDescription} ----")
+                    printHop(previousGameSrc, previousGameSrcCanonicalized)
 
-            endGameX = inlining.inline_class(self.experiment.main1, 'scheme', self.scheme)
-            endGameDescription = "experiment {:s}.main1 inlined with scheme {:s}".format(fqn(self.experiment), fqn(self.scheme))
-            endGameCanonical = verification.canonicalize_function(endGameX)
-            endGame = (endGameX, endGameCanonical, endGameDescription)
             print("==== ENDING GAME ====");
-            print("---- {:s} ----".format(endGame[2]))
-            printHop(endGame)
+            endGameDescription = "experiment {:s}.main1 with scheme {:s} inlined".format(fqn(self.experiment), fqn(self.scheme))
+            print(f"---- {endGameDescription} ----")
+            endGameSrc = inlining.inline_class(self.experiment.main1, 'scheme', self.scheme)
+            endGameSrcCanonical = verification.canonicalize_function(endGameSrc)
+            printHop(endGameSrc, endGameSrcCanonical)
 
-            return self.gamesEqual(previousGame, endGame)
+            return Proof.gamesEqual(previousGameDescription, previousGameSrcCanonicalized, endGameDescription, endGameSrcCanonical)
 
         else: raise TypeError("Unsupported experiment type for proof checker: {:s}.".format(str(type(self.experiment).__name__)))
 
