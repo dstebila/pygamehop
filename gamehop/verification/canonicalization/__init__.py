@@ -306,8 +306,7 @@ def canonicalize_argument_order(f: ast.FunctionDef) -> None:
     ast.fix_missing_locations(f)
 
 def inline_lambdas(f: ast.FunctionDef) -> None:
-    """Modify (in place) the given function definition to replace all calls to lambdas with their body. 
-    Assumes that expand.variable_reassign has already been called."""
+    """Modify (in place) the given function definition to replace all calls to lambdas with their body."""
     # extract all the lambda definitions
     new_body: List[ast.stmt] = list()
     lambdas = dict()
