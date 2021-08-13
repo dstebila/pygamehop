@@ -60,3 +60,63 @@ def call_arguments(f: ast.FunctionDef) -> None:
         newbody.append(stmt)
     f.body = newbody
     ast.fix_missing_locations(f)
+
+class ExtractIfExpArguments(ast.NodeTransformer):
+    """For every IfExp node, if any of its arguments are not a constant or a variable
+    name, extract that argument into a new assign statement to a temporary variable.
+    The new assign statements are logged in the self.predecessors member. 
+    Temporary variables names will be assigned starting at counter, and the counter 
+    will be updated as new variables are added. The inner most arguments will be 
+    extracted first."""
+    def __init__(self, counter):
+        self.predecessors = []
+        self.counter = counter
+    def visit_IfExp(self, node):
+        newnode = copy.deepcopy(node)
+        # we'll iterate through the three parts of an IfExp
+        subnodes = [newnode.body, newnode.test, newnode.orelse]
+        for i in range(len(subnodes)):
+            subnode = subnodes[i]
+            # no changes needed for arguments that are a constant or a variable name
+            if isinstance(subnode, ast.Constant) or isinstance(subnode, ast.Name): pass
+            else:
+                # recurse on the subnode and expand any of its non-trivial IfExp
+                recurser = ExtractIfExpArguments(self.counter)
+                newsubnode = recurser.visit(subnode)
+                # save any of its non-trivial expansions to the predecessor list
+                self.predecessors.extend(recurser.predecessors)
+                # update the counter based on how many it extracted
+                self.counter = recurser.counter
+                # add an assign statement to predecessors, assigning this subnode
+                # to a temporary variable
+                tmpvar = "φifexp{:d}".format(self.counter)
+                self.counter += 1
+                self.predecessors.append(ast.Assign(
+                    targets=[ast.Name(id=tmpvar, ctx=ast.Store())],
+                    value=newsubnode
+                ))
+                # replace the subnode with the temporary variable
+                subnodes[i] = ast.Name(id=tmpvar, ctx=ast.Load())
+        # set the IfExp's parts
+        newnode.body = subnodes[0]
+        newnode.test = subnodes[1]
+        newnode.orelse = subnodes[2]
+        return newnode
+
+def ifexpressions(f: ast.FunctionDef) -> None:
+    """Modify (in place) the given function definition so that all non-trivial 
+    (not a constant, not a variable name) arguments to if expressions (b if c else d)
+    appear as intermediate assignments immediately preceding the if expression."""
+    counter = 0
+    # go through each statement in the body
+    # replace it with any extracted argument assignments, then the (possibly
+    # simplified) statement itself 
+    newbody = list()
+    for stmt in f.body:
+        extractor = ExtractIfExpArguments(counter)
+        stmt = extractor.visit(stmt)
+        counter = extractor.counter
+        newbody.extend(extractor.predecessors)
+        newbody.append(stmt)
+    f.body = newbody
+    ast.fix_missing_locations(f)
