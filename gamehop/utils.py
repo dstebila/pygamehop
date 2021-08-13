@@ -83,6 +83,7 @@ def vars_depends_on(node: Optional[ast.AST]) -> List[str]:
     elif isinstance(node, ast.Call): return vars_depends_on(node.func) + sum([vars_depends_on(arg) for arg in node.args], start=[])
     elif isinstance(node, ast.Compare): return vars_depends_on(node.left) + sum([vars_depends_on(c) for c in node.comparators], start=[])
     elif isinstance(node, ast.Constant): return []
+    elif isinstance(node, ast.IfExp): return vars_depends_on(node.body) + vars_depends_on(node.test) + vars_depends_on(node.orelse)
     elif isinstance(node, ast.Name): return [node.id] if isinstance(node.ctx, ast.Load) else []
     elif isinstance(node, ast.Return): return [] if node.value == None else vars_depends_on(node.value)
     elif isinstance(node, ast.Tuple): return sum([vars_depends_on(e) for e in node.elts], start=[])
@@ -95,6 +96,7 @@ def vars_assigns_to(node: ast.AST) -> List[str]:
     elif isinstance(node, ast.Call): return []
     elif isinstance(node, ast.Compare): return []
     elif isinstance(node, ast.Constant): return []
+    elif isinstance(node, ast.IfExp): return []
     elif isinstance(node, ast.Name): return [node.id] if isinstance(node.ctx, ast.Store) else []
     elif isinstance(node, ast.Return): return []
     elif isinstance(node, ast.Tuple): return sum([vars_assigns_to(e) for e in node.elts], start=[])

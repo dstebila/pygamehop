@@ -34,6 +34,10 @@ class TestDependsOn(unittest.TestCase):
         s = 'a = 7'
         self.assertEqual(gamehop.utils.vars_depends_on(ast.parse(s).body[0]), [])
 
+    def test_IfExp(self):
+        s = 'a = b if c else d'
+        self.assertEqual(gamehop.utils.vars_depends_on(ast.parse(s).body[0]), ['b', 'c', 'd'])
+
     def test_Name(self):
         s = 'a = b'
         self.assertEqual(gamehop.utils.vars_depends_on(ast.parse(s).body[0]), ['b'])
@@ -74,6 +78,10 @@ class TestAssignsTo(unittest.TestCase):
 
     def test_Constant(self):
         s = 'a = 7'
+        self.assertEqual(gamehop.utils.vars_assigns_to(ast.parse(s).body[0]), ['a'])
+
+    def test_IfExp(self):
+        s = 'a = b if c else d'
         self.assertEqual(gamehop.utils.vars_assigns_to(ast.parse(s).body[0]), ['a'])
 
     def test_Name(self):
