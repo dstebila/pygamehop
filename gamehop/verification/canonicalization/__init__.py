@@ -6,6 +6,7 @@ import matplotlib.pyplot
 import networkx
 
 from ...inlining import internal
+from ... import utils
 
 def canonicalize_function_name(f: ast.FunctionDef, name = 'f') -> None:
     """Modify (in place) the given function definition to have a canonical name."""
@@ -201,11 +202,11 @@ def function_to_graph(t: ast.FunctionDef):
         # add this statement to the graph as a node
         G.add_node(stmt)
         # add directed edges from this node to the last statement that assigned to each of its dependencies
-        for v in internal.vars_depends_on(stmt):
+        for v in utils.vars_depends_on(stmt):
             if v in last_stmt_that_assigned_var:
                 G.add_edge(stmt, last_stmt_that_assigned_var[v])
         # record that this statement was the last statement to assign to each variable it assigned to
-        for v in internal.vars_assigns_to(stmt):
+        for v in utils.vars_assigns_to(stmt):
             last_stmt_that_assigned_var[v] = stmt
     # we should now have a directed acyclic graph
     assert networkx.algorithms.dag.is_directed_acyclic_graph(G)
@@ -251,8 +252,8 @@ def canonicalize_line_order(f: ast.FunctionDef) -> None:
         for n in neighbors:
             if G.in_degree(n) > 0: neighbors.remove(n)
         def keyfn(k):
-            for v in internal.vars_assigns_to(k):
-                if v in internal.vars_depends_on(curr_node): return -internal.vars_depends_on(curr_node).index(v)
+            for v in utils.vars_assigns_to(k):
+                if v in utils.vars_depends_on(curr_node): return -utils.vars_depends_on(curr_node).index(v)
             return 0
         neighbors.sort(key=keyfn)
         for n in neighbors:

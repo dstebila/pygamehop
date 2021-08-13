@@ -1,6 +1,5 @@
 import ast
-from typing import Set, Union, List
-
+from typing import Optional, Set, Union, List
 
 class NewNodeVisitor(ast.NodeVisitor):
     """Adds the ability to handle List[ast.stmt] to ast.NodeVistor"""
@@ -74,3 +73,25 @@ def stored_vars(node):
 
 def prefix_names(node, prefix):
     return NamePrefixer(prefix).visit(node)
+
+def vars_depends_on(node: Optional[ast.AST]) -> List[str]:
+    if isinstance(node, ast.Assign): return vars_depends_on(node.value)
+    elif isinstance(node, ast.Attribute): return vars_depends_on(node.value)
+    elif isinstance(node, ast.BinOp): return vars_depends_on(node.left) + vars_depends_on(node.right)
+    elif isinstance(node, ast.Call): return vars_depends_on(node.func) + sum([vars_depends_on(arg) for arg in node.args], start=[])
+    elif isinstance(node, ast.Constant): return []
+    elif isinstance(node, ast.Name): return [node.id] if isinstance(node.ctx, ast.Load) else []
+    elif isinstance(node, ast.Return): return [] if node.value == None else vars_depends_on(node.value)
+    elif isinstance(node, ast.Tuple): return sum([vars_depends_on(e) for e in node.elts], start=[])
+    else: raise NotImplementedError("Cannot handle AST objects of type {:s}".format(type(node).__name__))
+
+def vars_assigns_to(node: ast.AST) -> List[str]:
+    if isinstance(node, ast.Assign): return sum([vars_assigns_to(v) for v in node.targets], start=[])
+    elif isinstance(node, ast.Attribute): return vars_assigns_to(node.value)
+    elif isinstance(node, ast.BinOp): return []
+    elif isinstance(node, ast.Call): return []
+    elif isinstance(node, ast.Constant): return []
+    elif isinstance(node, ast.Name): return [node.id] if isinstance(node.ctx, ast.Store) else []
+    elif isinstance(node, ast.Return): return []
+    elif isinstance(node, ast.Tuple): return sum([vars_assigns_to(e) for e in node.elts], start=[])
+    else: raise NotImplementedError("Cannot handle AST objects of type {:s}".format(type(node).__name__))
