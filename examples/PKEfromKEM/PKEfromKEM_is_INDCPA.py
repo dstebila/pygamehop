@@ -1,3 +1,5 @@
+import os
+import subprocess
 from typing import Callable, Tuple
 
 from gamehop.primitives import Crypto, PKE, KEM, KDF, OTP
@@ -121,3 +123,11 @@ proof.addDistinguishingProofStep(KEM.INDCPA, KEMScheme, R45, reverseDirection = 
 assert proof.check(print_hops=True, print_canonicalizations=True)
 print()
 print(proof.advantage_bound())
+
+with open(os.path.join('examples', 'PKEfromKEM', 'PKEfromKEM_is_INDCPA.tex'), 'w') as fh:
+    fh.write(proof.tikz_figure())
+
+subprocess.run(
+    ['pdflatex', 'PKEfromKEM_is_INDCPA.tex'],
+    cwd = os.path.join('examples', 'PKEfromKEM')
+)

@@ -3,6 +3,7 @@ import inspect
 from typing import List, Type
 import typing
 import ast
+import jinja2
 
 from . import stringDiff
 from .primitives import Crypto
@@ -168,3 +169,20 @@ class Proof():
             lines.append(step.advantage())
             if stepNum < len(self.proofSteps) - 1: lines.append("+")
         return "\n".join(lines)
+
+    def tikz_figure(self):
+        def classname_filter(value):
+            if value.__module__ == '__main__': return value.__name__
+            elif value.__module__.startswith('gamehop.primitives.'): return value.__module__.replace('gamehop.primitives.', '') + '.' + value.__name__
+            else: return value.__module__ + '.' + value.__name__
+        env = jinja2.Environment(
+            loader=jinja2.PackageLoader("gamehop"),
+            trim_blocks=True, # https://stackoverflow.com/questions/33775085/is-it-possible-to-change-the-default-double-curly-braces-delimiter-in-polymer
+            block_start_string='≤%',
+            block_end_string='%≥',
+            variable_start_string='≤≤',
+            variable_end_string='≥≥'
+        )
+        env.filters['classname'] = classname_filter
+        template = env.get_template("tikz_figure.tex")
+        return template.render(proof=self)

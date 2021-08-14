@@ -1,0 +1,69 @@
+\documentclass{standalone}
+
+\usepackage{tikz}
+\usetikzlibrary{shapes}
+
+\begin{document}
+
+\begin{tikzpicture}[
+	game/.style={draw,text width=3cm,text centered},
+	reduction/.style={draw,thick,text width=3cm,text centered,ellipse,inner sep=-3pt},
+	isequivalentto/.style={<->},
+	iscomputationallyindistuishable/.style={<->,dashed},
+	mainarrowlabel/.style={text width=2.7cm,text centered,font=\scriptsize},
+	xscale=3,
+	yscale=3,
+]
+
+\node [game] (startinggame) at (0,0) {\textbf{Starting game:} \\ \texttt{≤≤ proof.scheme|classname ≥≥} \\ inlined into \\ \texttt{≤≤ proof.experiment|classname ≥≥.main0}};
+
+≤% for proofstep in proof.proofSteps %≥
+
+\node [game] 
+	(hop≤≤ loop.index ≥≥left) 
+	at (≤≤ loop.index * 4 - 2 ≥≥,0) 
+	{\textbf{Hop ≤≤ loop.index ≥≥:} \\ \texttt{≤≤ proofstep.reduction|classname ≥≥} \\ inlined into \\ \texttt{≤≤ proofstep.experiment|classname ≥≥.main≤≤ 1 if proofstep.reverseDirection else 0 ≥≥}};
+
+\node [game] 
+	(hop≤≤ loop.index ≥≥right) 
+	at (≤≤ loop.index * 4 ≥≥,0) 
+	{\textbf{Hop ≤≤ loop.index ≥≥:} \\ \texttt{≤≤ proofstep.reduction|classname ≥≥} \\ inlined into \\ \texttt{≤≤ proofstep.experiment|classname ≥≥.main≤≤ 0 if proofstep.reverseDirection else 1 ≥≥}};
+
+≤% if loop.index0 == 0 %≥
+\draw [isequivalentto] 
+	(startinggame) 
+	-- 
+	node[mainarrowlabel,above] {code-wise equivalent}
+	(hop1left);
+≤% else %≥
+\draw [isequivalentto]
+	(hop≤≤ loop.index-1 ≥≥right)
+	--
+	node[mainarrowlabel,above] {code-wise equivalent}
+	(hop≤≤ loop.index ≥≥left);
+≤% endif %≥
+
+\node [reduction]
+	(reduction≤≤ loop.index ≥≥)
+	at (≤≤ loop.index * 4 - 1 ≥≥,1)
+	{\texttt{≤≤ proofstep.reduction|classname ≥≥:} \\ \texttt{≤≤ proofstep.experiment|classname ≥≥} \\ adversary against \\ \texttt{TODO}};
+
+\draw [->] (reduction≤≤ loop.index ≥≥) -- (hop≤≤ loop.index ≥≥left);
+\draw [->] (reduction≤≤ loop.index ≥≥) -- (hop≤≤ loop.index ≥≥right);
+
+\draw [iscomputationallyindistuishable]
+	(hop≤≤ loop.index ≥≥left)
+	--
+	node[mainarrowlabel,above] {computationally \\ indistinguishable}
+	node[mainarrowlabel,below] {$\mathrm{Adv}^{\texttt{≤≤ proofstep.experiment|classname ≥≥}}_{\texttt{TODO}}(\texttt{≤≤ proofstep.reduction|classname ≥≥})$}
+	(hop≤≤ loop.index ≥≥right);
+
+≤% endfor %≥
+
+\node [game] (endinggame) at (≤≤ proof.proofSteps|length * 4 + 2 ≥≥,0) {\textbf{Ending game:} \\ \texttt{≤≤ proof.scheme|classname ≥≥} \\ inlined into \\ \texttt{≤≤ proof.experiment|classname ≥≥.main1}};
+
+\draw [isequivalentto] (hop≤≤ proof.proofSteps|length ≥≥right) -- node[mainarrowlabel,above] {code-wise equivalent} (endinggame);
+
+\end{tikzpicture}
+	
+\end{document}
