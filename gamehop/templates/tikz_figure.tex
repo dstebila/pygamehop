@@ -2,6 +2,7 @@
 
 \usepackage{tikz}
 \usetikzlibrary{shapes}
+\usetikzlibrary{decorations.pathreplacing}
 
 \begin{document}
 
@@ -35,12 +36,19 @@
 	-- 
 	node[mainarrowlabel,above] {code-wise equivalent}
 	(hop1left);
+\draw [decorate,decoration={brace,amplitude=10pt,mirror}]
+	(startinggame.south west) -- (hop≤≤ loop.index ≥≥left.south east) 
+	node[black,midway,yshift=-0.6cm] {game ≤≤ loop.index0 ≥≥};
+
 ≤% else %≥
 \draw [isequivalentto]
 	(hop≤≤ loop.index-1 ≥≥right)
 	--
 	node[mainarrowlabel,above] {code-wise equivalent}
 	(hop≤≤ loop.index ≥≥left);
+\draw [decorate,decoration={brace,amplitude=10pt,mirror}]
+	(hop≤≤ loop.index - 1 ≥≥right.south west) -- (hop≤≤ loop.index ≥≥left.south east) 
+	node[black,midway,yshift=-0.6cm] {game ≤≤ loop.index0 ≥≥};
 ≤% endif %≥
 
 \node [reduction]
@@ -61,6 +69,10 @@
 ≤% endfor %≥
 
 \node [game] (endinggame) at (≤≤ proof.proofSteps|length * 4 + 2 ≥≥,0) {\textbf{Ending game:} \\ \texttt{≤≤ proof.scheme|classname ≥≥} \\ inlined into \\ \texttt{≤≤ proof.experiment|classname ≥≥.main1}};
+
+\draw [decorate,decoration={brace,amplitude=10pt,mirror}]
+	(hop≤≤ proof.proofSteps|length ≥≥right.south west) -- (endinggame.south east)
+	node[black,midway,yshift=-0.6cm] {game ≤≤ proof.proofSteps|length ≥≥};
 
 \draw [isequivalentto] (hop≤≤ proof.proofSteps|length ≥≥right) -- node[mainarrowlabel,above] {code-wise equivalent} (endinggame);
 
