@@ -21,3 +21,7 @@ test_examples:
 
 devtest:
 	env PYTHONPATH=. $(PYTEST) -v devtests/*
+
+example_figures:
+	cd examples/PKEfromKEM && pdflatex PKEfromKEM_is_INDCPA.tex
+	convert -density 144 examples/PKEfromKEM/PKEfromKEM_is_INDCPA.pdf docs/images/PKEfromKEM_is_INDCPA.png

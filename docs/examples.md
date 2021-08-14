@@ -45,7 +45,7 @@ The proof consists of the following game hops:
 
 - Starting game: `PKEfromKEM` inlined into the "left" version of the PKE IND-CPA game (`PKE.INDCPA.main0`), in which the challenge ciphertext is the encryption of `m0`.
 - Hop 1: A distinguishing step in which the real KEM shared secret is replaced with a random value.
-	- Reduction `R01` is an IND-CPA adversary against the KEM scheme that interpolates between Game 0 and Game 1.
+	- Reduction `R01` is an IND-CPA adversary against the KEM scheme that interpolates between the starting game and Game 1.
 - Hop 2: A distinguishing step in which the real KDF output is replaced with a random value.
 	- Reduction `R12` is an adversary against the security of the KDF scheme that interpolates between Game 1 and Game 2.
 - Hop 3: A distinguishing step in which the encryption mask is XORed with `m1` rather than `m0`.
@@ -54,7 +54,7 @@ The proof consists of the following game hops:
 - Hop 4: A distinguishing step in which the random value used in place of the KDF output is replaced with the real KDF output.
 	- Reduction `R34` is an adversary against the security of the KDF scheme that interpolates between Game 3 and Game 4.
 - Hop 5: A distinguishing step in which the random value used in place of the KEM shared secret is replaced with the real KEM shared secret.
-	- Reduction `R45` is an IND-CPA adversary against the KEM scheme that interpolates between Game 4 and Game 5.
+	- Reduction `R45` is an IND-CPA adversary against the KEM scheme that interpolates between Game 4 and the ending game.
 - Ending game: `PKEfromKEM` inlined into the "right" version of the PKE IND-CPA game (`PKE.INDCPA.main1`), in which the challenge ciphertext is the encryption of `m1`.
 
 Note that the starting and ending games are not explicitly written out in `PKEfromKEM_is_INDCPA.py`, they are derived from the starting and ending points of the proof. Furthermore, intermediate games are not explicitly written out, they are derived from the relevant transformations.
