@@ -41,6 +41,8 @@ The proof is a "forwards-and-backwards" proof, in which we start with the "left"
 
 The proof consists of the following game hops:
 
+![PKEfromKEM game hop diagram](images/PKEfromKEM_is_INDCPA.png)
+
 - Starting game: `PKEfromKEM` inlined into the "left" version of the PKE IND-CPA game (`PKE.INDCPA.main0`), in which the challenge ciphertext is the encryption of `m0`.
 - Hop 1: A distinguishing step in which the real KEM shared secret is replaced with a random value.
 	- Reduction `R01` is an IND-CPA adversary against the KEM scheme that interpolates between Game 0 and Game 1.
