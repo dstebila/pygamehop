@@ -129,5 +129,7 @@ dmypy.json
 .pyre/
 
 examples/*/*.aux
+examples/*/*.log
 examples/*/*.pdf
 examples/*/*.tex
+.texpadtmp
