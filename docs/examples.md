@@ -32,7 +32,7 @@ The proof consists of the following game hops:
 - Game 2: The shared secret that the adversary is challenged with is changed to be the random value.
 	- Game 1 and game 2 are related via an indistinguishability step based on the IND-CPA security of scheme `pke`. Reduction `R12` is an IND-CPA adversary against scheme `pke`. It selects two shared secrets and has its IND-CPA challenger for `pke` encrypt one of them.
 - Game 3: A rewrite of game 2, which again uses the fact that two shared secrets selected uniformly at random have the same length.	- Game 2 and game 3 are related via a rewriting step, the validity of which must be manually checked via the diff output by the proof engine.
-- Ending game: `KEMfromPKE ` inlined into the "random" version of the KEM IND-CPA game (`KEM.INDCPA.main1`), where the adversary is challenged with a random shared secret rather than the real shared secret encapsulated in the challenge ciphertext.
+- Game 3 is equivalent to the ending game: `KEMfromPKE ` inlined into the "random" version of the KEM IND-CPA game (`KEM.INDCPA.main1`), where the adversary is challenged with a random shared secret rather than the real shared secret encapsulated in the challenge ciphertext.
 
 ### PKEfromKEM
 
@@ -67,7 +67,7 @@ The proof consists of the following game hops:
 	- Game 3 and game 4 are related via an indistinguishability step based on the security of the key derivation function `kdf`. Reduction `R34` is an adversary against scheme `kdf`. It uses its KDF challenger to get the mask used to encrypt `m1`.
 - Game 5: In constructing the challenge ciphertext, the real KEM shared secret is used rather than a random value.
 	- Game 4 and game 5 are related via an indistinguishability step based on the IND-CPA security of KEM scheme `kem`. Reduction `R45` is an IND-CPA adversary against scheme `kem`. It receives a KEM challenge public key, ciphertext, and shared secret from its KEM IND-CPA challenge for `kem`, and uses this to encrypt `m1`.
-- Ending game: `PKEfromKEM` inlined into the "right" version of the PKE IND-CPA game (`PKE.INDCPA.main1`), in which the challenge ciphertext is the encryption of `m1`.
+- Game 5 is equivalent to the ending game: `PKEfromKEM` inlined into the "right" version of the PKE IND-CPA game (`PKE.INDCPA.main1`), in which the challenge ciphertext is the encryption of `m1`.
 
 ### nestedPKE
 
@@ -102,4 +102,25 @@ The proof consists of the following game hops:
 	- Game 1 and game 2 are related via an indistinguishability step based on the IND-CPA security of scheme `pke2`. Reduction `R2` is an IND-CPA adversary against scheme `pke1`. It encrypts `m0` and `m1` under `pke1` itself, then passes the two resulting ciphertexts to the IND-CPA challenge for `pke2`.
 - Game 3: A rewrite of game 2, which again uses the fact that `len(pke1.Encrypt(pk1, m0)) = len(pke1.Encrypt(pk1, m1))` assuming `len(m0) == len(m1)`. 
 	- Game 2 and game 3 are related via a rewriting step, the validity of which must be manually checked via the diff output by the proof engine.
-- Ending game: `nestedPKE` inlined into the "right" version of the PKE IND-CPA game (`PKE.INDCPA.main1`), in which the challenge ciphertext is the encryption of `m1`.
+- Game 3 is equivalent to the ending game: `nestedPKE` inlined into the "right" version of the PKE IND-CPA game (`PKE.INDCPA.main1`), in which the challenge ciphertext is the encryption of `m1`.
+
+### parallelPKE
+
+`examples/parallelPKE/parallelPKE.py` contains an example of a public key encryption scheme which is constructed from two public key encryption schemes `pke1`, `pke2` by **side-by-side encryption**: `ct = pke1.Encrypt(pk1, msg) ||  pke2.Encrypt(pk2, msg)`.
+
+`examples/parallelPKE/parallelPKE_is_INDCPA.py` contains a proof of the following:
+
+**Theorem.**
+`parallelPKE` is an IND-CPA-secure public key encryption scheme, under the assumption that both `pke1` and `pke2` are IND-CPA-secure.
+
+**Proof.**
+The proof consists of the following game hops:
+
+![parallelPKE is INDCPA game hop diagram](images/parallelPKE_is_INDCPA.png)
+
+- Starting game: `parallelPKE` inlined into the "left" version of the PKE IND-CPA game (`PKE.INDCPA.main0`), in which both components of the challenge ciphertext are the encryption of `m0`.
+- Game 1: The first component of the challenge ciphertext is switched to be the encryption of `m1`.
+	- The starting game and game 1 are related via an indistinguishability step based on the IND-CPA security of scheme `pke1`. Reduction `R01` is an IND-CPA adversary against scheme `pke1`. It uses its `pke1` IND-CPA challenger to encrypt `m0` or `m1` for the first ciphertext component, and encrypts `m0` under `pke2` itself for the second ciphertext component.
+- Game 2: The second component of the challenge ciphertext is switched to be the encryption of `m1`.
+	- Game 1 and game 2 are related via an indistinguishability step based on the IND-CPA security of scheme `pke2`. Reduction `R12` is an IND-CPA adversary against scheme `pke2`. It encrypts `m1` under `pke1` itself for the first ciphertext component, and uses its `pke2` IND-CPA challenger to encrypt `m0` or `m1` for the second ciphertext component.
+- Game 2 is equivalent to the ending game: `parallelPKE` inlined into the "right" version of the PKE IND-CPA game (`PKE.INDCPA.main1`), in which both components of the challenge ciphertext are the encryption of `m1`.
