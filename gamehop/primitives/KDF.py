@@ -6,11 +6,11 @@ from .. import proofs
 class Key(): pass
 
 class KDFScheme(Crypto.Scheme):
-    def KDF(self, k: Key, label: str, len: int) -> Crypto.ByteString: pass
+    def KDF(self, k: Key, label: str, len: int) -> Crypto.BitString: pass
 
 class KDFsec_adversary(Crypto.Adversary):
     def setup(self, kdf: KDFScheme): pass
-    def run(self, o_eval: Callable[[str, int], Crypto.ByteString]) -> Crypto.Bit: pass
+    def run(self, o_eval: Callable[[str, int], Crypto.BitString]) -> Crypto.Bit: pass
 
 class KDFsec(proofs.DistinguishingExperiment):
     def main0(self, scheme: KDFScheme, adversary: KDFsec_adversary) -> Crypto.Bit:
@@ -22,6 +22,6 @@ class KDFsec(proofs.DistinguishingExperiment):
     def main1(self, scheme: KDFScheme, adversary: KDFsec_adversary) -> Crypto.Bit:
         dummy = adversary.setup(scheme)
         # TODO: turn into a lazily sampled random function
-        o_eval = lambda label, length: Crypto.UniformlySample(Crypto.ByteString)
+        o_eval = lambda label, length: Crypto.BitString.uniformly_random(length)
         r = adversary.run(o_eval)
         return r

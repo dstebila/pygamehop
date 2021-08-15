@@ -6,11 +6,11 @@ class Bit(int): pass
 class UniformlyRandom(ABC): pass
 class Reject(ABC): pass
 
-class ByteString(ABC):
+class BitString(ABC):
     # def __xor__(self, other: ByteString) -> ByteString: pass
     def __xor__(self, other): pass
-
-class UniformlyRandomByteString(UniformlyRandom, ByteString): pass
+    @staticmethod
+    def uniformly_random(length: int): pass
 
 T = TypeVar('T')
 def UniformlySample(s: Type[T]) -> Annotated[T, UniformlyRandom]: pass

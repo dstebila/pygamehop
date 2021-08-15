@@ -1,0 +1,109 @@
+\documentclass{standalone}
+
+\usepackage{tikz}
+\usetikzlibrary{shapes}
+\usetikzlibrary{decorations.pathreplacing}
+
+\begin{document}
+
+\begin{tikzpicture}[
+	game/.style={draw,text width=3cm,text centered},
+	reduction/.style={draw,thick,text width=3cm,text centered,ellipse,inner sep=-3pt},
+	isequivalentto/.style={<->},
+	iscomputationallyindistuishable/.style={<->,dashed},
+	mainarrowlabel/.style={text width=2.7cm,text centered,font=\scriptsize},
+	xscale=3,
+	yscale=3,
+]
+
+\node [game] (startinggame) at (0,0) {\textbf{Starting game:} \\ \texttt{≤≤ proof.scheme|classname ≥≥} \\ inlined into \\ \texttt{≤≤ proof.experiment|classname ≥≥.main0}};
+
+≤% for proofstep in proof.proofSteps %≥
+
+	≤% if proofstep|type == "distinguishingProofStep" %≥
+
+		\node [game] 
+			(hop≤≤ loop.index ≥≥left) 
+			at (≤≤ loop.index * 4 - 2 ≥≥,0) 
+			{\textbf{Hop ≤≤ loop.index ≥≥:} \\ \texttt{≤≤ proofstep.reduction|classname ≥≥} \\ inlined into \\ \texttt{≤≤ proofstep.experiment|classname ≥≥.main≤≤ 1 if proofstep.reverseDirection else 0 ≥≥}};
+
+		\node [game] 
+			(hop≤≤ loop.index ≥≥right) 
+			at (≤≤ loop.index * 4 ≥≥,0) 
+			{\textbf{Hop ≤≤ loop.index ≥≥:} \\ \texttt{≤≤ proofstep.reduction|classname ≥≥} \\ inlined into \\ \texttt{≤≤ proofstep.experiment|classname ≥≥.main≤≤ 0 if proofstep.reverseDirection else 1 ≥≥}};
+	
+	≤% elif proofstep|type == "rewritingStep" %≥
+	
+		\node [game] 
+			(hop≤≤ loop.index ≥≥left) 
+			at (≤≤ loop.index * 4 - 2 ≥≥,0) 
+			{\textbf{Hop ≤≤ loop.index ≥≥:} \\ rewriting step \\ (left) \\ \ };
+
+		\node [game] 
+			(hop≤≤ loop.index ≥≥right) 
+			at (≤≤ loop.index * 4 ≥≥,0) 
+			{\textbf{Hop ≤≤ loop.index ≥≥:} \\ rewriting step \\ (right) \\ \ };
+
+	≤% endif %≥
+
+	≤% if loop.index0 == 0 %≥
+	\draw [isequivalentto] 
+		(startinggame) 
+		-- 
+		node[mainarrowlabel,above] {code-wise equivalent}
+		(hop1left);
+	\draw [decorate,decoration={brace,amplitude=10pt,mirror}]
+		(startinggame.south west) -- (hop≤≤ loop.index ≥≥left.south east) 
+		node[black,midway,yshift=-0.6cm] {game ≤≤ loop.index0 ≥≥};
+
+	≤% else %≥
+	\draw [isequivalentto]
+		(hop≤≤ loop.index-1 ≥≥right)
+		--
+		node[mainarrowlabel,above] {code-wise equivalent}
+		(hop≤≤ loop.index ≥≥left);
+	\draw [decorate,decoration={brace,amplitude=10pt,mirror}]
+		(hop≤≤ loop.index - 1 ≥≥right.south west) -- (hop≤≤ loop.index ≥≥left.south east) 
+		node[black,midway,yshift=-0.6cm] {game ≤≤ loop.index0 ≥≥};
+	≤% endif %≥
+
+	≤% if proofstep|type == 'distinguishingProofStep' %≥
+
+		\node [reduction]
+			(reduction≤≤ loop.index ≥≥)
+			at (≤≤ loop.index * 4 - 1 ≥≥,1)
+			{\texttt{≤≤ proofstep.reduction|classname ≥≥:} \\ \texttt{≤≤ proofstep.experiment|classname ≥≥} \\ adversary against \\ \texttt{≤≤ proofstep.scheme_instance ≥≥}};
+
+		\draw [->] (reduction≤≤ loop.index ≥≥) -- (hop≤≤ loop.index ≥≥left);
+		\draw [->] (reduction≤≤ loop.index ≥≥) -- (hop≤≤ loop.index ≥≥right);
+
+		\draw [iscomputationallyindistuishable]
+			(hop≤≤ loop.index ≥≥left)
+			--
+			node[mainarrowlabel,above] {computationally \\ indistinguishable}
+			node[mainarrowlabel,below] {$\mathrm{Adv}^{\texttt{≤≤ proofstep.experiment|classname ≥≥}}_{\texttt{≤≤ proofstep.scheme_instance ≥≥}}(\texttt{≤≤ proofstep.reduction|classname ≥≥})$}
+			(hop≤≤ loop.index ≥≥right);
+	
+	≤% elif proofstep|type == 'rewritingStep' %≥
+
+		\draw [iscomputationallyindistuishable]
+			(hop≤≤ loop.index ≥≥left)
+			--
+			node[mainarrowlabel,above] {equivalence \\ manually checked}
+			(hop≤≤ loop.index ≥≥right);
+	
+	≤% endif %≥
+
+≤% endfor %≥
+
+\node [game] (endinggame) at (≤≤ proof.proofSteps|length * 4 + 2 ≥≥,0) {\textbf{Ending game:} \\ \texttt{≤≤ proof.scheme|classname ≥≥} \\ inlined into \\ \texttt{≤≤ proof.experiment|classname ≥≥.main1}};
+
+\draw [decorate,decoration={brace,amplitude=10pt,mirror}]
+	(hop≤≤ proof.proofSteps|length ≥≥right.south west) -- (endinggame.south east)
+	node[black,midway,yshift=-0.6cm] {game ≤≤ proof.proofSteps|length ≥≥};
+
+\draw [isequivalentto] (hop≤≤ proof.proofSteps|length ≥≥right) -- node[mainarrowlabel,above] {code-wise equivalent} (endinggame);
+
+\end{tikzpicture}
+	
+\end{document}

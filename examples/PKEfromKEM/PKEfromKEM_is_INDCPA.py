@@ -1,3 +1,4 @@
+import os
 from typing import Callable, Tuple
 
 from gamehop.primitives import Crypto, PKE, KEM, KDF, OTP
@@ -29,9 +30,10 @@ class R01(KEM.KEMINDCPA_adversary):
         mask = self.kdf.KDF(ss, "label", len(m0))
         ctprime = mask ^ m0
         r = self.adversary.guess((ct, ctprime))
-        return r
+        ret = r if len(m0) == len(m1) else Crypto.Bit(0)
+        return ret
 
-proof.addDistinguishingProofStep(KEM.INDCPA, KEMScheme, R01)
+proof.addDistinguishingProofStep(KEM.INDCPA, 'kem', R01)
 
 # game hop:
 # replace output of KDF with random
@@ -43,16 +45,17 @@ class R12(KDF.KDFsec_adversary):
     def setup(self, kdf: KDFScheme) -> None:
         self.kdf = kdf
         return None
-    def run(self, o_eval: Callable[[str, int], Crypto.ByteString]) -> Crypto.Bit:
+    def run(self, o_eval: Callable[[str, int], Crypto.BitString]) -> Crypto.Bit:
         (pk, sk) = self.kem.KeyGen()
         (self.m0, m1) = self.adversary.challenge(pk)
         (self.ct1, _) = self.kem.Encaps(pk)
         mask = o_eval("label", len(self.m0))
         ct2 = mask ^ self.m0
         r = self.adversary.guess((self.ct1, ct2))
-        return r
+        ret = r if len(self.m0) == len(m1) else Crypto.Bit(0)
+        return ret
 
-proof.addDistinguishingProofStep(KDF.KDFsec, KDFScheme, R12, renaming = {'Key': 'SharedSecret'})
+proof.addDistinguishingProofStep(KDF.KDFsec, 'kdf', R12, renaming = {'Key': 'SharedSecret'})
 
 # game hop:
 # XOR the mask with m1 rather than m0
@@ -69,10 +72,10 @@ class R23(OTP.OTIND_adversary):
         (m0, m1) = self.adversary.challenge(pk)
         (self.ct1, _) = self.kem.Encaps(pk)
         return (m0, m1)
-    def guess(self, ct: Crypto.ByteString) -> Crypto.Bit:
+    def guess(self, ct: Crypto.BitString) -> Crypto.Bit:
         return self.adversary.guess((self.ct1, ct))
 
-proof.addDistinguishingProofStep(OTP.OTIND, OTPScheme, R23)
+proof.addDistinguishingProofStep(OTP.OTIND, 'xor', R23)
 
 # game hop:
 # replace output of KDF with real
@@ -84,16 +87,17 @@ class R34(KDF.KDFsec_adversary):
     def setup(self, kdf: KDFScheme) -> None:
         self.kdf = kdf
         return None
-    def run(self, o_eval: Callable[[str, int], Crypto.ByteString]) -> Crypto.Bit:
+    def run(self, o_eval: Callable[[str, int], Crypto.BitString]) -> Crypto.Bit:
         (pk, sk) = self.kem.KeyGen()
         (m0, self.m1) = self.adversary.challenge(pk)
         (self.ct1, _) = self.kem.Encaps(pk)
         mask = o_eval("label", len(self.m1))
         ct2 = mask ^ self.m1
         r = self.adversary.guess((self.ct1, ct2))
-        return r
+        ret = r if len(m0) == len(self.m1) else Crypto.Bit(0)
+        return ret
 
-proof.addDistinguishingProofStep(KDF.KDFsec, KDFScheme, R34, reverseDirection = True, renaming = {'Key': 'SharedSecret'})
+proof.addDistinguishingProofStep(KDF.KDFsec, 'kdf', R34, reverseDirection = True, renaming = {'Key': 'SharedSecret'})
 
 # game hop:
 # replace KEM shared secret with random
@@ -102,7 +106,7 @@ class R45(KEM.KEMINDCPA_adversary):
     def __init__(self, adversary: PKEINDCPA_adversary, kdf: KDFScheme) -> None:
         self.adversary = adversary
         self.kdf = kdf
-    def setup(self, kem: KEMScheme) -> None:        
+    def setup(self, kem: KEMScheme) -> None:
         self.kem = kem
         return None
     def guess(self, pk: KEM.PublicKey, ct: KEM.Ciphertext, ss: KEM.SharedSecret) -> Crypto.Bit:
@@ -110,10 +114,14 @@ class R45(KEM.KEMINDCPA_adversary):
         mask = self.kdf.KDF(ss, "label", len(m1))
         ctprime = mask ^ m1
         r = self.adversary.guess((ct, ctprime))
-        return r
+        ret = r if len(m0) == len(m1) else Crypto.Bit(0)
+        return ret
 
-proof.addDistinguishingProofStep(KEM.INDCPA, KEMScheme, R45, reverseDirection = True)
+proof.addDistinguishingProofStep(KEM.INDCPA, 'kem', R45, reverseDirection = True)
 
 assert proof.check(print_hops=True, print_canonicalizations=True)
 print()
 print(proof.advantage_bound())
+
+with open(os.path.join('examples', 'PKEfromKEM', 'PKEfromKEM_is_INDCPA.tex'), 'w') as fh:
+    fh.write(proof.tikz_figure())
