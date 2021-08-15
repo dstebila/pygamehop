@@ -1,27 +1,34 @@
-from typing import Callable, Tuple, Union
+from typing import Callable, Tuple, Type, Union
 
 from . import Crypto
-from .. import proofs
 
 class Key(): pass
 
-class KDFScheme(Crypto.Scheme):
-    def KDF(self, k: Key, label: str, len: int) -> Crypto.BitString: pass
+class KDF(Crypto.Scheme):
+    def Eval(self, k: Key, label: str, len: int) -> Crypto.BitString: pass
 
-class KDFsec_adversary(Crypto.Adversary):
-    def setup(self, kdf: KDFScheme): pass
+class ROR_Adversary(Crypto.Adversary):
+    def __init__(self, kdf: KDF): pass
     def run(self, o_eval: Callable[[str, int], Crypto.BitString]) -> Crypto.Bit: pass
 
-class KDFsec(proofs.DistinguishingExperiment):
-    def main0(self, scheme: KDFScheme, adversary: KDFsec_adversary) -> Crypto.Bit:
-        dummy = adversary.setup(scheme)
-        k = Crypto.UniformlySample(Key)
-        o_eval = lambda label, length: scheme.KDF(k, label, length)
-        r = adversary.run(o_eval)
+class ROR_Real(Crypto.Game):
+    def main(self, kdf: KDF, Adversary: Type[ROR_Adversary]) -> Crypto.Bit:
+        self.kdf = kdf
+        adversary = Adversary(kdf)
+        self.k = Crypto.UniformlySample(Key)
+        r = adversary.run(self.o_eval)
         return r
-    def main1(self, scheme: KDFScheme, adversary: KDFsec_adversary) -> Crypto.Bit:
-        dummy = adversary.setup(scheme)
+    def o_eval(self, label: str, length: int) -> Crypto.BitString:
+        return self.kdf.Eval(self.k, label, length)
+
+class ROR_Random(Crypto.Game):
+    def main(self, kdf: KDF, Adversary: Type[ROR_Adversary]) -> Crypto.Bit:
+        self.kdf = kdf
+        adversary = Adversary(kdf)
+        r = adversary.run(self.o_eval)
+        return r
+    def o_eval(self, label: str, length: int) -> Crypto.BitString:
         # TODO: turn into a lazily sampled random function
-        o_eval = lambda label, length: Crypto.BitString.uniformly_random(length)
-        r = adversary.run(o_eval)
-        return r
+        return Crypto.BitString.uniformly_random(length)
+
+ROR = Crypto.DistinguishingExperimentRealOrRandom(ROR_Real, ROR_Random, ROR_Adversary)
