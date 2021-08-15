@@ -28,8 +28,11 @@ example_figures:
 	cd examples/KEMfromPKE && pdflatex KEMfromPKE_is_INDCPA.tex
 	convert -density 144 examples/KEMfromPKE/KEMfromPKE_is_INDCPA.pdf docs/images/KEMfromPKE_is_INDCPA.png
 	cd examples/parallelPKE && pdflatex parallelPKE_is_INDCPA.tex
+	convert -density 144 examples/parallelPKE/parallelPKE_is_INDCPA.pdf docs/images/parallelPKE_is_INDCPA.png
 	cd examples/nestedPKE && pdflatex nestedPKE_is_INDCPA_proof1.tex
 	cd examples/nestedPKE && pdflatex nestedPKE_is_INDCPA_proof2.tex
+	convert -density 144 examples/nestedPKE/nestedPKE_is_INDCPA_proof1.pdf docs/images/nestedPKE_is_INDCPA_proof1.png
+	convert -density 144 examples/nestedPKE/nestedPKE_is_INDCPA_proof2.pdf docs/images/nestedPKE_is_INDCPA_proof2.png
 	rm -f examples/*/*.aux
 	rm -f examples/*/*.log
 

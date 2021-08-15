@@ -69,3 +69,34 @@ The proof engine checks that:
 - `R23` inlined into `OTP.OTIND.main1` is equivalent to `R34` inlined into `KDF.KDFsec.main1`. 
 - `R34` inlined into `KDF.KDFsec.main0` is equivalent to `R45` inlined into `KEM.INDCPA.main1`.
 - `R45` inlined into `KEM.INDCPA.main0` is equivalent to the ending game (`PKEfromKEM` inlined into `PKE.INDCPA.main1`).
+
+### nestedPKE
+
+`examples/nestedPKE/nestedPKE.py` contains an example of a public key encryption scheme which is constructed from two public key encryption schemes `pke1`, `pke2` by **nesting**: `ct = pke2.Encrypt(pk2, pke1.Encrypt(pk1, msg))`.
+
+`examples/nestedPKE.py/nestedPKE.py_is_INDCPA.py` contains proofs that this PKE is IND-CPA-secure under the assumption that either of the two the public key encryption schemes `pke1`, `pke2` is IND-CPA-secure.  Note that this consists of two separate proofs, listed in the same file.
+
+**Theorem.** `nestedPKE` is an IND-CPA-secure public key encryption scheme, under the assumption that `pke1` is IND-CPA-secure.
+
+**Proof.** The proof consists of the following game hops:
+
+![nestedPKE is INDCPA proof 1 game hop diagram](images/nestedPKE_is_INDCPA_proof1.png)
+
+- Starting game: `nestedPKE` inlined into the "left" version of the PKE IND-CPA game (`PKE.INDCPA.main0`), in which the challenge ciphertext is the encryption of `m0`.
+- Ending game: `nestedPKE` inlined into the "right" version of the PKE IND-CPA game (`PKE.INDCPA.main1`), in which the challenge ciphertext is the encryption of `m1`.
+	- The starting game and ending game are related via an indistinguishability step based on the IND-CPA security of scheme `pke1`. Reduction `R1` is an IND-CPA adversary against scheme `pke1`. It uses the `pke1` IND-CPA challenger to encrypt either `m0` or `m1` and then encrypts the resulting ciphertext using scheme `pke2`.
+
+**Theorem.** `nestedPKE` is an IND-CPA-secure public key encryption scheme, under the assumption that `pke2` is IND-CPA-secure.
+
+**Proof.** The proof consists of the following game hops:
+
+![nestedPKE is INDCPA proof 2 game hop diagram](images/nestedPKE_is_INDCPA_proof2.png)
+
+- Starting game: `nestedPKE` inlined into the "left" version of the PKE IND-CPA game (`PKE.INDCPA.main0`), in which the challenge ciphertext is the encryption of `m0`.
+- Game 1: A rewrite of the starting game, which uses the fact that `len(pke1.Encrypt(pk1, m0)) = len(pke1.Encrypt(pk1, m1))` assuming `len(m0) == len(m1)`.
+	- The starting game and game 1 are related via a rewriting step, the validity of which must be manually checked via the diff output by the proof engine.
+- Game 2: The challenge ciphertext is switched to be the encryption of `m1`.
+	- Game 1 and game 2 are related via an indistinguishability step based on the IND-CPA security of scheme `pke2`. Reduction `R2` is an IND-CPA adversary against scheme `pke1`. It encrypts `m0` and `m1` under `pke1` itself, then passes the two resulting ciphertexts to the IND-CPA challenge for `pke2`.
+- Game 3: A rewrite of game 2, which again uses the fact that `len(pke1.Encrypt(pk1, m0)) = len(pke1.Encrypt(pk1, m1))` assuming `len(m0) == len(m1)`. 
+	- Game 2 and game 3 are related via a rewriting step, the validity of which must be manually checked via the diff output by the proof engine.
+- Ending game: `nestedPKE` inlined into the "right" version of the PKE IND-CPA game (`PKE.INDCPA.main1`), in which the challenge ciphertext is the encryption of `m1`.
