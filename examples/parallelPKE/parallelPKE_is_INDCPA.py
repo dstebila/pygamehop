@@ -34,7 +34,7 @@ class R01(PKEINDCPA_adversary): # this is an adversary for PKE1
         ct = (ct1, ct2)
         return self.adversary.guess(ct)
 
-proof.addDistinguishingProofStep(PKE.INDCPA, PKEScheme, R01)
+proof.addDistinguishingProofStep(PKE.INDCPA, 'pke1', R01)
 
 # game hop:
 # for PKE2, encrypt m1 rather than m0
@@ -58,7 +58,7 @@ class R12(PKEINDCPA_adversary): # this is an adversary for PKE2
         ct = (ct1, ct2)
         return self.adversary.guess(ct)
 
-proof.addDistinguishingProofStep(PKE.INDCPA, PKEScheme, R12)
+proof.addDistinguishingProofStep(PKE.INDCPA, 'pke2', R12)
 
 assert proof.check(print_hops=False, print_canonicalizations=False)
 print()

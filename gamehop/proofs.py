@@ -21,8 +21,10 @@ class GuessingExperiment(Experiment):
 
 def fqn(o):
     if inspect.isclass(o):
-        if o.__module__ == '__main__': return o.__name__
-        else: return "{:s}.{:s}".format(o.__module__, o.__name__)
+        if o.__module__ == '__main__':
+            return o.__name__.replace('.Scheme', '')
+        else: 
+            return "{:s}.{:s}".format(o.__module__, o.__name__).replace('gamehop.primitives.', '').replace('.Scheme', '')
     elif isinstance(o, typing._GenericAlias):
         return typing.get_origin(o).__name__
     else: raise ValueError("Don't know how to find the name of objects of type {:s}".format(str(type(o))))
@@ -36,9 +38,9 @@ class proofStep():
     def advantage(self): pass
 
 class distinguishingProofStep(proofStep):
-    def __init__(self, experiment, scheme, reduction, reverseDirection, renaming):
+    def __init__(self, experiment, scheme_instance, reduction, reverseDirection, renaming):
         self.experiment = experiment
-        self.scheme = scheme
+        self.scheme_instance = scheme_instance
         self.reduction = reduction
         self.reverseDirection = reverseDirection
         self.renaming = renaming
@@ -59,7 +61,7 @@ class distinguishingProofStep(proofStep):
         return f"{fqn(self.experiment)}.main{0 if self.reverseDirection else 1} with reduction {fqn(self.reduction)} inlined"
 
     def advantage(self):
-        return "Advantage of {:s} in experiment {:s} for scheme {:s}".format(fqn(self.reduction), fqn(self.experiment), "TODO")
+        return "Advantage of {:s} in experiment {:s} for scheme {:s}".format(fqn(self.reduction), fqn(self.experiment), self.scheme_instance)
 
 class rewritingStep(proofStep):
     def __init__(self, left, right):
@@ -171,13 +173,6 @@ class Proof():
         return "\n".join(lines)
 
     def tikz_figure(self):
-        def classname_filter(value):
-            if value.__module__ == '__main__': 
-                return value.__name__.replace('.Scheme', '')
-            elif value.__module__.startswith('gamehop.primitives.'):
-                return (value.__module__.replace('gamehop.primitives.', '') + '.' + value.__name__).replace('.Scheme', '')
-            else: 
-                return (value.__module__ + '.' + value.__name__).replace('.Scheme', '')
         env = jinja2.Environment(
             loader=jinja2.PackageLoader("gamehop"),
             trim_blocks=True, # https://stackoverflow.com/questions/33775085/is-it-possible-to-change-the-default-double-curly-braces-delimiter-in-polymer
@@ -186,7 +181,7 @@ class Proof():
             variable_start_string='≤≤',
             variable_end_string='≥≥'
         )
-        env.filters['classname'] = classname_filter
+        env.filters['classname'] = lambda value: fqn(value)
         env.filters['type'] = lambda value: type(value).__name__
         template = env.get_template("tikz_figure.tex")
         return template.render(proof=self)

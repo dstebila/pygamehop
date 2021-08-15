@@ -33,7 +33,7 @@ class R01(KEM.KEMINDCPA_adversary):
         ret = r if len(m0) == len(m1) else Crypto.Bit(0)
         return ret
 
-proof.addDistinguishingProofStep(KEM.INDCPA, KEMScheme, R01)
+proof.addDistinguishingProofStep(KEM.INDCPA, 'kem', R01)
 
 # game hop:
 # replace output of KDF with random
@@ -55,7 +55,7 @@ class R12(KDF.KDFsec_adversary):
         ret = r if len(self.m0) == len(m1) else Crypto.Bit(0)
         return ret
 
-proof.addDistinguishingProofStep(KDF.KDFsec, KDFScheme, R12, renaming = {'Key': 'SharedSecret'})
+proof.addDistinguishingProofStep(KDF.KDFsec, 'kdf', R12, renaming = {'Key': 'SharedSecret'})
 
 # game hop:
 # XOR the mask with m1 rather than m0
@@ -75,7 +75,7 @@ class R23(OTP.OTIND_adversary):
     def guess(self, ct: Crypto.BitString) -> Crypto.Bit:
         return self.adversary.guess((self.ct1, ct))
 
-proof.addDistinguishingProofStep(OTP.OTIND, OTPScheme, R23)
+proof.addDistinguishingProofStep(OTP.OTIND, 'xor', R23)
 
 # game hop:
 # replace output of KDF with real
@@ -97,7 +97,7 @@ class R34(KDF.KDFsec_adversary):
         ret = r if len(m0) == len(self.m1) else Crypto.Bit(0)
         return ret
 
-proof.addDistinguishingProofStep(KDF.KDFsec, KDFScheme, R34, reverseDirection = True, renaming = {'Key': 'SharedSecret'})
+proof.addDistinguishingProofStep(KDF.KDFsec, 'kdf', R34, reverseDirection = True, renaming = {'Key': 'SharedSecret'})
 
 # game hop:
 # replace KEM shared secret with random
@@ -106,7 +106,7 @@ class R45(KEM.KEMINDCPA_adversary):
     def __init__(self, adversary: PKEINDCPA_adversary, kdf: KDFScheme) -> None:
         self.adversary = adversary
         self.kdf = kdf
-    def setup(self, kem: KEMScheme) -> None:        
+    def setup(self, kem: KEMScheme) -> None:
         self.kem = kem
         return None
     def guess(self, pk: KEM.PublicKey, ct: KEM.Ciphertext, ss: KEM.SharedSecret) -> Crypto.Bit:
@@ -117,7 +117,7 @@ class R45(KEM.KEMINDCPA_adversary):
         ret = r if len(m0) == len(m1) else Crypto.Bit(0)
         return ret
 
-proof.addDistinguishingProofStep(KEM.INDCPA, KEMScheme, R45, reverseDirection = True)
+proof.addDistinguishingProofStep(KEM.INDCPA, 'kem', R45, reverseDirection = True)
 
 assert proof.check(print_hops=True, print_canonicalizations=True)
 print()

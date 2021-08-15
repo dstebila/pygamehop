@@ -57,7 +57,7 @@ class R12(PKE.PKEINDCPA_adversary):
     def guess(self, ct: PKE.Ciphertext) -> Crypto.Bit:
         return self.kem_adversary.guess(self.pk, ct, self.m0)
 
-proof.addDistinguishingProofStep(PKE.INDCPA, PKE.PKEScheme, R12)
+proof.addDistinguishingProofStep(PKE.INDCPA, 'pke', R12)
 
 # game hop: rewriting step
 # len(Crypto.UniformlySample(SharedSecret)) == len(Crypto.UniformlySample(SharedSecret))
