@@ -72,7 +72,7 @@
 		\node [reduction]
 			(reduction≤≤ loop.index ≥≥)
 			at (≤≤ loop.index * 4 - 1 ≥≥,1)
-			{\texttt{≤≤ proofstep.reduction|classname ≥≥:} \\ \texttt{≤≤ proofstep.experiment|classname ≥≥} \\ adversary against \\ \texttt{TODO}};
+			{\texttt{≤≤ proofstep.reduction|classname ≥≥:} \\ \texttt{≤≤ proofstep.experiment|classname ≥≥} \\ adversary against \\ \texttt{≤≤ proofstep.scheme_instance ≥≥}};
 
 		\draw [->] (reduction≤≤ loop.index ≥≥) -- (hop≤≤ loop.index ≥≥left);
 		\draw [->] (reduction≤≤ loop.index ≥≥) -- (hop≤≤ loop.index ≥≥right);
@@ -81,7 +81,7 @@
 			(hop≤≤ loop.index ≥≥left)
 			--
 			node[mainarrowlabel,above] {computationally \\ indistinguishable}
-			node[mainarrowlabel,below] {$\mathrm{Adv}^{\texttt{≤≤ proofstep.experiment|classname ≥≥}}_{\texttt{TODO}}(\texttt{≤≤ proofstep.reduction|classname ≥≥})$}
+			node[mainarrowlabel,below] {$\mathrm{Adv}^{\texttt{≤≤ proofstep.experiment|classname ≥≥}}_{\texttt{≤≤ proofstep.scheme_instance ≥≥}}(\texttt{≤≤ proofstep.reduction|classname ≥≥})$}
 			(hop≤≤ loop.index ≥≥right);
 	
 	≤% elif proofstep|type == 'rewritingStep' %≥
