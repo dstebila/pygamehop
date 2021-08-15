@@ -6,32 +6,31 @@ The `examples` directory contains several examples of constructions and correspo
 
 - [KEMfromPKE](#KEMfromPKE)
 - [PKEfromKEM](#PKEfromKEM)
+- [nestedPKE](#nestedPKE)
+- [parallelPKE](#parallelPKE)
 
 ### KEMfromPKE
 
-`examples/KEMfromPKE/KEMfromPKE.py` contains an example in which a key encapsulation mechanism is generically constructed from a public key encryption scheme by having the encapsulator pick a random shared secret and transport it to the decapsulator via public key encryption.
+`examples/KEMfromPKE/KEMfromPKE.py` contains an example in which a key encapsulation mechanism is generically constructed from a public key encryption scheme by having the encapsulator pick a random shared secret and transport it to the decapsulator via public key encryption:
 
-`examples/KEMfromPKE/KEMfromPKE_is_INDCPA.py` contains a proof that this KEM is IND-CPA-secure under the assumption that the public key encryption scheme is IND-CPA-secure. The KEM IND-CPA experiment is a distinguishing experiment defined in `gamehop.primitives.KEM.INDCPA`.  
+1. `ss <- UniformlyRandom(SharedSecret)`
+2. `ct <- pke.Encrypt(pk, ss)`
 
-The proof consists of the following game hops:
+`examples/KEMfromPKE/KEMfromPKE_is_INDCPA.py` contains a proof of the following:
+
+**Theorem.** `KEMfromPKE` is an IND-CPA-secure key encapsulation mechanism under the assumption that `pke` is an IND-CPA-secure public key encryption scheme.
+
+**Proof.** The proof consists of the following game hops:
 
 ![KEMfromPKE game hop diagram](images/KEMfromPKE_is_INDCPA.png)
 
-- Starting game: `KEMfromPKE` inlined into the "real" version of the KEM IND-CPA game (`KEM.INDCPA.main0`), where the KEM ciphertext encapsulates the real shared secret.
-- Hop 1: A rewriting step that two shared secrets selected uniformly at random have the same length.
-- Hop 2: A distinguishing step in which the "random" shared secret is encrypted by the PKE, rather than the "real" shared secret.
-	- Reduction `R12` is an IND-CPA adversary against the PKE scheme that interpolates between Game 1 and Game 2.
-- Hop 3: A rewriting step that two shared secrets selected uniformly at random have the same length.
-- Ending game: `KEMfromPKE` inlined into the "random" version of the KEM IND-CPA game (`KEM.INDCPA.main1`), where the KEM ciphertext encapsulates the random shared secret.
-
-Note that the starting and ending games are not explicitly written out in `KEMfromPKE_is_INDCPA.py`, they are derived from the starting and ending points of the proof. Furthermore, intermediate games are not explicitly written out, they are derived from the relevant transformations.
-
-The proof engine checks that:
-
-- The starting game (`KEMfromPKE` inlined into `KEM.INDCPA.main0`) is equivalent to hop 1 before rewriting is applied.
-- Hop 1 after rewriting is applied is equivalent to `R12` inlined into `PKE.INDCPA.main0`.
-- `R12` inlined into `PKE.INDCPA.main1` is equivalent to hop 3 before rewriting is applied.
-- Hop 3 after rewriting is applied is equivalent to the ending game (`KEMfromPKE` inlined into `KEM.INDCPA.main1`).
+- Starting game: `KEMfromPKE` inlined into the "real" version of the KEM IND-CPA game (`KEM.INDCPA.main0`), where the adversary is challenged with the real shared secret encapsulated in the challenge ciphertext.
+- Game 1: A rewrite of the starting game, which uses the fact that two shared secrets selected uniformly at random have the same length.
+	- The starting game and game 1 are related via a rewriting step, the validity of which must be manually checked via the diff output by the proof engine.
+- Game 2: The shared secret that the adversary is challenged with is changed to be the random value.
+	- Game 1 and game 2 are related via an indistinguishability step based on the IND-CPA security of scheme `pke`. Reduction `R12` is an IND-CPA adversary against scheme `pke`. It selects two shared secrets and has its IND-CPA challenger for `pke` encrypt one of them.
+- Game 3: A rewrite of game 2, which again uses the fact that two shared secrets selected uniformly at random have the same length.	- Game 2 and game 3 are related via a rewriting step, the validity of which must be manually checked via the diff output by the proof engine.
+- Ending game: `KEMfromPKE ` inlined into the "random" version of the KEM IND-CPA game (`KEM.INDCPA.main1`), where the adversary is challenged with a random shared secret rather than the real shared secret encapsulated in the challenge ciphertext.
 
 ### PKEfromKEM
 

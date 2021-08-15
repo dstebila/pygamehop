@@ -48,14 +48,10 @@ class R12(PKE.PKEINDCPA_adversary):
     def challenge(self, pk: PKE.PublicKey) -> Tuple[PKE.Message, PKE.Message]:
         self.pk = pk
         self.ss0 = Crypto.UniformlySample(SharedSecret)
-        self.ct0 = self.pke.Encrypt(pk, self.ss0)
-        self.m0 = self.ss0
         self.ss1 = Crypto.UniformlySample(SharedSecret)
-        self.ct1 = self.pke.Encrypt(pk, self.ss1)
-        self.m1 = self.ss1
-        return (self.m0, self.m1)
+        return (self.ss0, self.ss1)
     def guess(self, ct: PKE.Ciphertext) -> Crypto.Bit:
-        return self.kem_adversary.guess(self.pk, ct, self.m0)
+        return self.kem_adversary.guess(self.pk, ct, self.ss0)
 
 proof.addDistinguishingProofStep(PKE.INDCPA, 'pke', R12)
 
