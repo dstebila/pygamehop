@@ -1,5 +1,4 @@
 import os
-import subprocess
 from typing import Callable, Tuple
 
 from gamehop.primitives import Crypto, PKE, KEM, KDF, OTP

@@ -172,9 +172,12 @@ class Proof():
 
     def tikz_figure(self):
         def classname_filter(value):
-            if value.__module__ == '__main__': return value.__name__
-            elif value.__module__.startswith('gamehop.primitives.'): return value.__module__.replace('gamehop.primitives.', '') + '.' + value.__name__
-            else: return value.__module__ + '.' + value.__name__
+            if value.__module__ == '__main__': 
+                return value.__name__.replace('.Scheme', '')
+            elif value.__module__.startswith('gamehop.primitives.'):
+                return (value.__module__.replace('gamehop.primitives.', '') + '.' + value.__name__).replace('.Scheme', '')
+            else: 
+                return (value.__module__ + '.' + value.__name__).replace('.Scheme', '')
         env = jinja2.Environment(
             loader=jinja2.PackageLoader("gamehop"),
             trim_blocks=True, # https://stackoverflow.com/questions/33775085/is-it-possible-to-change-the-default-double-curly-braces-delimiter-in-polymer
@@ -184,5 +187,6 @@ class Proof():
             variable_end_string='≥≥'
         )
         env.filters['classname'] = classname_filter
+        env.filters['type'] = lambda value: type(value).__name__
         template = env.get_template("tikz_figure.tex")
         return template.render(proof=self)

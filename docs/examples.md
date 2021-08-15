@@ -15,6 +15,8 @@ The `examples` directory contains several examples of constructions and correspo
 
 The proof consists of the following game hops:
 
+![KEMfromPKE game hop diagram](images/KEMfromPKE_is_INDCPA.png)
+
 - Starting game: `KEMfromPKE` inlined into the "real" version of the KEM IND-CPA game (`KEM.INDCPA.main0`), where the KEM ciphertext encapsulates the real shared secret.
 - Hop 1: A rewriting step that two shared secrets selected uniformly at random have the same length.
 - Hop 2: A distinguishing step in which the "random" shared secret is encrypted by the PKE, rather than the "real" shared secret.

@@ -1,3 +1,4 @@
+import os
 from typing import Tuple
 
 from gamehop.primitives import Crypto, PKE
@@ -62,3 +63,6 @@ proof.addDistinguishingProofStep(PKE.INDCPA, PKEScheme, R12)
 assert proof.check(print_hops=False, print_canonicalizations=False)
 print()
 print(proof.advantage_bound())
+
+with open(os.path.join('examples', 'parallelPKE', 'parallelPKE_is_INDCPA.tex'), 'w') as fh:
+    fh.write(proof.tikz_figure())

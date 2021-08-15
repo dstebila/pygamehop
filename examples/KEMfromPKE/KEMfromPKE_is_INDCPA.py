@@ -1,3 +1,4 @@
+import os
 from typing import Tuple
 
 from gamehop.primitives import Crypto, KEM, PKE
@@ -87,3 +88,6 @@ proof.addRewritingStep(rewrite_left2, rewrite_right2)
 assert proof.check(print_hops=True, print_canonicalizations=True)
 print()
 print(proof.advantage_bound())
+
+with open(os.path.join('examples', 'KEMfromPKE', 'KEMfromPKE_is_INDCPA.tex'), 'w') as fh:
+    fh.write(proof.tikz_figure())

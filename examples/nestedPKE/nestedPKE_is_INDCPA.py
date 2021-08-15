@@ -1,3 +1,4 @@
+import os
 from typing import Tuple, Any
 
 from gamehop.primitives import Crypto, PKE
@@ -139,3 +140,8 @@ proof2.addRewritingStep(rewrite_left2, rewrite_right2)
 assert proof2.check(print_hops=True, print_canonicalizations=True)
 print()
 print(proof2.advantage_bound())
+
+with open(os.path.join('examples', 'nestedPKE', 'nestedPKE_is_INDCPA_proof1.tex'), 'w') as fh:
+    fh.write(proof1.tikz_figure())
+with open(os.path.join('examples', 'nestedPKE', 'nestedPKE_is_INDCPA_proof2.tex'), 'w') as fh:
+    fh.write(proof2.tikz_figure())
