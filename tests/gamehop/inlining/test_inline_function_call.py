@@ -7,10 +7,6 @@ import gamehop.inlining
 def inlinand(a, b):
     c = a + b
     return c
-def inlinand_multiple_returns(a, b):
-    if a: return b
-    elif not(a): return a
-    return a + b
 
 def expected_result(f):
     fdef = gamehop.utils.get_function_def(f)
@@ -83,7 +79,11 @@ class TestInlineFunction(unittest.TestCase):
             gamehop.inlining.inline_function_call(inlinand_no_return_at_end, f)
 
     def test_multiple_returns(self):
-        def f(x): y = inlinand(x, x)
+        def inlinand_multiple_returns(a, b):
+            if a: return b
+            elif not(a): return a
+            return a + b
+        def f(x): y = inlinand_multiple_returns(x, x)
         with self.assertRaisesRegex(NotImplementedError, "Inlining function inlinand_multiple_returns into f since inlinand_multiple_returns contains a return statement somewhere other than the last line \\(namely, line 1\\)"):
             gamehop.inlining.inline_function_call(inlinand_multiple_returns, f)
 

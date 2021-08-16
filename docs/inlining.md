@@ -37,3 +37,40 @@ Raises:
 
 - `KeyError` if the argument name provided is not actually an argument of the function.
 - `ValueError` if the argument is ever assigned to within the function body.
+
+### Inline function call
+
+Within a function replace all calls to another function with their body, with the arguments to the call appropriately bound and with local variables named unambiguously.
+
+```python
+def inline_function_call(
+	f_to_be_inlined: Union[Callable, str, ast.FunctionDef],
+	f_dest: Union[Callable, str, ast.FunctionDef]
+) -> str:
+```
+
+Example:
+
+```python
+def inlinand(a, b):
+    c = a + b
+	return c
+def f(x):
+    y = inlinand(x, x)
+    z = 2
+
+inline_function_call(inlinand, f)
+
+# returns:
+
+def f(x):
+    inlinandᴠ1ⴰc = x + x
+    y = inlinandᴠ1ⴰc
+    z = 2
+```
+
+Raises:
+
+- `NotImplementedError` if the function to be inlined contains a return statement anywhere other than at the end.
+- `ValueError` if the destination function calls the function to be inlined in any way other than in a lone assignment statement (i.e., `foo = f(bar)`).
+- `ValueError` if the function to be inlined does not have a return statement.

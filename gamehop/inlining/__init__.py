@@ -16,7 +16,7 @@ __all__ = ['inline_argument_into_function', 'inline_class', 'inline_function']
 # https://www.asmeurer.com/python-unicode-variable-names/
 
 def inline_argument_into_function(argname: str, val: Union[bool, float, int, str, tuple, ast.expr], f: Union[Callable, str, ast.FunctionDef]) -> str:
-    """Returns a string representing the provided function with the given argument inlined to the given value.  Works on values of type bool, float, int, str, tuple, list, set, or an AST object.  Cannot handle cases where the variable to be inlined is assigned to."""
+    """Returns a string representing the provided function with the given argument inlined to the given value.  Works on values of type bool, float, int, str, tuple, or an AST expression.  Cannot handle cases where the variable to be inlined is assigned to."""
     fdef = utils.get_function_def(f)
     # check that the argument is present
     if argname not in [a.arg for a in fdef.args.args]:
@@ -150,7 +150,7 @@ def inline_function(inlinee: Union[Callable, str, ast.FunctionDef], inlinand: Un
     return ast.unparse(ast.fix_missing_locations(inlinee_def))
 
 def helper_make_lines_of_inlined_function(fdef_to_be_inlined: ast.FunctionDef, params: List[ast.expr], prefix: str) -> List[ast.stmt]:
-    """Helper function. Takes a function definition and list of parameters (one for each argument of the function definition) and returns a copy of the body of the function in which (a) all local variables have been prefixed with prefix and (b) all instances of arguments have been replaced with the corresponding parameter."""
+    """Helper function for InlineFunctionCallIntoStatements. Takes a function definition and list of parameters (one for each argument of the function definition) and returns a copy of the body of the function in which (a) all local variables have been prefixed with prefix and (b) all instances of arguments have been replaced with the corresponding parameter."""
     working_copy = copy.deepcopy(fdef_to_be_inlined)
     # prefix all local variables
     local_variables = utils.vars_assigns_to(fdef_to_be_inlined.body)
@@ -161,12 +161,13 @@ def helper_make_lines_of_inlined_function(fdef_to_be_inlined: ast.FunctionDef, p
     assert len(params) == len(working_copy.args.args)
     replacements = {arg.arg: params[argnum] for argnum, arg in enumerate(working_copy.args.args)}
     working_copy = utils.NameNodeReplacer(replacements).visit(working_copy)
-    # if the last line is a return statement, strip that out to be just an expression
-    if isinstance(working_copy.body[-1], ast.Return):
-        working_copy.body[-1] = ast.Expr(value=working_copy.body[-1].value)
+    # the last line is a return statement, strip that out to be just an expression
+    assert isinstance(working_copy.body[-1], ast.Return)
+    working_copy.body[-1] = ast.Expr(value=working_copy.body[-1].value)
     return working_copy.body
 
 class InlineFunctionCallIntoStatements(utils.NewNodeTransformer):
+    """Helper node transformer for inline_function_call. Does the actual replacement."""
     def __init__(self, fdef_to_be_inlined, f_dest_name):
         self.fdef_to_be_inlined = fdef_to_be_inlined
         self.f_to_be_inlined_has_return = isinstance(self.fdef_to_be_inlined.body[-1], ast.Return)
@@ -187,6 +188,7 @@ class InlineFunctionCallIntoStatements(utils.NewNodeTransformer):
         else: return stmt
 
 def inline_function_call(f_to_be_inlined: Union[Callable, str, ast.FunctionDef], f_dest: Union[Callable, str, ast.FunctionDef]) -> str:
+    """Returns a string representing the provided destination function with all calls to the function-to-be-inlined replaced with the body of that function, with arguments to the call appropriately bound and with local variables named unambiguously."""
 
     fdef_to_be_inlined = utils.get_function_def(f_to_be_inlined)
     fdef_dest = utils.get_function_def(f_dest)
