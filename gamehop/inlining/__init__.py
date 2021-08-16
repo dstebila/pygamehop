@@ -22,9 +22,7 @@ def inline_argument_into_function(argname: str, val: Union[bool, float, int, str
     if argname not in [a.arg for a in fdef.args.args]:
         raise KeyError(f"Argument {argname} not found in list of arguments to function {fdef.name}")
     # check that the argument is never assigned to
-    vars = utils.VariableFinder()
-    vars.visit(fdef)
-    if argname in vars.stored_vars:
+    if argname in utils.vars_assigns_to(fdef.body):
         raise ValueError(f"Error inlining argument {argname} into function {fdef.name}: {argname} is assigned to in the body of {fdef.name}")
     # construct the new node
     if isinstance(val, bool) or isinstance(val, float) or isinstance(val, int) or isinstance(val, str) or isinstance(val, tuple):
@@ -140,8 +138,6 @@ def inline_function_into_statements(inlinee: List[ast.stmt], inlinand: ast.Funct
         ContainsCall(search_function_name).visit(stmt)
     return (newinlinee, replacement_count)
 
-
-
 def inline_function(inlinee: Union[Callable, str, ast.FunctionDef], inlinand: Union[Callable, str, ast.FunctionDef], search_function_name=None, dest_function_name=None, self_prefix="") -> str:
     """Returns a string representing (almost) all instances of the second function inlined into the first.  Only works on calls to bare assignments (y = f(x)) or bare calls (f(x)). Normally uses the inlinand's name as the name to search for and the name from which to build prefixes, but can be overridden by search_function_name and dest_function_name. If self_prefix is specified, variables starting with SELF will be renamed using self_prefix instead of prefix."""
     # get the function definitions
@@ -152,6 +148,79 @@ def inline_function(inlinee: Union[Callable, str, ast.FunctionDef], inlinand: Un
 
     (inlinee_def.body, _ ) = inline_function_into_statements(inlinee_def.body, inlinand_def, search_function_name, dest_function_name, self_prefix)
     return ast.unparse(ast.fix_missing_locations(inlinee_def))
+
+def helper_make_lines_of_inlined_function(fdef_to_be_inlined: ast.FunctionDef, params: List[ast.expr], prefix: str) -> List[ast.stmt]:
+    """Helper function. Takes a function definition and list of parameters (one for each argument of the function definition) and returns a copy of the body of the function in which (a) all local variables have been prefixed with prefix and (b) all instances of arguments have been replaced with the corresponding parameter."""
+    working_copy = copy.deepcopy(fdef_to_be_inlined)
+    # prefix all local variables
+    local_variables = utils.vars_assigns_to(fdef_to_be_inlined.body)
+    mappings = dict()
+    for var in local_variables: mappings[var] = f"{prefix}ⴰ{var}"
+    working_copy = utils.rename_variables(working_copy, mappings)
+    # map the parameters onto the arguments
+    assert len(params) == len(working_copy.args.args)
+    replacements = {arg.arg: params[argnum] for argnum, arg in enumerate(working_copy.args.args)}
+    working_copy = utils.NameNodeReplacer(replacements).visit(working_copy)
+    # if the last line is a return statement, strip that out to be just an expression
+    if isinstance(working_copy.body[-1], ast.Return):
+        working_copy.body[-1] = ast.Expr(value=working_copy.body[-1].value)
+    return working_copy.body
+
+class InlineFunctionCallIntoStatements(utils.NewNodeTransformer):
+    def __init__(self, fdef_to_be_inlined, f_dest_name):
+        self.fdef_to_be_inlined = fdef_to_be_inlined
+        self.f_to_be_inlined_has_return = isinstance(self.fdef_to_be_inlined.body[-1], ast.Return)
+        self.f_dest_name = f_dest_name
+        self.replacement_count = 0
+    def visit_Assign(self, stmt):
+        # replace y = f(x)
+        if isinstance(stmt, ast.Assign) and isinstance(stmt.value, ast.Call) and isinstance(stmt.value.func, ast.Name) and stmt.value.func.id == self.fdef_to_be_inlined.name:
+            if not self.f_to_be_inlined_has_return:
+                raise ValueError(f"Cannot inline function {self.fdef_to_be_inlined.name} into statement {ast.unparse(stmt)} in function {self.f_dest_name} since {self.fdef_to_be_inlined.name} does not return anything")
+            # copy the expanded lines
+            self.replacement_count += 1
+            newlines = helper_make_lines_of_inlined_function(self.fdef_to_be_inlined, stmt.value.args, f'{self.fdef_to_be_inlined.name}ᴠ{self.replacement_count}')
+            # assign the required variables based on the return statement
+            assert isinstance(newlines[-1], ast.Expr)
+            newlines[-1] = ast.Assign(targets = stmt.targets, value = newlines[-1].value)
+            return newlines
+        else: return stmt
+
+def inline_function_call(f_to_be_inlined: Union[Callable, str, ast.FunctionDef], f_dest: Union[Callable, str, ast.FunctionDef]) -> str:
+
+    fdef_to_be_inlined = utils.get_function_def(f_to_be_inlined)
+    fdef_dest = utils.get_function_def(f_dest)
+
+    # check that there are no return statements anywhere in f_to_be_inlined other than the last line
+    class ContainsReturn(ast.NodeVisitor):
+        def __init__(self): self.found = False
+        def visit_Return(self, node): self.found = True
+    for lineno, stmt in enumerate(fdef_to_be_inlined.body[:-1]):
+        contains_return = ContainsReturn()
+        contains_return.visit(stmt)
+        if contains_return.found == True:
+            raise NotImplementedError(f"Inlining function {fdef_to_be_inlined.name} into {fdef_dest.name} since {fdef_to_be_inlined.name} contains a return statement somewhere other than the last line (namely, line {lineno+1})")
+
+    # check if the last line of f_to_be_inlined is a return statement,
+    f_to_be_inlined_has_return = isinstance(fdef_to_be_inlined.body[-1], ast.Return)
+
+    # go through every line of the inlinee and replace all calls that we know how to handle
+    newdest = copy.deepcopy(fdef_dest)
+    newdest.body = InlineFunctionCallIntoStatements(fdef_to_be_inlined, fdef_dest.name).visit(newdest.body)
+
+    # if there's still a call to our function somewhere, it must have been somewhere other than on a bare Assign line; raise an error
+    class ContainsCall(utils.NewNodeVisitor):
+        def __init__(self, funcname):
+            self.funcname = funcname
+            self.found = False
+        def visit_Call(self, node):
+            if isinstance(node.func, ast.Name) and node.func.id == self.funcname: self.found = True
+    contains_call = ContainsCall(fdef_to_be_inlined.name)
+    contains_call.visit(newdest.body)
+    if contains_call.found:
+        raise ValueError(f"Could not fully inline {fdef_to_be_inlined.name} into {fdef_dest.name} since {fdef_dest.name} calls {fdef_to_be_inlined.name} in an unsupported way; the only supported way is an assignment statement of the form foo = {fdef_to_be_inlined.name}(bar)")
+
+    return ast.unparse(ast.fix_missing_locations(newdest))
 
 def inline_class(inlinee: Union[Callable, str, ast.FunctionDef], arg: str, inlinand: Union[Type[Any], str, ast.ClassDef], inline_init = True, inline_class_props = True) -> str:
     """Returns a string representing the given class definition inlined into an argument of the given function.."""

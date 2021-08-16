@@ -1,4 +1,5 @@
 import ast
+import collections
 import copy
 import difflib
 import inspect
@@ -86,6 +87,9 @@ class NamePrefixer(NewNodeTransformer):
                 node.id = self.prefix + node.id
         return node
 
+def prefix_names(node, prefix):
+    return NamePrefixer(prefix).visit(node)
+
 class NameNodeReplacer(NewNodeTransformer):
     """Replaces all instances of a Name node with a given node, for each name in the given dictionary of replacements."""
     def __init__(self, replacements: Dict[str, ast.expr]):
@@ -99,9 +103,6 @@ def stored_vars(node):
     varfinder.visit(node)
     return varfinder.stored_vars
 
-def prefix_names(node, prefix):
-    return NamePrefixer(prefix).visit(node)
-
 def vars_depends_on(node: Optional[ast.AST]) -> List[str]:
     if isinstance(node, ast.Assign): return vars_depends_on(node.value)
     elif isinstance(node, ast.Attribute): return vars_depends_on(node.value)
@@ -109,24 +110,27 @@ def vars_depends_on(node: Optional[ast.AST]) -> List[str]:
     elif isinstance(node, ast.Call): return vars_depends_on(node.func) + sum([vars_depends_on(arg) for arg in node.args], start=[])
     elif isinstance(node, ast.Compare): return vars_depends_on(node.left) + sum([vars_depends_on(c) for c in node.comparators], start=[])
     elif isinstance(node, ast.Constant): return []
+    elif isinstance(node, ast.Expr): return vars_depends_on(node.value)
     elif isinstance(node, ast.IfExp): return vars_depends_on(node.body) + vars_depends_on(node.test) + vars_depends_on(node.orelse)
     elif isinstance(node, ast.Name): return [node.id] if isinstance(node.ctx, ast.Load) else []
     elif isinstance(node, ast.Return): return [] if node.value == None else vars_depends_on(node.value)
     elif isinstance(node, ast.Tuple): return sum([vars_depends_on(e) for e in node.elts], start=[])
     else: raise NotImplementedError("Cannot handle AST objects of type {:s}".format(type(node).__name__))
 
-def vars_assigns_to(node: ast.AST) -> List[str]:
-    if isinstance(node, ast.Assign): return sum([vars_assigns_to(v) for v in node.targets], start=[])
+def vars_assigns_to(node: Union[ast.AST, List[ast.stmt]]) -> List[str]:
+    if isinstance(node, list): return sum([vars_assigns_to(stmt) for stmt in node], start=[])
+    elif isinstance(node, ast.Assign): return sum([vars_assigns_to(v) for v in node.targets], start=[])
     elif isinstance(node, ast.Attribute): return vars_assigns_to(node.value)
     elif isinstance(node, ast.BinOp): return []
     elif isinstance(node, ast.Call): return []
     elif isinstance(node, ast.Compare): return []
     elif isinstance(node, ast.Constant): return []
+    elif isinstance(node, ast.Expr): return []
     elif isinstance(node, ast.IfExp): return []
     elif isinstance(node, ast.Name): return [node.id] if isinstance(node.ctx, ast.Store) else []
     elif isinstance(node, ast.Return): return []
     elif isinstance(node, ast.Tuple): return sum([vars_assigns_to(e) for e in node.elts], start=[])
-    else: raise NotImplementedError("Cannot handle AST objects of type {:s}".format(type(node).__name__))
+    else: raise NotImplementedError("Cannot handle AST objects of type {:s} ({:s})".format(type(node).__name__, ast.unparse(node)))
 
 def remove_indentation(src: str) -> str:
     indentation = 0
