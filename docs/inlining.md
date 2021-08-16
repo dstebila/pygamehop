@@ -74,3 +74,40 @@ Raises:
 - `NotImplementedError` if the function to be inlined contains a return statement anywhere other than at the end.
 - `ValueError` if the destination function calls the function to be inlined in any way other than in a lone assignment statement (i.e., `foo = f(bar)`).
 - `ValueError` if the function to be inlined does not have a return statement.
+
+### Inline all methods of a class
+
+Within a function replace all calls to methods of a class with the body of the method, with the arguments to the call appropriately bound and with local variables named unambiguously.
+
+All methods of the class being inlined must be static methods.
+
+```python
+def inline_all_methods_into_function(
+	c_to_be_inlined: Union[Type[Any], str, ast.ClassDef], 
+	f_dest: Union[Callable, str, ast.FunctionDef]
+) -> str:
+```
+
+Example:
+
+```python
+class C():
+    @staticmethod
+    def A(a, b): 
+    	r = a + b
+    	return r
+def f(x): z = C.A(x, 2)
+
+inline_all_methods_into_function(C, f)
+
+# returns:
+
+def f(x):
+    C_Aᴠ1ⴰr = x + 2
+    z = C_Aᴠ1ⴰr
+```
+
+Raises:
+
+- `ValueError` if the class being inlined has a non-static method.
+- `NotImplementedError` and `ValueError` for the reasons given in `inline_function_call`.

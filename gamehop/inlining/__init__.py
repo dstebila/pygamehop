@@ -7,7 +7,7 @@ from typing import Any, Callable, List, Union, Tuple, Type
 from . import internal
 from .. import utils
 
-__all__ = ['inline_argument_into_function', 'inline_class', 'inline_function']
+__all__ = ['inline_argument_into_function', 'inline_function_call', 'inline_all_methods_into_function']
 
 # Note that inlining uses Unicode symbols to make it look like the original code
 # e.g. attribute dereferencing: x.y gets inlined to xⴰy
@@ -80,7 +80,7 @@ def inline_function_helper_lines_of_inlined_function(prefix: str, call: ast.Call
 
 
 
-
+### OBSOLETE; TO BE DELETED
 def inline_function_into_statements(inlinee: List[ast.stmt], inlinand: ast.FunctionDef, search_function_name, dest_function_name,  self_prefix="", replacements=0) -> Tuple[List[ast.stmt], int]:
     # get the function definitions
     inlinee_def = inlinee # copy.deepcopy(inlinee)
@@ -139,6 +139,7 @@ def inline_function_into_statements(inlinee: List[ast.stmt], inlinand: ast.Funct
         ContainsCall(search_function_name).visit(stmt)
     return (newinlinee, replacement_count)
 
+### OBSOLETE; TO BE DELETED
 def inline_function(inlinee: Union[Callable, str, ast.FunctionDef], inlinand: Union[Callable, str, ast.FunctionDef], search_function_name=None, dest_function_name=None, self_prefix="") -> str:
     """Returns a string representing (almost) all instances of the second function inlined into the first.  Only works on calls to bare assignments (y = f(x)) or bare calls (f(x)). Normally uses the inlinand's name as the name to search for and the name from which to build prefixes, but can be overridden by search_function_name and dest_function_name. If self_prefix is specified, variables starting with SELF will be renamed using self_prefix instead of prefix."""
     # get the function definitions
@@ -233,6 +234,7 @@ def inline_function_call(f_to_be_inlined: Union[Callable, str, ast.FunctionDef],
 
     return ast.unparse(ast.fix_missing_locations(newdest))
 
+### OBSOLETE; TO BE DELETED
 def inline_class(inlinee: Union[Callable, str, ast.FunctionDef], arg: str, inlinand: Union[Type[Any], str, ast.ClassDef], inline_init = True, inline_class_props = True) -> str:
     """Returns a string representing the given class definition inlined into an argument of the given function.."""
     # get the function definitions
@@ -294,18 +296,22 @@ def inline_class(inlinee: Union[Callable, str, ast.FunctionDef], arg: str, inlin
     return ast.unparse(ast.fix_missing_locations(inlinee_def))
 
 def inline_all_methods_into_function(c_to_be_inlined: Union[Type[Any], str, ast.ClassDef], f_dest: Union[Callable, str, ast.FunctionDef]) -> str:
+    """Returns a string representing the provided destination function with all calls to methods of the given class-to-be-inlined replaced with the body of that function, with arguments to the call appropriately bound and with local variables named unambiguously.  Only handles classes with static methods."""
 
     cdef_to_be_inlined = utils.get_class_def(c_to_be_inlined)
     fdef_dest = utils.get_function_def(f_dest)
     
     # go through every function 
     for f in cdef_to_be_inlined.body:
-        if isinstance(f, ast.FunctionDef) and f.name != '__init__':
+        if isinstance(f, ast.FunctionDef):
+            # can't handle classes with non-static functions
             is_static_method = False
             for d in f.decorator_list:
                 if isinstance(d, ast.Name) and d.id == 'staticmethod': is_static_method = True
             if not is_static_method:
                 raise ValueError(f"Unable to inline non-static method {f.name} from class {cdef_to_be_inlined.name} into function {fdef_dest.name}")
+            # hack the method's name to include the class name
             f.name = cdef_to_be_inlined.name + "." + f.name
+            # inline calls to this method
             fdef_dest = utils.get_function_def(inline_function_call(f, fdef_dest))
     return ast.unparse(ast.fix_missing_locations(fdef_dest))
