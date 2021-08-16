@@ -1,7 +1,15 @@
 import ast
+import difflib
 import inspect
 import types
 from typing import Callable, Optional, Set, Union, List
+
+def stringDiff(a,b):
+    differences = difflib.ndiff(a.splitlines(keepends=True), b.splitlines(keepends=True))
+    diffl = []
+    for difference in differences:
+        diffl.append(difference)
+    print(''.join(diffl), end="\n")
 
 class NewNodeVisitor(ast.NodeVisitor):
     """Adds the ability to handle List[ast.stmt] to ast.NodeVistor"""

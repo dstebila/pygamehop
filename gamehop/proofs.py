@@ -5,7 +5,6 @@ import typing
 import ast
 import jinja2
 
-from . import stringDiff
 from .primitives import Crypto
 from . import inlining
 from .inlining import internal
@@ -104,7 +103,7 @@ class Proof():
             return True
         else:
             print(f"❌ canoncalizations of ({lgameDescription}) and ({rgameDescription}) are NOT equal")
-            stringDiff(lgameSrcCanonicalized, rgameSrcCanonicalized)
+            utils.stringDiff(lgameSrcCanonicalized, rgameSrcCanonicalized)
             return False
 
     def check(self, print_hops=False, print_canonicalizations=False, show_call_graphs=False):
@@ -142,7 +141,7 @@ class Proof():
                 
                 if isinstance(step, rewritingStep) and print_hops:
                     print(f"---- diff of rewriting step ----")
-                    stringDiff(step.leftGameSrc(), step.rightGameSrc())
+                    utils.stringDiff(step.leftGameSrc(), step.rightGameSrc())
 
                 previousGameDescription = step.rightDescription()
                 previousGameSrc = step.rightGameSrc()

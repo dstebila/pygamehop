@@ -68,7 +68,7 @@ def expected_result(f):
 
 class TestCanonicalize(unittest.TestCase):
     def test_inline_function_order(self):
-        f = gamehop.inline(f_inline_function_order, class_inline_function_order, 'v')
+        f = gamehop.inlining.inline_class(f_inline_function_order, 'v', class_inline_function_order)
         s1 = gamehop.verification.canonicalize_function(f)
         f2 = gamehop.utils.get_function_def(f_inline_function_order_expected_result)
         gamehop.verification.canonicalization.canonicalize_function_name(f2)
