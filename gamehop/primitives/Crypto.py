@@ -3,10 +3,10 @@ from abc import ABC
 from typing import Any, TypeVar, Generic, Set, Annotated, Tuple, Callable, Type
 
 class Bit(int): pass
-class UniformlyRandom(ABC): pass
-class Reject(ABC): pass
+class UniformlyRandom(): pass
+class Reject(): pass
 
-class BitString(ABC):
+class BitString():
     # def __xor__(self, other: ByteString) -> ByteString: pass
     def __xor__(self, other): pass
     @staticmethod
@@ -17,7 +17,9 @@ def UniformlySample(s: Type[T]) -> Annotated[T, UniformlyRandom]: pass
 
 class Scheme(): pass
 class Adversary():
-    def setup(self, scheme: Any) -> None: pass
+    def __init__(self, scheme: Type[Scheme]) -> None: pass
+class Reduction(Adversary):
+    def __init__(self, scheme: Type[Scheme], Adversary: Type[Adversary]) -> None: pass
 
 class Game(): pass
 class Experiment(): pass
