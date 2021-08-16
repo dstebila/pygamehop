@@ -1,5 +1,5 @@
 from abc import ABC
-from typing import Sized, Tuple, Type, Union
+from typing import Callable, Sized, Tuple, Type, Union
 
 from . import Crypto
 
@@ -27,7 +27,6 @@ class INDCPA_Left(Crypto.Game):
     def main(self) -> Crypto.Bit:
         adversary = self.Adversary(self.Scheme)
         (pk, sk) = self.Scheme.KeyGen()
-        self.sk = sk
         (m0, m1) = adversary.challenge(pk)
         ct = self.Scheme.Encrypt(pk, m0)
         r = adversary.guess(ct)
@@ -41,7 +40,6 @@ class INDCPA_Right(Crypto.Game):
     def main(self) -> Crypto.Bit:
         adversary = self.Adversary(self.Scheme)
         (pk, sk) = self.Scheme.KeyGen()
-        self.sk = sk
         (m0, m1) = adversary.challenge(pk)
         ct = self.Scheme.Encrypt(pk, m1)
         r = adversary.guess(ct)
@@ -49,3 +47,48 @@ class INDCPA_Right(Crypto.Game):
         return ret
 
 INDCPA = Crypto.DistinguishingExperimentLeftOrRight(INDCPA_Left, INDCPA_Right, INDCPA_Adversary)
+
+class INDCCA2_Adversary(Crypto.Adversary):
+    def __init__(self, Scheme: Type[PKEScheme]): pass
+    def challenge(self, pk: PKEScheme.PublicKey, o_decrypt: Callable[[PKEScheme.Ciphertext], Union[PKEScheme.Message, Crypto.Reject]]) -> Tuple[PKEScheme.Message, PKEScheme.Message]: pass
+    def guess(self, ct: PKEScheme.Ciphertext, o_decrypt: Callable[[PKEScheme.Ciphertext], Union[PKEScheme.Message, Crypto.Reject]]) -> Crypto.Bit: pass
+
+class INDCCA2_Left(Crypto.Game):
+    def __init__(self, Scheme: Type[PKEScheme], Adversary: Type[INDCCA2_Adversary]):
+        self.Scheme = Scheme
+        self.Adversary = Adversary
+    def main(self) -> Crypto.Bit:
+        adversary = self.Adversary(self.Scheme)
+        (pk, sk) = self.Scheme.KeyGen()
+        self.sk = sk
+        self.ctstar = None
+        (m0, m1) = adversary.challenge(pk, self.o_decrypt)
+        self.ctstar = self.Scheme.Encrypt(pk, m0)
+        r = adversary.guess(self.ctstar, self.o_decrypt)
+        ret = r if len(m0) == len(m1) else Crypto.Bit(0)
+        return ret
+    def o_decrypt(self, ct: PKEScheme.Ciphertext) -> Union[PKEScheme.Message, Crypto.Reject]:
+        ret: Union[PKEScheme.Message, Crypto.Reject] = Crypto.Reject()
+        if ct != self.ctstar: ret = self.Scheme.Decrypt(self.sk, ct)
+        return ret
+
+class INDCCA2_Right(Crypto.Game):
+    def __init__(self, Scheme: Type[PKEScheme], Adversary: Type[INDCCA2_Adversary]):
+        self.Scheme = Scheme
+        self.Adversary = Adversary
+    def main(self) -> Crypto.Bit:
+        adversary = self.Adversary(self.Scheme)
+        (pk, sk) = self.Scheme.KeyGen()
+        self.sk = sk
+        self.ctstar = None
+        (m0, m1) = adversary.challenge(pk, self.o_decrypt)
+        self.ctstar = self.Scheme.Encrypt(pk, m1)
+        r = adversary.guess(self.ctstar, self.o_decrypt)
+        ret = r if len(m0) == len(m1) else Crypto.Bit(0)
+        return ret
+    def o_decrypt(self, ct: PKEScheme.Ciphertext) -> Union[PKEScheme.Message, Crypto.Reject]:
+        ret: Union[PKEScheme.Message, Crypto.Reject] = Crypto.Reject()
+        if ct != self.ctstar: ret = self.Scheme.Decrypt(self.sk, ct)
+        return ret
+
+INDCCA2 = Crypto.DistinguishingExperimentLeftOrRight(INDCCA2_Left, INDCCA2_Right, INDCCA2_Adversary)
