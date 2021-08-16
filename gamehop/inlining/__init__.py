@@ -15,7 +15,7 @@ __all__ = ['inline_argument_into_function', 'inline_class', 'inline_function']
 #      fᴠ1ⴰa (here the ᴠ1 denotes it's the first inlining of this function)
 # https://www.asmeurer.com/python-unicode-variable-names/
 
-def inline_argument_into_function(argname: str, val: Union[bool, float, int, str, tuple, ast.AST], f: Union[Callable, str, ast.FunctionDef]) -> str:
+def inline_argument_into_function(argname: str, val: Union[bool, float, int, str, tuple, ast.expr], f: Union[Callable, str, ast.FunctionDef]) -> str:
     """Returns a string representing the provided function with the given argument inlined to the given value.  Works on values of type bool, float, int, str, tuple, list, set, or an AST object.  Cannot handle cases where the variable to be inlined is assigned to."""
     fdef = utils.get_function_def(f)
     # check that the argument is present
@@ -28,7 +28,7 @@ def inline_argument_into_function(argname: str, val: Union[bool, float, int, str
         raise ValueError(f"Error inlining argument {argname} into function {fdef.name}: {argname} is assigned to in the body of {fdef.name}")
     # construct the new node
     if isinstance(val, bool) or isinstance(val, float) or isinstance(val, int) or isinstance(val, str) or isinstance(val, tuple):
-        def ast_from_literal(x: Union[bool, float, int, str, tuple]) -> ast.AST:
+        def ast_from_literal(x: Union[bool, float, int, str, tuple]) -> ast.expr:
             if isinstance(x, bool) or isinstance(x, float) or isinstance(x, int) or isinstance(x, str):
                 return ast.Constant(value=x)
             elif isinstance(x, tuple):
@@ -36,7 +36,7 @@ def inline_argument_into_function(argname: str, val: Union[bool, float, int, str
         newnode = ast_from_literal(val)
     else:
         newnode = val
-    newfdef = utils.NameNodeReplacer(argname, newnode).visit(fdef)
+    newfdef = utils.NameNodeReplacer({argname: newnode}).visit(fdef)
     # remove the argument from the arguments list
     for a in newfdef.args.args:
         if a.arg == argname:

@@ -3,7 +3,7 @@ import copy
 import difflib
 import inspect
 import types
-from typing import Any, Callable, List, Optional, Set, Type, Union
+from typing import Any, Callable, Dict, List, Optional, Set, Type, Union
 
 def stringDiff(a,b):
     differences = difflib.ndiff(a.splitlines(keepends=True), b.splitlines(keepends=True))
@@ -87,12 +87,11 @@ class NamePrefixer(NewNodeTransformer):
         return node
 
 class NameNodeReplacer(NewNodeTransformer):
-    """Replaces all instances of a Name node with a given node."""
-    def __init__(self, id, val):
-        self.id = id
-        self.val = val
+    """Replaces all instances of a Name node with a given node, for each name in the given dictionary of replacements."""
+    def __init__(self, replacements: Dict[str, ast.expr]):
+        self.replacements = replacements
     def visit_Name(self, node):
-        if node.id == self.id: return self.val
+        if node.id in self.replacements: return self.replacements[node.id]
         else: return node
 
 def stored_vars(node):

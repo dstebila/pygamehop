@@ -94,7 +94,7 @@ def collapse_useless_assigns(f: ast.FunctionDef) -> None:
             if isinstance(stmt, ast.Assign):
                 # assignment of the form x = a or x = 7 or x = (a, b)
                 if isinstance(stmt.targets[0], ast.Name) and (isinstance(stmt.value, ast.Name) or isinstance(stmt.value, ast.Constant) or isinstance(stmt.value, ast.Tuple)):
-                    replacer = utils.NameNodeReplacer(stmt.targets[0].id, stmt.value)
+                    replacer = utils.NameNodeReplacer({stmt.targets[0].id: stmt.value})
                     # go through all subsequent statements and replace x with a until x is set anew
                     for j in range(i + 1, len(f.body)):
                         stmtprime = f.body[j]
@@ -102,7 +102,7 @@ def collapse_useless_assigns(f: ast.FunctionDef) -> None:
                             # replace arg with val in the right hand side
                             stmtprime.value = replacer.visit(stmtprime.value)
                             # stop if arg is in the left
-                            if contains_name(stmtprime.targets, replacer.id): break
+                            if contains_name(stmtprime.targets, stmt.targets[0].id): break
                         else:
                             # replace arg with val in whole statement
                             f.body[j] = replacer.visit(stmtprime)
@@ -321,9 +321,10 @@ def inline_lambdas(f: ast.FunctionDef) -> None:
                 callargs = node.args
                 assert len(lamargs) == len(callargs)
                 lambody = copy.deepcopy(lam.body)
+                mappings = dict()
                 for i in range(len(lamargs)):
-                    lambody = utils.NameNodeReplacer(lamargs[i].arg, callargs[i]).visit(lambody)
-                return lambody
+                    mappings[lamargs[i].arg] = callargs[i]
+                return utils.NameNodeReplacer(mappings).visit(lambody)
             else: return node
     f = LambdaReplacer(lambdas).visit(f)
     ast.fix_missing_locations(f)
