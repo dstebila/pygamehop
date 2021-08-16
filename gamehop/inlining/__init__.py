@@ -169,19 +169,25 @@ def helper_make_lines_of_inlined_function(fdef_to_be_inlined: ast.FunctionDef, p
 
 class InlineFunctionCallIntoStatements(utils.NewNodeTransformer):
     """Helper node transformer for inline_function_call. Does the actual replacement."""
-    def __init__(self, fdef_to_be_inlined, f_dest_name):
-        self.fdef_to_be_inlined = fdef_to_be_inlined
+    def __init__(self, f_to_be_inlined, f_dest_name):
+        self.f_to_be_inlined = f_to_be_inlined
+        self.fdef_to_be_inlined = utils.get_function_def(f_to_be_inlined)
         self.f_to_be_inlined_has_return = isinstance(self.fdef_to_be_inlined.body[-1], ast.Return)
+        if isinstance(self.f_to_be_inlined, types.FunctionType):
+            # methods of inner classes will have names like Blah.<locals>.Foo.Bar; this removes everything before Foo.Bar
+            self.f_src_name = self.f_to_be_inlined.__qualname__.split('<locals>.')[-1]
+        else: self.f_src_name = fdef_to_be_inlined.name
         self.f_dest_name = f_dest_name
         self.replacement_count = 0
     def visit_Assign(self, stmt):
         # replace y = f(x)
-        if isinstance(stmt, ast.Assign) and isinstance(stmt.value, ast.Call) and isinstance(stmt.value.func, ast.Name) and stmt.value.func.id == self.fdef_to_be_inlined.name:
+        if isinstance(stmt, ast.Assign) and isinstance(stmt.value, ast.Call) and ast.unparse(stmt.value.func) == self.f_src_name:
             if not self.f_to_be_inlined_has_return:
                 raise ValueError(f"Cannot inline function {self.fdef_to_be_inlined.name} into statement {ast.unparse(stmt)} in function {self.f_dest_name} since {self.fdef_to_be_inlined.name} does not return anything")
             # copy the expanded lines
             self.replacement_count += 1
-            newlines = helper_make_lines_of_inlined_function(self.fdef_to_be_inlined, stmt.value.args, f'{self.fdef_to_be_inlined.name}ᴠ{self.replacement_count}')
+            prefix = self.f_src_name.replace('.', '_')
+            newlines = helper_make_lines_of_inlined_function(self.fdef_to_be_inlined, stmt.value.args, f'{prefix}ᴠ{self.replacement_count}')
             # assign the required variables based on the return statement
             assert isinstance(newlines[-1], ast.Expr)
             newlines[-1] = ast.Assign(targets = stmt.targets, value = newlines[-1].value)
@@ -209,7 +215,7 @@ def inline_function_call(f_to_be_inlined: Union[Callable, str, ast.FunctionDef],
 
     # go through every line of the inlinee and replace all calls that we know how to handle
     newdest = copy.deepcopy(fdef_dest)
-    newdest.body = InlineFunctionCallIntoStatements(fdef_to_be_inlined, fdef_dest.name).visit(newdest.body)
+    newdest.body = InlineFunctionCallIntoStatements(f_to_be_inlined, fdef_dest.name).visit(newdest.body)
 
     # if there's still a call to our function somewhere, it must have been somewhere other than on a bare Assign line; raise an error
     class ContainsCall(utils.NewNodeVisitor):
@@ -218,7 +224,9 @@ def inline_function_call(f_to_be_inlined: Union[Callable, str, ast.FunctionDef],
             self.found = False
         def visit_Call(self, node):
             if isinstance(node.func, ast.Name) and node.func.id == self.funcname: self.found = True
-    contains_call = ContainsCall(fdef_to_be_inlined.name)
+    if isinstance(f_to_be_inlined, types.FunctionType): name = f_to_be_inlined.__qualname__.split("<locals>.")[-1] # methods of inner classes will have names like Blah.<locals>.Foo.Bar; this removes everything before Foo.Bar
+    else: name = fdef_to_be_inlined.name
+    contains_call = ContainsCall(name)
     contains_call.visit(newdest.body)
     if contains_call.found:
         raise ValueError(f"Could not fully inline {fdef_to_be_inlined.name} into {fdef_dest.name} since {fdef_dest.name} calls {fdef_to_be_inlined.name} in an unsupported way; the only supported way is an assignment statement of the form foo = {fdef_to_be_inlined.name}(bar)")

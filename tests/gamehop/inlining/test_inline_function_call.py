@@ -125,3 +125,17 @@ class TestInlineFunction(unittest.TestCase):
         self.assertEqual(
             gamehop.inlining.inline_function_call(inlinand, f),
             expected_result(f_expected_result))
+
+    def test_static_method(self):
+        class Foo():
+            @staticmethod
+            def F(a, b):
+                c = a + b
+                return c
+        def f(x): r = Foo.F(x, 3)
+        def f_expected_result(x):
+            Foo_Fᴠ1ⴰc = x + 3
+            r = Foo_Fᴠ1ⴰc
+        self.assertEqual(
+            gamehop.inlining.inline_function_call(Foo.F, f),
+            expected_result(f_expected_result))
