@@ -152,7 +152,7 @@ def inline_function(inlinee: Union[Callable, str, ast.FunctionDef], inlinand: Un
 
 def helper_make_lines_of_inlined_function(fdef_to_be_inlined: ast.FunctionDef, params: List[ast.expr], prefix: str) -> List[ast.stmt]:
     """Helper function for InlineFunctionCallIntoStatements. Takes a function definition and list of parameters (one for each argument of the function definition) and returns a copy of the body of the function in which (a) all local variables have been prefixed with prefix and (b) all instances of arguments have been replaced with the corresponding parameter."""
-    working_copy = copy.deepcopy(fdef_to_be_inlined)
+    working_copy = fdef_to_be_inlined
     # prefix all local variables
     local_variables = utils.vars_assigns_to(fdef_to_be_inlined.body)
     mappings = dict()
@@ -214,7 +214,7 @@ def inline_function_call(f_to_be_inlined: Union[Callable, str, ast.FunctionDef],
     f_to_be_inlined_has_return = isinstance(fdef_to_be_inlined.body[-1], ast.Return)
 
     # go through every line of the inlinee and replace all calls that we know how to handle
-    newdest = copy.deepcopy(fdef_dest)
+    newdest = fdef_dest
     newdest.body = InlineFunctionCallIntoStatements(f_to_be_inlined, fdef_dest.name).visit(newdest.body)
 
     # if there's still a call to our function somewhere, it must have been somewhere other than on a bare Assign line; raise an error
