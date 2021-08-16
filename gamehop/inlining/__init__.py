@@ -7,7 +7,7 @@ from typing import Any, Callable, List, Union, Tuple, Type
 from . import internal
 from .. import utils
 
-__all__ = ['inline_argument_into_function', 'inline_function_call', 'inline_all_methods_into_function']
+__all__ = ['inline_argument_into_function', 'inline_function_call', 'inline_all_method_calls']
 
 # Note that inlining uses Unicode symbols to make it look like the original code
 # e.g. attribute dereferencing: x.y gets inlined to xⴰy
@@ -295,7 +295,7 @@ def inline_class(inlinee: Union[Callable, str, ast.FunctionDef], arg: str, inlin
     inlinee_def.args.args = newargs
     return ast.unparse(ast.fix_missing_locations(inlinee_def))
 
-def inline_all_methods_into_function(c_to_be_inlined: Union[Type[Any], str, ast.ClassDef], f_dest: Union[Callable, str, ast.FunctionDef]) -> str:
+def inline_all_method_calls(c_to_be_inlined: Union[Type[Any], str, ast.ClassDef], f_dest: Union[Callable, str, ast.FunctionDef]) -> str:
     """Returns a string representing the provided destination function with all calls to methods of the given class-to-be-inlined replaced with the body of that function, with arguments to the call appropriately bound and with local variables named unambiguously.  Only handles classes with static methods."""
 
     cdef_to_be_inlined = utils.get_class_def(c_to_be_inlined)

@@ -75,14 +75,14 @@ Raises:
 - `ValueError` if the destination function calls the function to be inlined in any way other than in a lone assignment statement (i.e., `foo = f(bar)`).
 - `ValueError` if the function to be inlined does not have a return statement.
 
-### Inline all methods of a class
+### Inline calls to all methods of a given class
 
 Within a function replace all calls to methods of a class with the body of the method, with the arguments to the call appropriately bound and with local variables named unambiguously.
 
 All methods of the class being inlined must be static methods.
 
 ```python
-def inline_all_methods_into_function(
+def inline_all_method_calls(
 	c_to_be_inlined: Union[Type[Any], str, ast.ClassDef], 
 	f_dest: Union[Callable, str, ast.FunctionDef]
 ) -> str:
@@ -98,7 +98,7 @@ class C():
     	return r
 def f(x): z = C.A(x, 2)
 
-inline_all_methods_into_function(C, f)
+inline_all_method_calls(C, f)
 
 # returns:
 
