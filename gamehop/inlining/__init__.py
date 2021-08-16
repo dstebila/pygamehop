@@ -7,7 +7,7 @@ from typing import Any, Callable, List, Union, Tuple
 from . import internal
 from .. import utils
 
-__all__ = ['inline_argument', 'inline_class', 'inline_function']
+__all__ = ['inline_argument_into_function', 'inline_class', 'inline_function']
 
 # Note that inlining uses Unicode symbols to make it look like the original code
 # e.g. attribute dereferencing: x.y gets inlined to xⴰy
@@ -15,38 +15,31 @@ __all__ = ['inline_argument', 'inline_class', 'inline_function']
 #      fᴠ1ⴰa (here the ᴠ1 denotes it's the first inlining of this function)
 # https://www.asmeurer.com/python-unicode-variable-names/
 
-class IsNameNodeEverAssignedTo(ast.NodeVisitor):
-    def __init__(self, id):
-        self.id = id
-        self.isassignedto = False
-    def visit_Name(self, node):
-        if node.id == self.id and isinstance(node.ctx, ast.Store): self.isassignedto = True
-
-def ast_from_literal(x: Union[bool, float, int, str, tuple, list, set]) -> ast.AST:
-    if isinstance(x, bool) or isinstance(x, float) or isinstance(x, int) or isinstance(x, str):
-        return ast.Constant(value=x)
-    elif isinstance(x, tuple):
-        return ast.Tuple(elts=[ast_from_literal(y) for y in x], ctx=ast.Load())
-    elif isinstance(x, list):
-        return ast.List(elts=[ast_from_literal(y) for y in x], ctx=ast.Load())
-    elif isinstance(x, set):
-        return ast.Set(elts=[ast_from_literal(y) for y in x], ctx=ast.Load())
-
-def inline_argument(f: Union[Callable, str, ast.FunctionDef], arg: str, val: Union[bool, float, int, str, tuple, list, set, ast.AST]) -> str:
+def inline_argument_into_function(argname: str, val: Union[bool, float, int, str, tuple, ast.AST], f: Union[Callable, str, ast.FunctionDef]) -> str:
     """Returns a string representing the provided function with the given argument inlined to the given value.  Works on values of type bool, float, int, str, tuple, list, set, or an AST object.  Cannot handle cases where the variable to be inlined is assigned to."""
     fdef = utils.get_function_def(f)
-    checkusage = IsNameNodeEverAssignedTo(arg)
-    checkusage.visit(fdef)
-    if checkusage.isassignedto: raise NotImplementedError("Cannot handle cases where the inlined variable is assigned to")
+    # check that the argument is present
+    if argname not in [a.arg for a in fdef.args.args]:
+        raise KeyError(f"Argument {argname} not found in list of arguments to function {fdef.name}")
+    # check that the argument is never assigned to
+    vars = utils.VariableFinder()
+    vars.visit(fdef)
+    if argname in vars.stored_vars:
+        raise ValueError(f"Error inlining argument {argname} into function {fdef.name}: {argname} is assigned to in the body of {fdef.name}")
     # construct the new node
-    if isinstance(val, bool) or isinstance(val, float) or isinstance(val, int) or isinstance(val, str) or isinstance(val, tuple) or isinstance(val, list) or isinstance(val, set):
+    if isinstance(val, bool) or isinstance(val, float) or isinstance(val, int) or isinstance(val, str) or isinstance(val, tuple):
+        def ast_from_literal(x: Union[bool, float, int, str, tuple]) -> ast.AST:
+            if isinstance(x, bool) or isinstance(x, float) or isinstance(x, int) or isinstance(x, str):
+                return ast.Constant(value=x)
+            elif isinstance(x, tuple):
+                return ast.Tuple(elts=[ast_from_literal(y) for y in x], ctx=ast.Load())
         newnode = ast_from_literal(val)
     else:
         newnode = val
-    newfdef = utils.NameNodeReplacer(arg, newnode).visit(fdef)
+    newfdef = utils.NameNodeReplacer(argname, newnode).visit(fdef)
     # remove the argument from the arguments list
     for a in newfdef.args.args:
-        if a.arg == arg:
+        if a.arg == argname:
             newfdef.args.args.remove(a)
             break
     # return the resulting function
@@ -81,7 +74,7 @@ def inline_function_helper_lines_of_inlined_function(prefix: str, call: ast.Call
             mapping = {newinlinand_def.args.args[i].arg: arg.id}
             newinlinand_def = utils.rename_variables(newinlinand_def, mapping, error_if_exists = False)
         elif isinstance(arg, ast.Constant):
-            newinlinand_def = utils.get_function_def(inline_argument(newinlinand_def, newinlinand_def.args.args[i].arg, arg.value))
+            newinlinand_def = utils.get_function_def(inline_argument_into_function(newinlinand_def.args.args[i].arg, arg.value, newinlinand_def))
         else: raise NotImplementedError("Don't know how to inline calls whose arguments are of type {:s}".format(type(arg).__name__))
     return newinlinand_def.body
 
