@@ -72,3 +72,13 @@ class TestInlineArgumentIntoFunction(unittest.TestCase):
             x = 123
         with self.assertRaisesRegex(ValueError, "Error inlining argument x into function f: x is assigned to in the body of f"):
             gamehop.inlining.inline_argument_into_function('x', True, f)
+
+    def test_class(self):
+        class Foo():
+            @staticmethod
+            def Encrypt(m): pass
+        def f(x, y): z = x.Encrypt(y)
+        def f_expected_result(y): z = Foo.Encrypt(y)
+        self.assertEqual(
+            gamehop.inlining.inline_argument_into_function('x', Foo, f),
+            expected_result(f_expected_result))

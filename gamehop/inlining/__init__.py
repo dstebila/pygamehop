@@ -15,7 +15,7 @@ __all__ = ['inline_argument_into_function', 'inline_class', 'inline_function']
 #      fᴠ1ⴰa (here the ᴠ1 denotes it's the first inlining of this function)
 # https://www.asmeurer.com/python-unicode-variable-names/
 
-def inline_argument_into_function(argname: str, val: Union[bool, float, int, str, tuple, ast.expr], f: Union[Callable, str, ast.FunctionDef]) -> str:
+def inline_argument_into_function(argname: str, val: Union[bool, float, int, str, tuple, ast.expr, Type[Any]], f: Union[Callable, str, ast.FunctionDef]) -> str:
     """Returns a string representing the provided function with the given argument inlined to the given value.  Works on values of type bool, float, int, str, tuple, or an AST expression.  Cannot handle cases where the variable to be inlined is assigned to."""
     fdef = utils.get_function_def(f)
     # check that the argument is present
@@ -32,8 +32,9 @@ def inline_argument_into_function(argname: str, val: Union[bool, float, int, str
             elif isinstance(x, tuple):
                 return ast.Tuple(elts=[ast_from_literal(y) for y in x], ctx=ast.Load())
         newnode = ast_from_literal(val)
-    else:
-        newnode = val
+    elif isinstance(val, ast.expr): newnode = val
+    elif isinstance(val, type): newnode = ast.Name(val.__name__, ast.Load())
+    else: raise TypeError(f"Don't know how to inline objects of type {type(val).__name__}")
     newfdef = utils.NameNodeReplacer({argname: newnode}).visit(fdef)
     # remove the argument from the arguments list
     for a in newfdef.args.args:
