@@ -145,7 +145,7 @@ def get_function_def(f: Union[Callable, str, ast.FunctionDef]) -> ast.FunctionDe
     # parse the function
     if isinstance(f, types.FunctionType): t = ast.parse(remove_indentation(inspect.getsource(f)))
     elif isinstance(f, str): t = ast.parse(remove_indentation(f))
-    elif isinstance(f, ast.FunctionDef): return f
+    elif isinstance(f, ast.FunctionDef): return copy.deepcopy(f)
     else: raise TypeError("Cannot handle functions provided as {:s}".format(type(f).__name__))
     # get the function definition
     fdef = t.body[0]
@@ -156,7 +156,7 @@ def get_class_def(c: Union[Type[Any], str, ast.ClassDef]) -> ast.ClassDef:
     """Gets the ast.ClassDef for a class that is given as a class or as a string."""
     # parse the function
     if isinstance(c, str): t = ast.parse(remove_indentation(c))
-    elif isinstance(c, ast.ClassDef): return c
+    elif isinstance(c, ast.ClassDef): return copy.deepcopy(c)
     elif inspect.isclass(c): t = ast.parse(remove_indentation(inspect.getsource(c)))
     else: raise TypeError("Cannot handle classes provided as {:s}".format(type(c).__name__))
     # get the class definition

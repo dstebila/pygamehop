@@ -176,7 +176,7 @@ class InlineFunctionCallIntoStatements(utils.NewNodeTransformer):
         if isinstance(self.f_to_be_inlined, types.FunctionType):
             # methods of inner classes will have names like Blah.<locals>.Foo.Bar; this removes everything before Foo.Bar
             self.f_src_name = self.f_to_be_inlined.__qualname__.split('<locals>.')[-1]
-        else: self.f_src_name = fdef_to_be_inlined.name
+        else: self.f_src_name = self.fdef_to_be_inlined.name
         self.f_dest_name = f_dest_name
         self.replacement_count = 0
     def visit_Assign(self, stmt):
@@ -292,3 +292,20 @@ def inline_class(inlinee: Union[Callable, str, ast.FunctionDef], arg: str, inlin
             newargs.append(inlinee_def.args.args[i])
     inlinee_def.args.args = newargs
     return ast.unparse(ast.fix_missing_locations(inlinee_def))
+
+def inline_all_methods_into_function(c_to_be_inlined: Union[Type[Any], str, ast.ClassDef], f_dest: Union[Callable, str, ast.FunctionDef]) -> str:
+
+    cdef_to_be_inlined = utils.get_class_def(c_to_be_inlined)
+    fdef_dest = utils.get_function_def(f_dest)
+    
+    # go through every function 
+    for f in cdef_to_be_inlined.body:
+        if isinstance(f, ast.FunctionDef) and f.name != '__init__':
+            is_static_method = False
+            for d in f.decorator_list:
+                if isinstance(d, ast.Name) and d.id == 'staticmethod': is_static_method = True
+            if not is_static_method:
+                raise ValueError(f"Unable to inline non-static method {f.name} from class {cdef_to_be_inlined.name} into function {fdef_dest.name}")
+            f.name = cdef_to_be_inlined.name + "." + f.name
+            fdef_dest = utils.get_function_def(inline_function_call(f, fdef_dest))
+    return ast.unparse(ast.fix_missing_locations(fdef_dest))
