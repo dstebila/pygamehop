@@ -83,14 +83,6 @@ def contains_name(node: Union[ast.AST, List], name: str) -> bool:
         if name in var_deps.stores or name in var_deps.loads: return True
     return False
 
-class NameNodeReplacer(ast.NodeTransformer):
-    def __init__(self, id, replacement):
-        self.id = id
-        self.replacement = replacement
-    def visit_Name(self, node):
-        if node.id == self.id: return self.replacement
-        else: return node
-
 def collapse_useless_assigns(f: ast.FunctionDef) -> None:
     """Modify (in place) the given function definition to remove all lines containing tautological/useless assignments. For example, if the code contains a line "x = a" followed by a line "y = x + b", it replaces all subsequent instances of x with a, yielding the single line "y = a + b", up until x is set in another assignment statement.  Handles tuples.  Doesn't handle any kind of logic involving if statements or loops."""
     # keep looping until nothing changes
@@ -102,7 +94,7 @@ def collapse_useless_assigns(f: ast.FunctionDef) -> None:
             if isinstance(stmt, ast.Assign):
                 # assignment of the form x = a or x = 7 or x = (a, b)
                 if isinstance(stmt.targets[0], ast.Name) and (isinstance(stmt.value, ast.Name) or isinstance(stmt.value, ast.Constant) or isinstance(stmt.value, ast.Tuple)):
-                    replacer = NameNodeReplacer(stmt.targets[0].id, stmt.value)
+                    replacer = utils.NameNodeReplacer(stmt.targets[0].id, stmt.value)
                     # go through all subsequent statements and replace x with a until x is set anew
                     for j in range(i + 1, len(f.body)):
                         stmtprime = f.body[j]
@@ -330,7 +322,7 @@ def inline_lambdas(f: ast.FunctionDef) -> None:
                 assert len(lamargs) == len(callargs)
                 lambody = copy.deepcopy(lam.body)
                 for i in range(len(lamargs)):
-                    lambody = NameNodeReplacer(lamargs[i].arg, callargs[i]).visit(lambody)
+                    lambody = utils.NameNodeReplacer(lamargs[i].arg, callargs[i]).visit(lambody)
                 return lambody
             else: return node
     f = LambdaReplacer(lambdas).visit(f)

@@ -76,6 +76,15 @@ class NamePrefixer(NewNodeTransformer):
                 node.id = self.prefix + node.id
         return node
 
+class NameNodeReplacer(NewNodeTransformer):
+    """Replaces all instances of a Name node with a given node."""
+    def __init__(self, id, val):
+        self.id = id
+        self.val = val
+    def visit_Name(self, node):
+        if node.id == self.id: return self.val
+        else: return node
+
 def stored_vars(node):
     varfinder = VariableFinder()
     varfinder.visit(node)

@@ -15,15 +15,6 @@ __all__ = ['inline_argument', 'inline_class', 'inline_function']
 #      fᴠ1ⴰa (here the ᴠ1 denotes it's the first inlining of this function)
 # https://www.asmeurer.com/python-unicode-variable-names/
 
-class NameNodeReplacer(ast.NodeTransformer):
-    """Replaces all instances of a Name node with a given node."""
-    def __init__(self, id, val):
-        self.id = id
-        self.val = val
-    def visit_Name(self, node):
-        if node.id == self.id: return self.val
-        else: return node
-
 class IsNameNodeEverAssignedTo(ast.NodeVisitor):
     def __init__(self, id):
         self.id = id
@@ -52,7 +43,7 @@ def inline_argument(f: Union[Callable, str, ast.FunctionDef], arg: str, val: Uni
         newnode = ast_from_literal(val)
     else:
         newnode = val
-    newfdef = NameNodeReplacer(arg, newnode).visit(fdef)
+    newfdef = utils.NameNodeReplacer(arg, newnode).visit(fdef)
     # remove the argument from the arguments list
     for a in newfdef.args.args:
         if a.arg == arg:
