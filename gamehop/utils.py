@@ -107,7 +107,8 @@ def get_function_def(f: Union[Callable, str, ast.FunctionDef]) -> ast.FunctionDe
     # parse the function
     if isinstance(f, types.FunctionType): 
         src = inspect.getsource(f)
-        indentation = src.find('def')
+        indentation = 0
+        while src[indentation] == ' ': indentation += 1
         if indentation > 0:
             newsrc = []
             for line in src.splitlines():
