@@ -63,7 +63,7 @@ def inline_function_helper_lines_of_inlined_function(prefix: str, call: ast.Call
             mappings[var] = '{:s}ⴰ{:s}'.format(self_prefix, var[4:])
         else:
             mappings[var] = '{:s}ⴰ{:s}'.format(prefix, var)
-    newinlinand_def = internal.rename_variables(newinlinand_def, mappings)
+    newinlinand_def = utils.rename_variables(newinlinand_def, mappings)
     # the above might miss instances of SELFwhatever in places other than assigns, so we rename them everywhere
     class SELFRename(ast.NodeTransformer):
         def __init__(self, self_prefix):
@@ -79,7 +79,7 @@ def inline_function_helper_lines_of_inlined_function(prefix: str, call: ast.Call
         arg = call.args[i]
         if isinstance(arg, ast.Name):
             mapping = {newinlinand_def.args.args[i].arg: arg.id}
-            newinlinand_def = internal.rename_variables(newinlinand_def, mapping, error_if_exists = False)
+            newinlinand_def = utils.rename_variables(newinlinand_def, mapping, error_if_exists = False)
         elif isinstance(arg, ast.Constant):
             newinlinand_def = utils.get_function_def(inline_argument(newinlinand_def, newinlinand_def.args.args[i].arg, arg.value))
         else: raise NotImplementedError("Don't know how to inline calls whose arguments are of type {:s}".format(type(arg).__name__))
@@ -191,7 +191,7 @@ def inline_class(inlinee: Union[Callable, str, ast.FunctionDef], arg: str, inlin
                 # rename any of __init__'s (non-self) parameters and add them to inlinee's list of arguments
                 for a in initdef.args.args[1:]:
                     newname = '{:s}ⴰinitⴰ{:s}'.format(arg, a.arg)
-                    initdef = internal.rename_variables(initdef, {a.arg: newname})
+                    initdef = utils.rename_variables(initdef, {a.arg: newname})
                     newarg = copy.deepcopy(a)
                     newarg.arg = newname
                     inlinee_def.args.args.append(newarg)

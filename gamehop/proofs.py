@@ -48,7 +48,7 @@ class distinguishingProofStep(proofStep):
 
     def _inlinedGame(self, game):
         inlined = inlining.inline_class(game, 'adversary', self.reduction)
-        return ast.unparse(internal.rename_variables(inlined, self.renaming, error_if_exists = False))
+        return ast.unparse(utils.rename_variables(inlined, self.renaming, error_if_exists = False))
     def leftGameSrc(self):
         return self._inlinedGame(self.experiment.main0 if not self.reverseDirection else self.experiment.main1)
     def rightGameSrc(self):

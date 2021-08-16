@@ -18,25 +18,6 @@ def get_class_def(c: Union[Any, str, ast.ClassDef]) -> ast.ClassDef:
     assert isinstance(cdef, ast.ClassDef)
     return cdef
 
-class NameRenamer(ast.NodeTransformer):
-    """Replaces ids in Name nodes based on the provided mapping.  Raises a ValueError if the new name is already used in the function."""
-    def __init__(self, mapping: dict, error_if_exists: bool):
-        self.mapping = mapping
-        self.error_if_exists = error_if_exists
-    def visit_Name(self, node: ast.Name) -> ast.Name:
-        if self.error_if_exists and (node.id in self.mapping.values()): raise ValueError("New name '{:s}' already exists in function".format(node.id))
-        if node.id in self.mapping: return ast.Name(id=self.mapping[node.id], ctx=node.ctx)
-        else: return node
-
-def rename_variables(f: Union[Callable, str, ast.FunctionDef], mapping: dict, error_if_exists = True) -> ast.FunctionDef:
-    """Returns a copy of the function with all the variables in the given function definition renamed based on the provided mapping.  Raises a ValueError if the new name is already used in the function."""
-    retvalue = NameRenamer(mapping, error_if_exists).visit(utils.get_function_def(copy.deepcopy(f)))
-    # rename any relevant variables in the function arguments
-    for arg in retvalue.args.args:
-        if error_if_exists and (arg.arg in mapping.values()): raise ValueError("New name '{:s}' already exists in function".format(arg.arg))
-        if arg.arg in mapping: arg.arg = mapping[arg.arg]
-    return retvalue
-
 def find_all_variables(f: Union[Callable, str, ast.FunctionDef]) -> List[str]:
     """Return a set of all variables in the function, including function parameters."""
     fdef = utils.get_function_def(f)
