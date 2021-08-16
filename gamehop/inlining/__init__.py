@@ -2,7 +2,7 @@ import ast
 import copy
 import inspect
 import types
-from typing import Any, Callable, List, Union, Tuple
+from typing import Any, Callable, List, Union, Tuple, Type
 
 from . import internal
 from .. import utils
@@ -153,11 +153,11 @@ def inline_function(inlinee: Union[Callable, str, ast.FunctionDef], inlinand: Un
     (inlinee_def.body, _ ) = inline_function_into_statements(inlinee_def.body, inlinand_def, search_function_name, dest_function_name, self_prefix)
     return ast.unparse(ast.fix_missing_locations(inlinee_def))
 
-def inline_class(inlinee: Union[Callable, str, ast.FunctionDef], arg: str, inlinand: Union[object, str, ast.ClassDef], inline_init = True, inline_class_props = True) -> str:
+def inline_class(inlinee: Union[Callable, str, ast.FunctionDef], arg: str, inlinand: Union[Type[Any], str, ast.ClassDef], inline_init = True, inline_class_props = True) -> str:
     """Returns a string representing the given class definition inlined into an argument of the given function.."""
     # get the function definitions
     inlinee_def = copy.deepcopy(utils.get_function_def(inlinee))
-    inlinand_def = copy.deepcopy(internal.get_class_def(inlinand))
+    inlinand_def = copy.deepcopy(utils.get_class_def(inlinand))
     # inline class properties
     class_props_to_add: List[ast.stmt] = []
     if inline_class_props:

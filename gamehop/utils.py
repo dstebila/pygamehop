@@ -3,7 +3,7 @@ import copy
 import difflib
 import inspect
 import types
-from typing import Callable, Optional, Set, Union, List
+from typing import Any, Callable, List, Optional, Set, Type, Union
 
 def stringDiff(a,b):
     differences = difflib.ndiff(a.splitlines(keepends=True), b.splitlines(keepends=True))
@@ -129,23 +129,35 @@ def vars_assigns_to(node: ast.AST) -> List[str]:
     elif isinstance(node, ast.Tuple): return sum([vars_assigns_to(e) for e in node.elts], start=[])
     else: raise NotImplementedError("Cannot handle AST objects of type {:s}".format(type(node).__name__))
 
+def remove_indentation(src: str) -> str:
+    indentation = 0
+    while src[indentation] == ' ' or src[indentation] == "\t": indentation += 1
+    newsrc = []
+    for line in src.splitlines():
+        newsrc.append(line[indentation:])
+    return "\n".join(newsrc)
+
 def get_function_def(f: Union[Callable, str, ast.FunctionDef]) -> ast.FunctionDef:
     """Gets the ast.FunctionDef for a function that is given as a function or as a string."""
     # parse the function
-    if isinstance(f, types.FunctionType): 
-        src = inspect.getsource(f)
-        indentation = 0
-        while src[indentation] == ' ': indentation += 1
-        if indentation > 0:
-            newsrc = []
-            for line in src.splitlines():
-                newsrc.append(line[indentation:])
-            src = "\n".join(newsrc)
-        t = ast.parse(src)
-    elif isinstance(f, str): t = ast.parse(f)
+    if isinstance(f, types.FunctionType): t = ast.parse(remove_indentation(inspect.getsource(f)))
+    elif isinstance(f, str): t = ast.parse(remove_indentation(f))
     elif isinstance(f, ast.FunctionDef): return f
     else: raise TypeError("Cannot handle functions provided as {:s}".format(type(f).__name__))
     # get the function definition
     fdef = t.body[0]
     assert isinstance(fdef, ast.FunctionDef)
     return fdef
+
+def get_class_def(c: Union[Type[Any], str, ast.ClassDef]) -> ast.ClassDef:
+    """Gets the ast.ClassDef for a class that is given as a class or as a string."""
+    # parse the function
+    if isinstance(c, str): t = ast.parse(remove_indentation(c))
+    elif isinstance(c, ast.ClassDef): return c
+    elif inspect.isclass(c): t = ast.parse(remove_indentation(inspect.getsource(c)))
+    else: raise TypeError("Cannot handle classes provided as {:s}".format(type(c).__name__))
+    # get the class definition
+    cdef = t.body[0]
+    assert isinstance(cdef, ast.ClassDef)
+    return cdef
+
