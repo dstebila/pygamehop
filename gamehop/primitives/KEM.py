@@ -15,18 +15,17 @@ class KEMScheme(Crypto.Scheme):
     def Decaps(sk: SecretKey, ct: Ciphertext) -> Union[SharedSecret, Crypto.Reject]: pass
 
 class INDCPA_Adversary(Crypto.Adversary):
-    def __init__(self, Scheme: Type[KEMScheme]): pass
-    def guess(self, pk: KEMScheme.PublicKey, ct: KEMScheme.Ciphertext, ss: KEMScheme.SharedSecret) -> Crypto.Bit: pass
+    @staticmethod
+    def guess(Scheme: Type[KEMScheme], pk: KEMScheme.PublicKey, ct: KEMScheme.Ciphertext, ss: KEMScheme.SharedSecret) -> Crypto.Bit: pass
 
 class INDCPA_Real(Crypto.Game):
     def __init__(self, Scheme: Type[KEMScheme], Adversary: Type[INDCPA_Adversary]):
         self.Scheme = Scheme
         self.Adversary = Adversary
     def main(self) -> Crypto.Bit:
-        adversary = self.Adversary(self.Scheme)
         (pk, sk) = self.Scheme.KeyGen()
         (ct, ss_real) = self.Scheme.Encaps(pk)
-        r = adversary.guess(pk, ct, ss_real)
+        r = self.Adversary.guess(self.Scheme, pk, ct, ss_real)
         return r
 
 class INDCPA_Random(Crypto.Game):
@@ -34,11 +33,10 @@ class INDCPA_Random(Crypto.Game):
         self.Scheme = Scheme
         self.Adversary = Adversary
     def main(self) -> Crypto.Bit:
-        adversary = self.Adversary(self.Scheme)
         (pk, sk) = self.Scheme.KeyGen()
         (ct, _) = self.Scheme.Encaps(pk)
         ss_rand = Crypto.UniformlySample(self.Scheme.SharedSecret)
-        r = adversary.guess(pk, ct, ss_rand)
+        r = self.Adversary.guess(self.Scheme, pk, ct, ss_rand)
         return r
 
 INDCPA = Crypto.DistinguishingExperimentRealOrRandom(INDCPA_Real, INDCPA_Random, INDCPA_Adversary)

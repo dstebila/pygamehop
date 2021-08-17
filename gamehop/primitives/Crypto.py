@@ -1,6 +1,4 @@
-from abc import ABC
-
-from typing import Any, TypeVar, Generic, Set, Annotated, Tuple, Callable, Type
+from typing import TypeVar, Annotated, Type
 
 class Bit(int): pass
 class UniformlyRandom(): pass
@@ -16,10 +14,8 @@ T = TypeVar('T')
 def UniformlySample(s: Type[T]) -> Annotated[T, UniformlyRandom]: pass
 
 class Scheme(): pass
-class Adversary():
-    def __init__(self, scheme: Type[Scheme]) -> None: pass
-class Reduction(Adversary):
-    def __init__(self, scheme: Type[Scheme], Adversary: Type[Adversary]) -> None: pass
+class Adversary(): pass
+class Reduction(Adversary): pass
 
 class Game(): pass
 class Experiment(): pass
