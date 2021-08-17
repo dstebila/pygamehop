@@ -15,7 +15,8 @@ def UniformlySample(s: Type[T]) -> Annotated[T, UniformlyRandom]: pass
 
 class Scheme(): pass
 class Adversary(): pass
-class Reduction(Adversary): pass
+class Reduction(Adversary):
+    InnerAdversary: Type[Adversary] = None
 
 class Game(): pass
 class Experiment(): pass

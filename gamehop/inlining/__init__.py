@@ -8,7 +8,7 @@ from . import internal
 from .. import utils
 from ..primitives import Crypto
 
-__all__ = ['inline_argument_into_function', 'inline_function_call', 'inline_all_method_calls']
+__all__ = ['inline_argument_into_function', 'inline_function_call', 'inline_all_method_calls', 'inline_scheme_into_game']
 
 # Note that inlining uses Unicode symbols to make it look like the original code
 # e.g. attribute dereferencing: x.y gets inlined to xⴰy
@@ -345,3 +345,6 @@ def inline_scheme_into_game(Scheme: Type[Crypto.Scheme], Game: Type[Crypto.Game]
             Game_newbody.append(utils.get_function_def(inline_all_method_calls(Scheme, cast(ast.FunctionDef, fdef))))
     Game_copy.body = Game_newbody
     return ast.unparse(ast.fix_missing_locations(Game_copy))
+
+def inline_reduction_into_game(Scheme: Type[Crypto.Scheme], Game1: Type[Crypto.Game], Game2: Type[Crypto.Game]) -> str:
+    return ""
