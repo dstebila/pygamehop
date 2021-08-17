@@ -2,10 +2,11 @@ import ast
 import copy
 import inspect
 import types
-from typing import Any, Callable, List, Union, Tuple, Type
+from typing import cast, Any, Callable, List, Union, Tuple, Type
 
 from . import internal
 from .. import utils
+from ..primitives import Crypto
 
 __all__ = ['inline_argument_into_function', 'inline_function_call', 'inline_all_method_calls']
 
@@ -315,3 +316,32 @@ def inline_all_method_calls(c_to_be_inlined: Union[Type[Any], str, ast.ClassDef]
             # inline calls to this method
             fdef_dest = utils.get_function_def(inline_function_call(f, fdef_dest))
     return ast.unparse(ast.fix_missing_locations(fdef_dest))
+
+def inline_scheme_into_game(Scheme: Type[Crypto.Scheme], Game: Type[Crypto.Game]) -> str:
+    """Returns a string representing the provided cryptographic game with all calls to methods of the given cryptographic scheme replaced with the body of those functions, with arguments to the call appropriately bound and with local variables named unambiguously."""
+    Game_copy = utils.get_class_def(Game)
+    Game_newbody: List[ast.stmt] = []
+    # go through every method of the game (__init__, main, oracles)
+    for fdef in Game_copy.body:
+        # make sure the game only consists of functions
+        if not isinstance(fdef, ast.FunctionDef):
+            raise ValueError(f"Unable to handle games with members that are anything other than functions; game {Game_copy.name}, member {ast.unparse(fdef).splitlines()[0]}")
+        # __init__ has a special form for games and must always consist of just two lines, setting self.Scheme and self.Adversary
+        # bind self.Scheme to the given Scheme
+        if fdef.name == "__init__":
+            Game_newbody.append(utils.get_function_def(inline_argument_into_function('Scheme', Scheme, fdef)))
+        else:
+            # references to the scheme will look like "self.Scheme.whatever"
+            # replace these with "Scheme.whatever" so that they can easily be replaced
+            class SelfSchemeRenamer(ast.NodeTransformer):
+                def visit_Attribute(self, node):
+                    if isinstance(node.value, ast.Name) and node.value.id == 'self' and node.attr == 'Scheme':
+                        return ast.Name(id=Scheme.__name__, ctx=node.ctx)
+                    elif isinstance(node.value, ast.Attribute):
+                        return ast.Attribute(value=self.visit_Attribute(node.value), attr=node.attr, ctx=node.ctx)
+                        return ast.Name(id=Scheme.__name__, ctx=node.ctx)
+                    else: return node
+            fdef = SelfSchemeRenamer().visit(fdef)
+            Game_newbody.append(utils.get_function_def(inline_all_method_calls(Scheme, cast(ast.FunctionDef, fdef))))
+    Game_copy.body = Game_newbody
+    return ast.unparse(ast.fix_missing_locations(Game_copy))

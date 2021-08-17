@@ -8,6 +8,10 @@ Output: When a function or class is an output, it will be given as a string.
 
 ## List of functions
 
+- [Inline argument into function](#inline-argument-into-function)
+- [Inline function call](#inline-function-call)
+- [Inline calls to all methods of a given class](#inline-calls-to-all-methods-of-a-given-class)
+- [Inline all methods of a cryptographic scheme into a cryptographic game](#inline-all-methods-of-a-cryptographic-scheme-into-a-cryptographic-game)
 
 ### Inline argument into function
 
@@ -111,3 +115,50 @@ Raises:
 
 - `ValueError` if the class being inlined has a non-static method.
 - `NotImplementedError` and `ValueError` for the reasons given in `inline_function_call`.
+
+### Inline all methods of a cryptographic scheme into a cryptographic game
+
+Within a cryptographic game (a class consisting of multiple methods), replace all calls to methods of a cryptographic scheme (another class consisting of multiple methods) with the body of the corresponding method, with the arguments to the call appropriately bound and with local variables named unambiguously.
+
+All methods of the cryptographic scheme being inlined must be static methods.
+
+```python
+def inline_scheme_into_game(
+	Scheme: Type[Crypto.Scheme], 
+	Game: Type[Crypto.Game]
+) -> str:
+```
+
+Example:
+
+```python
+class P(Crypto.Scheme):
+    @staticmethod
+    def KeyGen(): return (1, 2)
+
+class G(Crypto.Game):
+    def __init__(self, Scheme, Adversary):
+        self.Scheme = Scheme
+        self.Adversary = Adversary
+    def main(self) -> Crypto.Bit:
+        adversary = self.Adversary(self.Scheme)
+        (pk, sk) = self.Scheme.KeyGen()
+        return 0
+
+inline_scheme_into_game(P, G)
+
+# returns:
+
+class G_expected_result(Crypto.Game):
+    def __init__(self, Adversary):
+        self.Scheme = P
+        self.Adversary = Adversary
+    def main(self) -> Crypto.Bit:
+        adversary = self.Adversary(P)
+        (pk, sk) = (1, 2)
+        return 0
+```
+
+Raises:
+
+- `NotImplementedError` and `ValueError` for the reasons given in `inline_all_method_calls`.
