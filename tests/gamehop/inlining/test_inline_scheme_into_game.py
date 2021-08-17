@@ -1,5 +1,4 @@
 import ast
-import inspect
 import unittest
 
 import gamehop.inlining
@@ -18,9 +17,8 @@ class TestInlineSchemeIntoGame(unittest.TestCase):
                 self.Scheme = Scheme
                 self.Adversary = Adversary
             def main(self) -> Crypto.Bit:
-                adversary = self.Adversary(self.Scheme)
-                (pk, sk) = self.Scheme.KeyGen()
-                return 0
+                (pk, _) = self.Scheme.KeyGen()
+                return pk
         class P(Crypto.Scheme):
             @staticmethod
             def KeyGen(): return (1, 2)
@@ -29,9 +27,8 @@ class TestInlineSchemeIntoGame(unittest.TestCase):
                 self.Scheme = P
                 self.Adversary = Adversary
             def main(self) -> Crypto.Bit:
-                adversary = self.Adversary(P)
-                (pk, sk) = (1, 2)
-                return 0
+                (pk, _) = (1, 2)
+                return pk
         self.assertEqual(
             gamehop.inlining.inline_scheme_into_game(P, G),
             expected_result(G_expected_result))
