@@ -2,7 +2,7 @@ import ast
 import random
 import unittest
 
-from typing import Type
+from typing import cast, Type
 
 import gamehop.inlining
 from gamehop.primitives import Crypto
@@ -40,9 +40,9 @@ class G1(Crypto.Game):
         b = random.choice([0,1])
         msge = "hi!" if b == 0 else "bye"
         ct = self.Scheme.Encrypt(pk, msge)
-        bstar = self.Adversary.challenge(self.Scheme, pk, ct)
+        bstar = self.Adversary.hi_or_bye(self.Scheme, pk, ct)
         ret = 1 if b == bstar else 0
-        return ret
+        return Crypto.Bit(ret)
 class P2(Crypto.Scheme):
     class PK(): pass
     class CT(): pass
@@ -64,18 +64,25 @@ class G2(Crypto.Game):
         ct = self.Scheme.ENC(pk, msge)
         b = self.Adversary.hi_or_not(self.Scheme, pk, ct)
         ret = 0 if b else 1
-        return ret
+        return Crypto.Bit(ret)
 class P2fromP1(P2):
+    class PK(P2.PK):
+        def __init__(self, pk: P1.PublicKey):
+            self.pk = pk
+    class CT(P2.CT):
+        def __init__(self, ct: P1.Ciphertext):
+            self.ct = ct
     @staticmethod
     def KG():
-        return P1.KeyGen()
+        return P2fromP1.PK(P1.KeyGen())
     @staticmethod
     def ENC(pk, msg):
-        return P1.Encrypt(pk, msg)
+        return P2fromP1.CT(P1.Encrypt(pk.pk, msg))
 class R(Crypto.Reduction, G1_Adversary):
+    InnerAdversary: Type[G2_Adversary]
     @staticmethod
-    def challenge(Scheme: Type[P1], pk: P1.PublicKey, ct: P1.Ciphertext) -> int:
-        g = R.InnerAdversary.hi_or_not(P2fromP1, pk, ct)
+    def hi_or_bye(Scheme: Type[P1], pk: P1.PublicKey, ct: P1.Ciphertext) -> int:
+        g = R.InnerAdversary.hi_or_not(P2fromP1, P2fromP1.PK(pk), P2fromP1.CT(ct))
         ret = 0 if g else 1
         return ret
 
@@ -87,13 +94,13 @@ class TestInlineReductionIntoGame(unittest.TestCase):
                 self.Scheme = P2fromP1
                 self.Adversary = Adversary
             def main(self) -> Crypto.Bit:
-                pk = P1.KeyGen()
+                pk = P2fromP1.PK(P1.KeyGen())
                 b = random.choice([0, 1])
                 msge = "hi!" if b == 0 else "bye"
-                ct = P1.Encrypt(pk, msge)
+                ct = P2fromP1.CT(P1.Encrypt(pk.pk, msge))
                 b = self.Adversary.hi_or_not(P2fromP1, pk, ct)
                 ret = 0 if b else 1
-                return ret
+                return Crypto.Bit(ret)
         self.assertEqual(
             gamehop.inlining.inline_scheme_into_game(P2fromP1, G2),
             expected_result(G2_expected_result))
@@ -108,11 +115,11 @@ class TestInlineReductionIntoGame(unittest.TestCase):
                 b = random.choice([0, 1])
                 msge = 'hi!' if b == 0 else 'bye'
                 ct = P1.Encrypt(pk, msge)
-                R_challengeᴠ1ⴰg = self.Adversary.hi_or_not(P2fromP1, pk, ct)
-                R_challengeᴠ1ⴰret = 0 if R_challengeᴠ1ⴰg else 1
-                bstar = R_challengeᴠ1ⴰret
+                R_hi_or_byeᴠ1ⴰg = self.Adversary.hi_or_not(P2fromP1, P2fromP1.PK(pk), P2fromP1.CT(ct))
+                R_hi_or_byeᴠ1ⴰret = 0 if R_hi_or_byeᴠ1ⴰg else 1
+                bstar = R_hi_or_byeᴠ1ⴰret
                 ret = 1 if b == bstar else 0
-                return ret
+                return Crypto.Bit(ret)
         self.assertEqual(
             gamehop.inlining.inline_reduction_into_game(R, G1, P1, G2, P2fromP1),
             expected_result(G2_expected_result))
