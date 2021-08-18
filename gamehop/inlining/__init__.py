@@ -8,7 +8,7 @@ from . import internal
 from .. import utils
 from ..primitives import Crypto
 
-__all__ = ['inline_argument_into_function', 'inline_function_call', 'inline_all_method_calls', 'inline_scheme_into_game']
+__all__ = ['inline_argument_into_function', 'inline_function_call', 'inline_all_method_calls', 'inline_scheme_into_game', 'inline_reduction_into_game']
 
 # Note that inlining uses Unicode symbols to make it look like the original code
 # e.g. attribute dereferencing: x.y gets inlined to xⴰy
@@ -339,9 +339,18 @@ def inline_scheme_into_game(Scheme: Type[Crypto.Scheme], Game: Type[Crypto.Game]
     return ast.unparse(ast.fix_missing_locations(Game_copy))
 
 def inline_reduction_into_game(R: Type[Crypto.Reduction], GameForR: Type[Crypto.Game], SchemeForR: Type[Crypto.Scheme], TargetGame: Type[Crypto.Game], TargetScheme: Type[Crypto.Scheme]) -> str:
+    """Returns a string representing the inlining of a reduction into a game, to yield another game.  R is the reduction, which an adversary in the game GameForR against scheme SchemeForR.  The result of the inlining is a cryptographic game intended to be of the form TargetGame against scheme TargetScheme."""
+    # The high-level idea of this procedure is as follows:
+    # 1. The main method of the result should take the main method of the GameForR and inline all calls to R.
+    # 2. R provides methods that will become oracles in the resulting game; these are copied from R.
+    # 3. The body of all the oracles of GameForR will be inlined into the resulting game.
+    # 4. Various things are renamed and minor things are changed, for example turning static methods into non-static methods.
+    OutputGame = utils.get_class_def(TargetGame)
+    OutputGame.body = []
+    # copy the __init__ and main methods of GameForR into OutputGame
     GameForR_copy = utils.get_class_def(GameForR)
-    GameForR_newbody: List[ast.stmt] = []
-    # go through every method of the game (__init__, main, oracles)
+    # and save the oracles of GameForR that will need to be inlined into the OutputGame
+    OraclesToSave: List[ast.FunctionDef] = []
     for fdef in GameForR_copy.body:
         # make sure the game only consists of functions
         if not isinstance(fdef, ast.FunctionDef):
@@ -352,8 +361,8 @@ def inline_reduction_into_game(R: Type[Crypto.Reduction], GameForR: Type[Crypto.
             newinit = utils.get_function_def(inline_argument_into_function('Scheme', TargetScheme, fdef))
             # change the type of the adversary to match the target game
             newinit = utils.NameRenamer({f"{GameForR.__name__}_Adversary": f"{TargetGame.__name__}_Adversary"}, False).visit(newinit)
-            GameForR_newbody.append(newinit)
-        else:
+            OutputGame.body.append(newinit)
+        elif fdef.name == "main" or fdef.name.startswith("o_"):
             # references to the scheme will look like "self.Adversary.whatever"
             # replace these with "R.whatever" so that they can easily be replaced
             fdef = utils.AttributeNodeReplacer('self', 'Adversary', R.__name__).visit(fdef)
@@ -362,8 +371,36 @@ def inline_reduction_into_game(R: Type[Crypto.Reduction], GameForR: Type[Crypto.
             fdef = utils.AttributeNodeReplacer('self', 'Scheme', SchemeForR.__name__).visit(fdef)
             # replace R's calls to its inner adversary with calls to the outer game's self.Adversary
             fdef = utils.AttributeNodeReplacer(R.__name__, 'InnerAdversary', 'self.Adversary').visit(fdef)
-            GameForR_newbody.append(fdef)
-    GameForR_copy.body = GameForR_newbody
-    # change the name of the game to the target game
-    GameForR_copy.name = TargetGame.__name__
-    return ast.unparse(ast.fix_missing_locations(GameForR_copy))
+            # replace all remaining references to R with self
+            fdef = utils.NameRenamer({R.__name__: 'self'}, False).visit(fdef)
+            # GameForR's oracles will need to be saved
+            assert isinstance(fdef, ast.FunctionDef) # needed for typechecker
+            if fdef.name.startswith("o_"):
+                OraclesToSave.append(fdef)
+            else:
+                OutputGame.body.append(fdef)
+        else:
+            raise ValueError(f"Method {fdef.name} in game {GameForR_copy.name} is an unknown type of method; only __init__, main, and oracles labeled o_ are allowed.")
+    # copy all oracles of R into the output game
+    R_copy = utils.get_class_def(R)
+    for fdef in filter(lambda fdef: isinstance(fdef, ast.FunctionDef) and fdef.name.startswith("o_"), R_copy.body):
+        assert isinstance(fdef, ast.FunctionDef) # needed for typechecker
+        # make them non-static
+        for d in fdef.decorator_list:
+            if isinstance(d, ast.Name) and d.id == 'staticmethod': fdef.decorator_list.remove(d)
+        # put self back in
+        fdef.args.args = [ast.arg(arg="self")] + fdef.args.args
+        OutputGame.body.append(fdef)
+    # for each oracle of GameForR that we saved, inline it into the OutputGame
+    for fdef in OraclesToSave:
+        # calls to this oracle in OutputGame will be of the form R.o_whatever
+        # first we'll give those calls a temporary name
+        OutputGame.body = utils.AttributeNodeReplacer(R.__name__, fdef.name, 'to_be_replaced_' + fdef.name).visit(OutputGame.body)
+        fdef.name = 'to_be_replaced_' + fdef.name
+        # remove self from the function
+        del fdef.args.args[0]
+        # inline this function into every method of the OutputGame
+        for i, otherfdef in enumerate(OutputGame.body):
+            assert isinstance(otherfdef, ast.FunctionDef) # needed for typechecker
+            OutputGame.body[i] = utils.get_function_def(inline_function_call(fdef, otherfdef))
+    return ast.unparse(ast.fix_missing_locations(OutputGame))

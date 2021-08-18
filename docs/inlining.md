@@ -12,6 +12,7 @@ Output: When a function or class is an output, it will be given as a string.
 - [Inline function call](#inline-function-call)
 - [Inline calls to all methods of a given class](#inline-calls-to-all-methods-of-a-given-class)
 - [Inline all methods of a cryptographic scheme into a cryptographic game](#inline-all-methods-of-a-cryptographic-scheme-into-a-cryptographic-game)
+- [Inline reduction into a cryptographic game](#inline-reduction-into-a-cryptographic-game)
 
 ### Inline argument into function
 
@@ -162,3 +163,31 @@ class G_expected_result(Crypto.Game):
 Raises:
 
 - `NotImplementedError` and `ValueError` for the reasons given in `inline_all_method_calls`.
+
+### Inline reduction into a cryptographic game
+
+Suppose R is a reduction showing how transform an adversary for the game GameForR against scheme SchemeForR into adversary for the game TargetGame against scheme TargetScheme.  This procedure generates the result of that inlining process, which is a game with the same interface as TargetGame against scheme TargetScheme.  
+
+The high-level idea of this procedure is as follows:
+
+1. The main method of the result should take the main method of the GameForR and inline all calls to R.
+2. R provides methods that will become oracles in the resulting game; these are copied from R.
+3. The body of all the oracles of GameForR will be inlined into the resulting game.
+4. Various things are renamed and minor things are changed, for example turning static methods into non-static methods.
+
+```python
+def inline_reduction_into_game(
+	R: Type[Crypto.Reduction], 
+	GameForR: Type[Crypto.Game], 
+	SchemeForR: Type[Crypto.Scheme], 
+	TargetGame: Type[Crypto.Game], 
+	TargetScheme: Type[Crypto.Scheme]
+) -> str:
+```
+
+An example of this is shown in test cases in `tests/gamehop/inlining/test_inline_reduction_into_game.py` (an example without oracles) and `tests/gamehop/inlining/test_inline_reduction_into_game_with_oracles.py` (an example with oracles).
+
+Raises:
+
+- `ValueError` if GameForR is not of the right form.
+- `NotImplementedError` and `ValueError` for the reasons given in `inline_scheme_into_game `.
