@@ -98,6 +98,19 @@ class NameNodeReplacer(NewNodeTransformer):
         if node.id in self.replacements: return self.replacements[node.id]
         else: return node
 
+class AttributeNodeReplacer(NewNodeTransformer):
+    """Replaces all instances of an Attribute node with a given node."""
+    def __init__(self, att_id: str, att_attr: str, replacement: str):
+        self.att_id = att_id
+        self.att_attr = att_attr
+        self.replacement = replacement
+    def visit_Attribute(self, node):
+        if isinstance(node.value, ast.Name) and node.value.id == self.att_id and node.attr == self.att_attr:
+            return ast.Name(id=self.replacement, ctx=node.ctx)
+        elif isinstance(node.value, ast.Attribute):
+            return ast.Attribute(value=self.visit_Attribute(node.value), attr=node.attr, ctx=node.ctx)
+        else: return node
+
 def stored_vars(node):
     varfinder = VariableFinder()
     varfinder.visit(node)

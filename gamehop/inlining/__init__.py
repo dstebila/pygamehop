@@ -333,18 +333,37 @@ def inline_scheme_into_game(Scheme: Type[Crypto.Scheme], Game: Type[Crypto.Game]
         else:
             # references to the scheme will look like "self.Scheme.whatever"
             # replace these with "Scheme.whatever" so that they can easily be replaced
-            class SelfSchemeRenamer(ast.NodeTransformer):
-                def visit_Attribute(self, node):
-                    if isinstance(node.value, ast.Name) and node.value.id == 'self' and node.attr == 'Scheme':
-                        return ast.Name(id=Scheme.__name__, ctx=node.ctx)
-                    elif isinstance(node.value, ast.Attribute):
-                        return ast.Attribute(value=self.visit_Attribute(node.value), attr=node.attr, ctx=node.ctx)
-                        return ast.Name(id=Scheme.__name__, ctx=node.ctx)
-                    else: return node
-            fdef = SelfSchemeRenamer().visit(fdef)
+            fdef = utils.AttributeNodeReplacer('self', 'Scheme', Scheme.__name__).visit(fdef)
             Game_newbody.append(utils.get_function_def(inline_all_method_calls(Scheme, cast(ast.FunctionDef, fdef))))
     Game_copy.body = Game_newbody
     return ast.unparse(ast.fix_missing_locations(Game_copy))
 
-def inline_reduction_into_game(Scheme: Type[Crypto.Scheme], Game1: Type[Crypto.Game], Game2: Type[Crypto.Game]) -> str:
-    return ""
+def inline_reduction_into_game(R: Type[Crypto.Reduction], GameForR: Type[Crypto.Game], SchemeForR: Type[Crypto.Scheme], TargetGame: Type[Crypto.Game], TargetScheme: Type[Crypto.Scheme]) -> str:
+    GameForR_copy = utils.get_class_def(GameForR)
+    GameForR_newbody: List[ast.stmt] = []
+    # go through every method of the game (__init__, main, oracles)
+    for fdef in GameForR_copy.body:
+        # make sure the game only consists of functions
+        if not isinstance(fdef, ast.FunctionDef):
+            raise ValueError(f"Unable to handle games with members that are anything other than functions; game {GameForR_copy.name}, member {ast.unparse(fdef).splitlines()[0]}")
+        if fdef.name == "__init__":
+            # __init__ has a special form for games and must always consist of just two lines, setting self.Scheme and self.Adversary
+            # bind self.Scheme to the given Scheme
+            newinit = utils.get_function_def(inline_argument_into_function('Scheme', TargetScheme, fdef))
+            # change the type of the adversary to match the target game
+            newinit = utils.NameRenamer({f"{GameForR.__name__}_Adversary": f"{TargetGame.__name__}_Adversary"}, False).visit(newinit)
+            GameForR_newbody.append(newinit)
+        else:
+            # references to the scheme will look like "self.Adversary.whatever"
+            # replace these with "R.whatever" so that they can easily be replaced
+            fdef = utils.AttributeNodeReplacer('self', 'Adversary', R.__name__).visit(fdef)
+            fdef = utils.get_function_def(inline_all_method_calls(R, cast(ast.FunctionDef, fdef)))
+            # replace references to self.Scheme with the scheme that R was using
+            fdef = utils.AttributeNodeReplacer('self', 'Scheme', SchemeForR.__name__).visit(fdef)
+            # replace R's calls to its inner adversary with calls to the outer game's self.Adversary
+            fdef = utils.AttributeNodeReplacer(R.__name__, 'InnerAdversary', 'self.Adversary').visit(fdef)
+            GameForR_newbody.append(fdef)
+    GameForR_copy.body = GameForR_newbody
+    # change the name of the game to the target game
+    GameForR_copy.name = TargetGame.__name__
+    return ast.unparse(ast.fix_missing_locations(GameForR_copy))
