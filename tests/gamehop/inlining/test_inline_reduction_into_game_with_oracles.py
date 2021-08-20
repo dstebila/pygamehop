@@ -64,8 +64,9 @@ class G2(Crypto.Game):
         b = random.choice([0,1])
         msge = "hi!" if b == 0 else "bye"
         ct = self.Scheme.ENC(self.pk, msge)
-        b = self.Adversary.hi_or_not(self.Scheme, self.pk, ct, self.o_encconcat)
-        ret = 0 if b else 1
+        bnew = self.Adversary.hi_or_not(self.Scheme, self.pk, ct, self.o_encconcat)
+        bstar = 0 if bnew else 1
+        ret = 1 if b == bstar else 1
         return Crypto.Bit(ret)
     def o_encconcat(self, m1: str, m2: str) -> P2.CT:
         return self.Scheme.ENC(self.pk, m1 + m2)
@@ -107,8 +108,9 @@ class TestInlineReductionIntoGameWithOracle(unittest.TestCase):
                 b = random.choice([0, 1])
                 msge = "hi!" if b == 0 else "bye"
                 ct = P2fromP1.CT(P1.Encrypt(self.pk.pk, msge))
-                b = self.Adversary.hi_or_not(P2fromP1, self.pk, ct, self.o_encconcat)
-                ret = 0 if b else 1
+                bnew = self.Adversary.hi_or_not(P2fromP1, self.pk, ct, self.o_encconcat)
+                bstar = 0 if bnew else 1
+                ret = 1 if b == bstar else 1
                 return Crypto.Bit(ret)
             def o_encconcat(self, m1: str, m2: str) -> P2.CT:
                 return P2fromP1.ENC(self.pk, m1 + m2)

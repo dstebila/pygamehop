@@ -62,8 +62,9 @@ class G2(Crypto.Game):
         b = random.choice([0,1])
         msge = "hi!" if b == 0 else "bye"
         ct = self.Scheme.ENC(pk, msge)
-        b = self.Adversary.hi_or_not(self.Scheme, pk, ct)
-        ret = 0 if b else 1
+        bnew = self.Adversary.hi_or_not(self.Scheme, pk, ct)
+        bstar = 0 if bnew else 1
+        ret = 1 if b == bstar else 1
         return Crypto.Bit(ret)
 class P2fromP1(P2):
     class PK(P2.PK):
@@ -98,8 +99,9 @@ class TestInlineReductionIntoGame(unittest.TestCase):
                 b = random.choice([0, 1])
                 msge = "hi!" if b == 0 else "bye"
                 ct = P2fromP1.CT(P1.Encrypt(pk.pk, msge))
-                b = self.Adversary.hi_or_not(P2fromP1, pk, ct)
-                ret = 0 if b else 1
+                bnew = self.Adversary.hi_or_not(P2fromP1, pk, ct)
+                bstar = 0 if bnew else 1
+                ret = 1 if b == bstar else 1
                 return Crypto.Bit(ret)
         self.assertEqual(
             gamehop.inlining.inline_scheme_into_game(P2fromP1, G2),
