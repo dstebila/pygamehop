@@ -14,9 +14,10 @@ T = TypeVar('T')
 def UniformlySample(s: Type[T]) -> Annotated[T, UniformlyRandom]: pass
 
 class Scheme(): pass
-class Adversary(): pass
+class Adversary():
+    def __init__(self, scheme: Type[Scheme]) -> None: pass
 class Reduction(Adversary):
-    InnerAdversary: Type[Adversary]
+    def __init__(self, scheme: Type[Scheme], inner_adversary: Adversary) -> None: pass
 
 class Game(): pass
 class Experiment(): pass

@@ -29,18 +29,17 @@ class P1(Crypto.Scheme):
     @staticmethod
     def Encrypt(pk: PublicKey, msg: str) -> Ciphertext: pass
 class G1_Adversary(Crypto.Adversary): # game idea: is ct the encryption of "hi" or "bye"?
-    @staticmethod
-    def hi_or_bye(Scheme: Type[P1], pk: P1.PublicKey, ct: P1.Ciphertext) -> int: pass
+    def hi_or_bye(self, pk: P1.PublicKey, ct: P1.Ciphertext) -> int: pass
 class G1(Crypto.Game):
     def __init__(self, Scheme: Type[P1], Adversary: Type[G1_Adversary]):
         self.Scheme = Scheme
-        self.Adversary = Adversary
+        self.adversary = Adversary(Scheme)
     def main(self) -> Crypto.Bit:
         pk = self.Scheme.KeyGen()
         b = random.choice([0,1])
         msge = "hi!" if b == 0 else "bye"
         ct = self.Scheme.Encrypt(pk, msge)
-        bstar = self.Adversary.hi_or_bye(self.Scheme, pk, ct)
+        bstar = self.adversary.hi_or_bye(pk, ct)
         ret = 1 if b == bstar else 0
         return Crypto.Bit(ret)
 class P2(Crypto.Scheme):
@@ -51,18 +50,17 @@ class P2(Crypto.Scheme):
     @staticmethod
     def ENC(pk: PK, msg: str) -> CT: pass
 class G2_Adversary(Crypto.Adversary): # game idea: is ct the encryption of "hi!" or not?"
-    @staticmethod
-    def hi_or_not(Scheme: Type[P2], pk: P2.PK, ct: P2.CT) -> bool: pass
+    def hi_or_not(self, pk: P2.PK, ct: P2.CT) -> bool: pass
 class G2(Crypto.Game):
     def __init__(self, Scheme: Type[P2], Adversary: Type[G2_Adversary]):
         self.Scheme = Scheme
-        self.Adversary = Adversary
+        self.adversary = Adversary(Scheme)
     def main(self) -> Crypto.Bit:
         pk = self.Scheme.KG()
         b = random.choice([0,1])
         msge = "hi!" if b == 0 else "bye"
         ct = self.Scheme.ENC(pk, msge)
-        bnew = self.Adversary.hi_or_not(self.Scheme, pk, ct)
+        bnew = self.adversary.hi_or_not(pk, ct)
         bstar = 0 if bnew else 1
         ret = 1 if b == bstar else 1
         return Crypto.Bit(ret)
@@ -80,10 +78,11 @@ class P2fromP1(P2):
     def ENC(pk, msg):
         return P2fromP1.CT(P1.Encrypt(pk.pk, msg))
 class R(Crypto.Reduction, G1_Adversary):
-    InnerAdversary: Type[G2_Adversary]
-    @staticmethod
-    def hi_or_bye(Scheme: Type[P1], pk: P1.PublicKey, ct: P1.Ciphertext) -> int:
-        g = R.InnerAdversary.hi_or_not(P2fromP1, P2fromP1.PK(pk), P2fromP1.CT(ct))
+    def __init__(self, Scheme: Type[P1], inner_adversary: G2_Adversary):
+        self.Scheme = Scheme
+        self.inner_adversary = inner_adversary
+    def hi_or_bye(self, pk: P1.PublicKey, ct: P1.Ciphertext) -> int:
+        g = self.inner_adversary.hi_or_not(P2fromP1.PK(pk), P2fromP1.CT(ct))
         ret = 0 if g else 1
         return ret
 
@@ -93,13 +92,13 @@ class TestInlineReductionIntoGame(unittest.TestCase):
         class G2_expected_result(Crypto.Game):
             def __init__(self, Adversary: Type[G2_Adversary]):
                 self.Scheme = P2fromP1
-                self.Adversary = Adversary
+                self.adversary = Adversary(P2fromP1)
             def main(self) -> Crypto.Bit:
                 pk = P2fromP1.PK(P1.KeyGen())
                 b = random.choice([0, 1])
                 msge = "hi!" if b == 0 else "bye"
                 ct = P2fromP1.CT(P1.Encrypt(pk.pk, msge))
-                bnew = self.Adversary.hi_or_not(P2fromP1, pk, ct)
+                bnew = self.adversary.hi_or_not(pk, ct)
                 bstar = 0 if bnew else 1
                 ret = 1 if b == bstar else 1
                 return Crypto.Bit(ret)
@@ -108,18 +107,19 @@ class TestInlineReductionIntoGame(unittest.TestCase):
             expected_result(G2_expected_result))
 
     def test_R_into_G1(self):
+        self.maxDiff = None
         class G2_expected_result(Crypto.Game):
             def __init__(self, Adversary: Type[G2_Adversary]):
                 self.Scheme = P2fromP1
-                self.Adversary = Adversary
+                self.adversary = Adversary(P2fromP1)
             def main(self) -> Crypto.Bit:
                 pk = P1.KeyGen()
                 b = random.choice([0, 1])
                 msge = 'hi!' if b == 0 else 'bye'
                 ct = P1.Encrypt(pk, msge)
-                R_hi_or_byeᴠ1ⴰg = self.Adversary.hi_or_not(P2fromP1, P2fromP1.PK(pk), P2fromP1.CT(ct))
-                R_hi_or_byeᴠ1ⴰret = 0 if R_hi_or_byeᴠ1ⴰg else 1
-                bstar = R_hi_or_byeᴠ1ⴰret
+                self_adversary_hi_or_byeᴠ1ⴰg = self.adversary.hi_or_not(P2fromP1.PK(pk), P2fromP1.CT(ct))
+                self_adversary_hi_or_byeᴠ1ⴰret = 0 if self_adversary_hi_or_byeᴠ1ⴰg else 1
+                bstar = self_adversary_hi_or_byeᴠ1ⴰret
                 ret = 1 if b == bstar else 0
                 return Crypto.Bit(ret)
         self.assertEqual(
