@@ -400,17 +400,12 @@ def inline_reduction_into_game(R: Type[Crypto.Reduction], GameForR: Type[Crypto.
     R_copy = utils.get_class_def(R)
     for fdef in filter(lambda fdef: isinstance(fdef, ast.FunctionDef) and fdef.name.startswith("o_"), R_copy.body):
         assert isinstance(fdef, ast.FunctionDef) # needed for typechecker
-        # make them non-static
-        for d in fdef.decorator_list:
-            if isinstance(d, ast.Name) and d.id == 'staticmethod': fdef.decorator_list.remove(d)
-        # put self back in
-        fdef.args.args = [ast.arg(arg="self")] + fdef.args.args
         OutputGame.body.append(fdef)
     # for each oracle of GameForR that we saved, inline it into the OutputGame
     for fdef in OraclesToSave:
         # calls to this oracle in OutputGame will be of the form R.o_whatever
         # first we'll give those calls a temporary name
-        OutputGame.body = utils.AttributeNodeReplacer([R.__name__, fdef.name], 'to_be_replaced_' + fdef.name).visit(OutputGame.body)
+        OutputGame.body = utils.AttributeNodeReplacer(['self', fdef.name], 'to_be_replaced_' + fdef.name).visit(OutputGame.body)
         fdef.name = 'to_be_replaced_' + fdef.name
         # remove self from the function
         del fdef.args.args[0]
@@ -418,4 +413,6 @@ def inline_reduction_into_game(R: Type[Crypto.Reduction], GameForR: Type[Crypto.
         for i, otherfdef in enumerate(OutputGame.body):
             assert isinstance(otherfdef, ast.FunctionDef) # needed for typechecker
             OutputGame.body[i] = utils.get_function_def(inline_function_call(fdef, otherfdef))
+    # rename all remaining references to R to self
+    OutputGame = utils.NameRenamer({R.__name__: 'self'}, False).visit(OutputGame)
     return ast.unparse(ast.fix_missing_locations(OutputGame))
