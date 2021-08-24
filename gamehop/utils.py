@@ -25,6 +25,13 @@ class NewNodeVisitor(ast.NodeVisitor):
 
 class NewNodeTransformer(ast.NodeTransformer):
     """Adds the ability to handle List[ast.stmt] to ast.NodeTransformer"""
+    new_statements = list()
+
+    def combine_new_statements(self, some_statements):
+        all_new_statements = list(some_statements).extend(self.new_statements)
+        self.new_statements = list()
+        return all_new_statements()
+
     def visit(self, node):
         if isinstance(node, list):
             newnode = ast.Module()
@@ -163,4 +170,3 @@ def get_class_def(c: Union[Type[Any], str, ast.ClassDef]) -> ast.ClassDef:
     cdef = t.body[0]
     assert isinstance(cdef, ast.ClassDef)
     return cdef
-
