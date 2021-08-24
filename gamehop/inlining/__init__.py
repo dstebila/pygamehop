@@ -328,8 +328,7 @@ def inline_all_static_method_calls(c_to_be_inlined: Union[Type[Any], str, ast.Cl
     for f in cdef_to_be_inlined.body:
         if isinstance(f, ast.FunctionDef):
             # can't handle classes with non-static functions
-            if not is_static_functiondef(f):
-                raise ValueError(f"Unable to inline non-static method {f.name} from class {cdef_to_be_inlined.name} into function {fdef_dest.name}")
+            if not is_static_functiondef(f): continue
             # hack the method's name to include the class name
             f.name = cdef_to_be_inlined.name + "." + f.name
             # inline calls to this method
@@ -352,7 +351,7 @@ def inline_scheme_into_game(Scheme: Type[Crypto.Scheme], Game: Type[Crypto.Game]
         else:
             # references to the scheme will look like "self.Scheme.whatever"
             # replace these with "Scheme.whatever" so that they can easily be replaced
-            fdef = utils.AttributeNodeReplacer('self', 'Scheme', Scheme.__name__).visit(fdef)
+            fdef = utils.AttributeNodeReplacer(['self', 'Scheme'], Scheme.__name__).visit(fdef)
             Game_newbody.append(utils.get_function_def(inline_all_static_method_calls(Scheme, cast(ast.FunctionDef, fdef))))
     Game_copy.body = Game_newbody
     return ast.unparse(ast.fix_missing_locations(Game_copy))
@@ -382,16 +381,13 @@ def inline_reduction_into_game(R: Type[Crypto.Reduction], GameForR: Type[Crypto.
             newinit = utils.NameRenamer({f"{GameForR.__name__}_Adversary": f"{TargetGame.__name__}_Adversary"}, False).visit(newinit)
             OutputGame.body.append(newinit)
         elif fdef.name == "main" or fdef.name.startswith("o_"):
-            # references to the scheme will look like "self.Adversary.whatever"
-            # replace these with "R.whatever" so that they can easily be replaced
-            fdef = utils.AttributeNodeReplacer('self', 'Adversary', R.__name__).visit(fdef)
-            fdef = utils.get_function_def(inline_all_static_method_calls(R, cast(ast.FunctionDef, fdef)))
+            if fdef.args.args[0].arg != "self":
+                raise ValueError(f"First parameter of {fdef.name} is called '{fdef.args.args[0].arg}', should be called 'self'.")
+            fdef = utils.get_function_def(inline_all_nonstatic_method_calls('self.adversary', R, cast(ast.FunctionDef, fdef)))
             # replace references to self.Scheme with the scheme that R was using
-            fdef = utils.AttributeNodeReplacer('self', 'Scheme', SchemeForR.__name__).visit(fdef)
-            # replace R's calls to its inner adversary with calls to the outer game's self.Adversary
-            fdef = utils.AttributeNodeReplacer(R.__name__, 'InnerAdversary', 'self.Adversary').visit(fdef)
-            # replace all remaining references to R with self
-            fdef = utils.NameRenamer({R.__name__: 'self'}, False).visit(fdef)
+            fdef = utils.AttributeNodeReplacer(['self', 'Scheme'], SchemeForR.__name__).visit(fdef)
+            # replace R's calls to its inner adversary with calls to the outer game's self.adversary
+            fdef = utils.AttributeNodeReplacer(['self', 'adversary', 'inner_adversary'], 'self.adversary').visit(fdef)
             # GameForR's oracles will need to be saved
             assert isinstance(fdef, ast.FunctionDef) # needed for typechecker
             if fdef.name.startswith("o_"):
@@ -414,7 +410,7 @@ def inline_reduction_into_game(R: Type[Crypto.Reduction], GameForR: Type[Crypto.
     for fdef in OraclesToSave:
         # calls to this oracle in OutputGame will be of the form R.o_whatever
         # first we'll give those calls a temporary name
-        OutputGame.body = utils.AttributeNodeReplacer(R.__name__, fdef.name, 'to_be_replaced_' + fdef.name).visit(OutputGame.body)
+        OutputGame.body = utils.AttributeNodeReplacer([R.__name__, fdef.name], 'to_be_replaced_' + fdef.name).visit(OutputGame.body)
         fdef.name = 'to_be_replaced_' + fdef.name
         # remove self from the function
         del fdef.args.args[0]

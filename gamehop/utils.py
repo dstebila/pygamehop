@@ -99,17 +99,27 @@ class NameNodeReplacer(NewNodeTransformer):
         else: return node
 
 class AttributeNodeReplacer(NewNodeTransformer):
-    """Replaces all instances of an Attribute node with a given node."""
-    def __init__(self, att_id: str, att_attr: str, replacement: str):
-        self.att_id = att_id
-        self.att_attr = att_attr
+    """Replaces all instances of an Attribute node (possibly multiple attributes deep) with a Name node with the given name."""
+    def __init__(self, needle: List[str], replacement: str):
+        self.needle = needle
         self.replacement = replacement
     def visit_Attribute(self, node):
-        if isinstance(node.value, ast.Name) and node.value.id == self.att_id and node.attr == self.att_attr:
-            return ast.Name(id=self.replacement, ctx=node.ctx)
-        elif isinstance(node.value, ast.Attribute):
-            return ast.Attribute(value=self.visit_Attribute(node.value), attr=node.attr, ctx=node.ctx)
-        else: return node
+        # work backward from the end of the attribute and see if it matches the thing we're looking for
+        curr_a = node
+        for i, n in enumerate(reversed(self.needle)):
+            if isinstance(curr_a, ast.Attribute):
+                if curr_a.attr == n:
+                    # so far so good... advance to the next part of the node
+                    curr_a = curr_a.value
+                    continue
+                else: break
+            elif isinstance(curr_a, ast.Name):
+                if i == len(self.needle) - 1 and curr_a.id == n:
+                    # we found an exact match! do the replacement
+                    return ast.Name(id=self.replacement, ctx=node.ctx)
+                else: break
+        # we didn't find an exact match... but recurse on the inner part of this attribute in case it's a match
+        return ast.Attribute(value=self.visit(node.value), attr=node.attr, ctx=node.ctx)
 
 def stored_vars(node):
     varfinder = VariableFinder()
