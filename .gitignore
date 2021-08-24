@@ -128,6 +128,8 @@ dmypy.json
 # Pyre type checker
 .pyre/
 
+.tags*
+
 examples/*/*.aux
 examples/*/*.log
 examples/*/*.pdf
