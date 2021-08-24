@@ -28,9 +28,8 @@ class TestInlineAllMethodsIntoFunction(unittest.TestCase):
             y = C_Aᴠ1ⴰw
             z = 1 * 2 * x
             r = 2
-        print(gamehop.inlining.inline_all_method_calls(C, f))
         self.assertEqual(
-            gamehop.inlining.inline_all_method_calls(C, f),
+            gamehop.inlining.inline_all_static_method_calls(C, f),
             expected_result(f_expected_result))
 
     def test_nonstatic(self):
@@ -38,4 +37,4 @@ class TestInlineAllMethodsIntoFunction(unittest.TestCase):
             def A(x, y): return x + y
         def f(x): y = C.A(x, x)
         with self.assertRaisesRegex(ValueError, "Unable to inline non-static method A from class C into function f"):
-            gamehop.inlining.inline_all_method_calls(C, f)
+            gamehop.inlining.inline_all_static_method_calls(C, f)

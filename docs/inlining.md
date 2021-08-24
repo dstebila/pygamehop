@@ -10,7 +10,7 @@ Output: When a function or class is an output, it will be given as a string.
 
 - [Inline argument into function](#inline-argument-into-function)
 - [Inline function call](#inline-function-call)
-- [Inline calls to all methods of a given class](#inline-calls-to-all-methods-of-a-given-class)
+- [Inline calls to all static methods of a given class](#inline-calls-to-all-static-methods-of-a-given-class)
 - [Inline all methods of a cryptographic scheme into a cryptographic game](#inline-all-methods-of-a-cryptographic-scheme-into-a-cryptographic-game)
 - [Inline reduction into a cryptographic game](#inline-reduction-into-a-cryptographic-game)
 
@@ -80,14 +80,12 @@ Raises:
 - `ValueError` if the destination function calls the function to be inlined in any way other than in a lone assignment statement (i.e., `foo = f(bar)`).
 - `ValueError` if the function to be inlined does not have a return statement.
 
-### Inline calls to all methods of a given class
+### Inline calls to all static methods of a given class
 
-Within a function replace all calls to methods of a class with the body of the method, with the arguments to the call appropriately bound and with local variables named unambiguously.
-
-All methods of the class being inlined must be static methods.
+Within a function replace all calls to static methods of a class with the body of the method, with the arguments to the call appropriately bound and with local variables named unambiguously.
 
 ```python
-def inline_all_method_calls(
+def inline_all_static_method_calls(
 	c_to_be_inlined: Union[Type[Any], str, ast.ClassDef], 
 	f_dest: Union[Callable, str, ast.FunctionDef]
 ) -> str:
@@ -103,7 +101,7 @@ class C():
     	return r
 def f(x): z = C.A(x, 2)
 
-inline_all_method_calls(C, f)
+inline_all_static_method_calls(C, f)
 
 # returns:
 
@@ -115,6 +113,40 @@ def f(x):
 Raises:
 
 - `ValueError` if the class being inlined has a non-static method.
+- `NotImplementedError` and `ValueError` for the reasons given in `inline_function_call`.
+
+### Inline calls to all non-static methods of a given object
+
+Within a function replace all calls to non-static methods of a object with the body of the method, with the arguments to the call appropriately bound and with local variables named unambiguously.
+
+```python
+def inline_all_nonstatic_method_calls(
+	o_name: str, 
+	c_to_be_inlined: Union[Type[Any], str, ast.ClassDef], 
+	f_dest: Union[Callable, str, ast.FunctionDef]
+) -> str:
+```
+
+Example:
+
+```python
+class C():
+    def A(self, a, b): 
+    	r = a + b + self.c
+    	return r
+def f(x): z = o.A(x, 2)
+
+inline_all_nonstatic_method_calls('o', C, f)
+
+# returns:
+
+def f(x):
+    o_Aᴠ1ⴰr = x + 2 + o.c
+    z = o_Aᴠ1ⴰr
+```
+
+Raises:
+
 - `NotImplementedError` and `ValueError` for the reasons given in `inline_function_call`.
 
 ### Inline all methods of a cryptographic scheme into a cryptographic game
@@ -162,7 +194,7 @@ class G_expected_result(Crypto.Game):
 
 Raises:
 
-- `NotImplementedError` and `ValueError` for the reasons given in `inline_all_method_calls`.
+- `NotImplementedError` and `ValueError` for the reasons given in `inline_all_static_method_calls`.
 
 ### Inline reduction into a cryptographic game
 

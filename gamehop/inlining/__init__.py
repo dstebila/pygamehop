@@ -2,13 +2,13 @@ import ast
 import copy
 import inspect
 import types
-from typing import cast, Any, Callable, List, Union, Tuple, Type
+from typing import cast, Any, Callable, List, Optional, Union, Tuple, Type
 
 from . import internal
 from .. import utils
 from ..primitives import Crypto
 
-__all__ = ['inline_argument_into_function', 'inline_function_call', 'inline_all_method_calls', 'inline_scheme_into_game', 'inline_reduction_into_game']
+__all__ = ['inline_argument_into_function', 'inline_function_call', 'inline_all_static_method_calls', 'inline_all_nonstatic_method_calls' 'inline_scheme_into_game', 'inline_reduction_into_game']
 
 # Note that inlining uses Unicode symbols to make it look like the original code
 # e.g. attribute dereferencing: x.y gets inlined to xⴰy
@@ -170,8 +170,8 @@ def helper_make_lines_of_inlined_function(fdef_to_be_inlined: ast.FunctionDef, p
     return working_copy.body
 
 class InlineFunctionCallIntoStatements(utils.NewNodeTransformer):
-    """Helper node transformer for inline_function_call. Does the actual replacement."""
-    def __init__(self, f_to_be_inlined, f_dest_name):
+    """Helper node transformer for inline_function_call. Does the actual replacement.  If the optional selfname argument is given, then the arguments list will be prepended with an argument corresponding to selfname."""
+    def __init__(self, f_to_be_inlined, f_dest_name, selfname = None):
         self.f_to_be_inlined = f_to_be_inlined
         self.fdef_to_be_inlined = utils.get_function_def(f_to_be_inlined)
         self.f_to_be_inlined_has_return = isinstance(self.fdef_to_be_inlined.body[-1], ast.Return)
@@ -180,24 +180,29 @@ class InlineFunctionCallIntoStatements(utils.NewNodeTransformer):
             self.f_src_name = self.f_to_be_inlined.__qualname__.split('<locals>.')[-1]
         else: self.f_src_name = self.fdef_to_be_inlined.name
         self.f_dest_name = f_dest_name
+        self.selfname = selfname
         self.replacement_count = 0
     def visit_Assign(self, stmt):
         # replace y = f(x)
         if isinstance(stmt, ast.Assign) and isinstance(stmt.value, ast.Call) and ast.unparse(stmt.value.func) == self.f_src_name:
             if not self.f_to_be_inlined_has_return:
                 raise ValueError(f"Cannot inline function {self.fdef_to_be_inlined.name} into statement {ast.unparse(stmt)} in function {self.f_dest_name} since {self.fdef_to_be_inlined.name} does not return anything")
-            # copy the expanded lines
+            # prepare the replacement
             self.replacement_count += 1
             prefix = self.f_src_name.replace('.', '_')
-            newlines = helper_make_lines_of_inlined_function(self.fdef_to_be_inlined, stmt.value.args, f'{prefix}ᴠ{self.replacement_count}')
+            # if selfname is provided, prepend the list of arguments with an argument based on selfname before doing the substitution
+            if self.selfname == None: newargs = stmt.value.args
+            else: newargs = [ast.arg(arg=self.selfname)] + stmt.value.args
+            # copy the expanded lines
+            newlines = helper_make_lines_of_inlined_function(self.fdef_to_be_inlined, newargs, f'{prefix}ᴠ{self.replacement_count}')
             # assign the required variables based on the return statement
             assert isinstance(newlines[-1], ast.Expr)
             newlines[-1] = ast.Assign(targets = stmt.targets, value = newlines[-1].value)
             return newlines
         else: return stmt
 
-def inline_function_call(f_to_be_inlined: Union[Callable, str, ast.FunctionDef], f_dest: Union[Callable, str, ast.FunctionDef]) -> str:
-    """Returns a string representing the provided destination function with all calls to the function-to-be-inlined replaced with the body of that function, with arguments to the call appropriately bound and with local variables named unambiguously."""
+def inline_function_call(f_to_be_inlined: Union[Callable, str, ast.FunctionDef], f_dest: Union[Callable, str, ast.FunctionDef], selfname: Optional[str] = None) -> str:
+    """Returns a string representing the provided destination function with all calls to the function-to-be-inlined replaced with the body of that function, with arguments to the call appropriately bound and with local variables named unambiguously. If the optional selfname argument is given, then the arguments list will be prepended with an argument corresponding to selfname."""
 
     fdef_to_be_inlined = utils.get_function_def(f_to_be_inlined)
     fdef_dest = utils.get_function_def(f_dest)
@@ -212,12 +217,9 @@ def inline_function_call(f_to_be_inlined: Union[Callable, str, ast.FunctionDef],
         if contains_return.found == True:
             raise NotImplementedError(f"Inlining function {fdef_to_be_inlined.name} into {fdef_dest.name} since {fdef_to_be_inlined.name} contains a return statement somewhere other than the last line (namely, line {lineno+1})")
 
-    # check if the last line of f_to_be_inlined is a return statement,
-    f_to_be_inlined_has_return = isinstance(fdef_to_be_inlined.body[-1], ast.Return)
-
     # go through every line of the inlinee and replace all calls that we know how to handle
     newdest = fdef_dest
-    newdest.body = InlineFunctionCallIntoStatements(f_to_be_inlined, fdef_dest.name).visit(newdest.body)
+    newdest.body = InlineFunctionCallIntoStatements(f_to_be_inlined, fdef_dest.name, selfname=selfname).visit(newdest.body)
 
     # if there's still a call to our function somewhere, it must have been somewhere other than on a bare Assign line; raise an error
     class ContainsCall(utils.NewNodeVisitor):
@@ -296,8 +298,28 @@ def inline_class(inlinee: Union[Callable, str, ast.FunctionDef], arg: str, inlin
     inlinee_def.args.args = newargs
     return ast.unparse(ast.fix_missing_locations(inlinee_def))
 
-def inline_all_method_calls(c_to_be_inlined: Union[Type[Any], str, ast.ClassDef], f_dest: Union[Callable, str, ast.FunctionDef]) -> str:
-    """Returns a string representing the provided destination function with all calls to methods of the given class-to-be-inlined replaced with the body of that function, with arguments to the call appropriately bound and with local variables named unambiguously.  Only handles classes with static methods."""
+def is_static_functiondef(f: ast.FunctionDef) -> bool:
+    """Helper function that recognizes static methods of a function def."""
+    for d in f.decorator_list:
+        if isinstance(d, ast.Name) and d.id == 'staticmethod': return True
+    return False
+
+def inline_all_nonstatic_method_calls(o_name: str, c_to_be_inlined: Union[Type[Any], str, ast.ClassDef], f_dest: Union[Callable, str, ast.FunctionDef]) -> str:
+    """Returns a string representing the provided destination function with all calls to non-static methods of the given object replaced with the body of that function, with arguments to the call appropriately bound and with local variables named unambiguously."""
+    cdef_to_be_inlined = utils.get_class_def(c_to_be_inlined)
+    fdef_dest = utils.get_function_def(f_dest)
+    # go through every function 
+    for f in cdef_to_be_inlined.body:
+        if isinstance(f, ast.FunctionDef):
+            if is_static_functiondef(f): continue
+            # hack the method's name to include the object name
+            f.name = o_name + "." + f.name
+            # inline calls to this method
+            fdef_dest = utils.get_function_def(inline_function_call(f, fdef_dest, selfname=o_name))
+    return ast.unparse(ast.fix_missing_locations(fdef_dest))
+
+def inline_all_static_method_calls(c_to_be_inlined: Union[Type[Any], str, ast.ClassDef], f_dest: Union[Callable, str, ast.FunctionDef]) -> str:
+    """Returns a string representing the provided destination function with all calls to static methods of the given class-to-be-inlined replaced with the body of that function, with arguments to the call appropriately bound and with local variables named unambiguously."""
 
     cdef_to_be_inlined = utils.get_class_def(c_to_be_inlined)
     fdef_dest = utils.get_function_def(f_dest)
@@ -306,10 +328,7 @@ def inline_all_method_calls(c_to_be_inlined: Union[Type[Any], str, ast.ClassDef]
     for f in cdef_to_be_inlined.body:
         if isinstance(f, ast.FunctionDef):
             # can't handle classes with non-static functions
-            is_static_method = False
-            for d in f.decorator_list:
-                if isinstance(d, ast.Name) and d.id == 'staticmethod': is_static_method = True
-            if not is_static_method:
+            if not is_static_functiondef(f):
                 raise ValueError(f"Unable to inline non-static method {f.name} from class {cdef_to_be_inlined.name} into function {fdef_dest.name}")
             # hack the method's name to include the class name
             f.name = cdef_to_be_inlined.name + "." + f.name
@@ -334,7 +353,7 @@ def inline_scheme_into_game(Scheme: Type[Crypto.Scheme], Game: Type[Crypto.Game]
             # references to the scheme will look like "self.Scheme.whatever"
             # replace these with "Scheme.whatever" so that they can easily be replaced
             fdef = utils.AttributeNodeReplacer('self', 'Scheme', Scheme.__name__).visit(fdef)
-            Game_newbody.append(utils.get_function_def(inline_all_method_calls(Scheme, cast(ast.FunctionDef, fdef))))
+            Game_newbody.append(utils.get_function_def(inline_all_static_method_calls(Scheme, cast(ast.FunctionDef, fdef))))
     Game_copy.body = Game_newbody
     return ast.unparse(ast.fix_missing_locations(Game_copy))
 
@@ -366,7 +385,7 @@ def inline_reduction_into_game(R: Type[Crypto.Reduction], GameForR: Type[Crypto.
             # references to the scheme will look like "self.Adversary.whatever"
             # replace these with "R.whatever" so that they can easily be replaced
             fdef = utils.AttributeNodeReplacer('self', 'Adversary', R.__name__).visit(fdef)
-            fdef = utils.get_function_def(inline_all_method_calls(R, cast(ast.FunctionDef, fdef)))
+            fdef = utils.get_function_def(inline_all_static_method_calls(R, cast(ast.FunctionDef, fdef)))
             # replace references to self.Scheme with the scheme that R was using
             fdef = utils.AttributeNodeReplacer('self', 'Scheme', SchemeForR.__name__).visit(fdef)
             # replace R's calls to its inner adversary with calls to the outer game's self.Adversary
