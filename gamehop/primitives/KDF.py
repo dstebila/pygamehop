@@ -9,16 +9,15 @@ class KDFScheme(Crypto.Scheme):
     def Eval(k: Key, label: str, len: int) -> Crypto.BitString: pass
 
 class ROR_Adversary(Crypto.Adversary):
-    @staticmethod
-    def run(Scheme: Type[KDFScheme], o_eval: Callable[[str, int], Crypto.BitString]) -> Crypto.Bit: pass
+    def run(self, o_eval: Callable[[str, int], Crypto.BitString]) -> Crypto.Bit: pass
 
 class ROR_Real(Crypto.Game):
     def __init__(self, Scheme: Type[KDFScheme], Adversary: Type[ROR_Adversary]):
         self.Scheme = Scheme
-        self.Adversary = Adversary
+        self.adversary = Adversary(Scheme)
     def main(self) -> Crypto.Bit:
         self.k = Crypto.UniformlySample(self.Scheme.Key)
-        r = self.Adversary.run(self.Scheme, self.o_eval)
+        r = self.adversary.run(self.o_eval)
         return r
     def o_eval(self, label: str, length: int) -> Crypto.BitString:
         return self.Scheme.Eval(self.k, label, length)
@@ -26,10 +25,10 @@ class ROR_Real(Crypto.Game):
 class ROR_Random(Crypto.Game):
     def __init__(self, Scheme: Type[KDFScheme], Adversary: Type[ROR_Adversary]):
         self.Scheme = Scheme
-        self.Adversary = Adversary
+        self.adversary = Adversary(Scheme)
     def main(self) -> Crypto.Bit:
         self.query_list = lists.new_empty_list()
-        r = self.Adversary.run(self.Scheme, self.o_eval)
+        r = self.adversary.run(self.o_eval)
         return r
     def o_eval(self, label: str, length: int) -> Crypto.BitString:
         if (label, length) not in self.query_list:

@@ -10,32 +10,30 @@ class OTPScheme(Crypto.Scheme):
     def Decrypt(key: Crypto.BitString, ctxt: Crypto.BitString) -> Message: pass
 
 class IND_Adversary(Crypto.Adversary):
-    @staticmethod
-    def challenge(Scheme: Type[OTPScheme]) -> Tuple[OTPScheme.Message, OTPScheme.Message, Tuple]: pass
-    @staticmethod
-    def guess(Scheme: Type[OTPScheme], state: Tuple, ct: Crypto.BitString) -> Crypto.Bit: pass
+    def challenge(self) -> Tuple[OTPScheme.Message, OTPScheme.Message]: pass
+    def guess(self, ct: Crypto.BitString) -> Crypto.Bit: pass
 
 class IND_Left(Crypto.Game):
     def __init__(self, Scheme: Type[OTPScheme], Adversary: Type[IND_Adversary]):
         self.Scheme = Scheme
-        self.Adversary = Adversary
+        self.adversary = Adversary(Scheme)
     def main(self) -> Crypto.Bit:
-        (m0, m1, st) = self.Adversary.challenge(self.Scheme)
+        (m0, m1) = self.adversary.challenge()
         k = Crypto.BitString.uniformly_random(len(m0))
         ct = self.Scheme.Encrypt(k, m0)
-        r = self.Adversary.guess(self.Scheme, st, ct)
+        r = self.adversary.guess(ct)
         ret = r if len(m0) == len(m1) else Crypto.Bit(0)
         return ret
 
 class IND_Right(Crypto.Game):
     def __init__(self, Scheme: Type[OTPScheme], Adversary: Type[IND_Adversary]):
         self.Scheme = Scheme
-        self.Adversary = Adversary
+        self.adversary = Adversary(Scheme)
     def main(self) -> Crypto.Bit:
-        (m0, m1, st) = self.Adversary.challenge(self.Scheme)
+        (m0, m1) = self.adversary.challenge()
         k = Crypto.BitString.uniformly_random(len(m0))
         ct = self.Scheme.Encrypt(k, m1)
-        r = self.Adversary.guess(self.Scheme, st, ct)
+        r = self.adversary.guess(ct)
         ret = r if len(m0) == len(m1) else Crypto.Bit(0)
         return ret
 

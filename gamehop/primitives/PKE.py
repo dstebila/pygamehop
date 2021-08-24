@@ -16,54 +16,50 @@ class PKEScheme(Crypto.Scheme, ABC):
     def Decrypt(sk: SecretKey, ct: Ciphertext) -> Union[Message, Crypto.Reject]: pass
 
 class INDCPA_Adversary(Crypto.Adversary):
-    @staticmethod
-    def challenge(Scheme: Type[PKEScheme], pk: PKEScheme.PublicKey) -> Tuple[PKEScheme.Message, PKEScheme.Message, Tuple]: pass
-    @staticmethod
-    def guess(Scheme: Type[PKEScheme], state: Tuple, ct: PKEScheme.Ciphertext) -> Crypto.Bit: pass
+    def challenge(self, pk: PKEScheme.PublicKey) -> Tuple[PKEScheme.Message, PKEScheme.Message]: pass
+    def guess(self, ct: PKEScheme.Ciphertext) -> Crypto.Bit: pass
 
 class INDCPA_Left(Crypto.Game):
     def __init__(self, Scheme: Type[PKEScheme], Adversary: Type[INDCPA_Adversary]):
         self.Scheme = Scheme
-        self.Adversary = Adversary
+        self.adversary = Adversary(Scheme)
     def main(self) -> Crypto.Bit:
         (pk, sk) = self.Scheme.KeyGen()
-        (m0, m1, st) = self.Adversary.challenge(self.Scheme, pk)
+        (m0, m1) = self.adversary.challenge(pk)
         ct = self.Scheme.Encrypt(pk, m0)
-        r = self.Adversary.guess(self.Scheme, st, ct)
+        r = self.adversary.guess(ct)
         ret = r if len(m0) == len(m1) else Crypto.Bit(0)
         return ret
 
 class INDCPA_Right(Crypto.Game):
     def __init__(self, Scheme: Type[PKEScheme], Adversary: Type[INDCPA_Adversary]):
         self.Scheme = Scheme
-        self.Adversary = Adversary
+        self.adversary = Adversary(Scheme)
     def main(self) -> Crypto.Bit:
         (pk, sk) = self.Scheme.KeyGen()
-        (m0, m1, st) = self.Adversary.challenge(self.Scheme, pk)
+        (m0, m1) = self.adversary.challenge(pk)
         ct = self.Scheme.Encrypt(pk, m1)
-        r = self.Adversary.guess(self.Scheme, st, ct)
+        r = self.adversary.guess(ct)
         ret = r if len(m0) == len(m1) else Crypto.Bit(0)
         return ret
 
 INDCPA = Crypto.DistinguishingExperimentLeftOrRight(INDCPA_Left, INDCPA_Right, INDCPA_Adversary)
 
 class INDCCA2_Adversary(Crypto.Adversary):
-    @staticmethod
-    def challenge(Scheme: Type[PKEScheme], pk: PKEScheme.PublicKey, o_decrypt: Callable[[PKEScheme.Ciphertext], Union[PKEScheme.Message, Crypto.Reject]]) -> Tuple[PKEScheme.Message, PKEScheme.Message, Tuple]: pass
-    @staticmethod
-    def guess(Scheme: Type[PKEScheme], state: Tuple, ct: PKEScheme.Ciphertext, o_decrypt: Callable[[PKEScheme.Ciphertext], Union[PKEScheme.Message, Crypto.Reject]]) -> Crypto.Bit: pass
+    def challenge(self, pk: PKEScheme.PublicKey, o_decrypt: Callable[[PKEScheme.Ciphertext], Union[PKEScheme.Message, Crypto.Reject]]) -> Tuple[PKEScheme.Message, PKEScheme.Message]: pass
+    def guess(self, ct: PKEScheme.Ciphertext, o_decrypt: Callable[[PKEScheme.Ciphertext], Union[PKEScheme.Message, Crypto.Reject]]) -> Crypto.Bit: pass
 
 class INDCCA2_Left(Crypto.Game):
     def __init__(self, Scheme: Type[PKEScheme], Adversary: Type[INDCCA2_Adversary]):
         self.Scheme = Scheme
-        self.Adversary = Adversary
+        self.adversary = Adversary(Scheme)
     def main(self) -> Crypto.Bit:
         (pk, sk) = self.Scheme.KeyGen()
         self.sk = sk
         self.ctstar = None
-        (m0, m1, st) = self.Adversary.challenge(self.Scheme, pk, self.o_decrypt)
+        (m0, m1) = self.adversary.challenge(pk, self.o_decrypt)
         self.ctstar = self.Scheme.Encrypt(pk, m0)
-        r = self.Adversary.guess(self.Scheme, st, self.ctstar, self.o_decrypt)
+        r = self.adversary.guess(self.ctstar, self.o_decrypt)
         ret = r if len(m0) == len(m1) else Crypto.Bit(0)
         return ret
     def o_decrypt(self, ct: PKEScheme.Ciphertext) -> Union[PKEScheme.Message, Crypto.Reject]:
@@ -74,14 +70,14 @@ class INDCCA2_Left(Crypto.Game):
 class INDCCA2_Right(Crypto.Game):
     def __init__(self, Scheme: Type[PKEScheme], Adversary: Type[INDCCA2_Adversary]):
         self.Scheme = Scheme
-        self.Adversary = Adversary
+        self.adversary = Adversary(Scheme)
     def main(self) -> Crypto.Bit:
         (pk, sk) = self.Scheme.KeyGen()
         self.sk = sk
         self.ctstar = None
-        (m0, m1, st) = self.Adversary.challenge(self.Scheme, pk, self.o_decrypt)
+        (m0, m1) = self.adversary.challenge(pk, self.o_decrypt)
         self.ctstar = self.Scheme.Encrypt(pk, m1)
-        r = self.Adversary.guess(self.Scheme, st, self.ctstar, self.o_decrypt)
+        r = self.adversary.guess(self.ctstar, self.o_decrypt)
         ret = r if len(m0) == len(m1) else Crypto.Bit(0)
         return ret
     def o_decrypt(self, ct: PKEScheme.Ciphertext) -> Union[PKEScheme.Message, Crypto.Reject]:
