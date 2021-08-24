@@ -25,7 +25,7 @@ class NewNodeVisitor(ast.NodeVisitor):
 
 class NewNodeTransformer(ast.NodeTransformer):
     """Adds the ability to handle List[ast.stmt] to ast.NodeTransformer"""
-    new_statements = list()
+    new_statements: List[ast.stmt] = list()
 
     def combine_new_statements(self, some_statements):
         all_new_statements = list(some_statements).extend(self.new_statements)
