@@ -26,7 +26,6 @@ class TestInlineAllInnerClassInitCallsIntoFunction(unittest.TestCase):
             z.x = 3
             z.y = int(4)
             return z
-        print(gamehop.inlining.inline_all_inner_class_init_calls(C, f))
         self.assertEqual(
             gamehop.inlining.inline_all_inner_class_init_calls(C, f),
             expected_result(f_expected_result))
@@ -48,9 +47,6 @@ class TestInlineAllInnerClassInitCallsIntoFunction(unittest.TestCase):
             C_D___new__v1_w = 3 + 2
             z.y = C_D___new__v1_w
             return z
-        print(gamehop.inlining.inline_all_inner_class_init_calls(C, f))
         self.assertEqual(
             gamehop.inlining.inline_all_inner_class_init_calls(C, f),
             expected_result(f_expected_result))
-
-TestInlineAllInnerClassInitCallsIntoFunction().test_basic()
