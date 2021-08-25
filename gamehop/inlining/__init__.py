@@ -335,6 +335,64 @@ def inline_all_static_method_calls(c_to_be_inlined: Union[Type[Any], str, ast.Cl
             fdef_dest = utils.get_function_def(inline_function_call(f, fdef_dest))
     return ast.unparse(ast.fix_missing_locations(fdef_dest))
 
+def inline_all_inner_class_init_calls(c_to_be_inlined: Union[Type[Any], str, ast.ClassDef], f_dest: Union[Callable, str, ast.FunctionDef]) -> str:
+
+    cdef_to_be_inlined = utils.get_class_def(c_to_be_inlined)
+    fdef_dest = utils.get_function_def(f_dest)
+    
+    class InlineInit(utils.NewNodeTransformer):
+        def __init__(self, needle: str, initmethod: ast.FunctionDef):
+            self.needle = needle
+            self.initmethod = initmethod
+        def visit_Assign(self, node):
+            if isinstance(node.value, ast.Call) and ast.unparse(node.value.func) == self.needle:
+                if len(node.targets) != 1 or not isinstance(node.targets[0], ast.Name):
+                    raise ValueError(f"Left-hand side of assignment statements involving constructors must be a single variable {ast.unparse(node)}")
+                # for example, suppose the statement is
+                #     z = C.D(3, 2)
+                # and C.D's __init__ method is:
+                #     def __init__(self, x, y):
+                #         self.x = x
+                #         self.y = y
+                var = node.targets[0].id
+                # add a statement
+                #     z = C.D.__new__(C.D)
+                varinit = ast.Assign(
+                    targets = [ast.Name(id=var, ctx=ast.Store())],
+                    value = ast.Call(
+                        func=ast.Attribute(
+                            value=node.value.func,
+                            attr='__new__',
+                            ctx=ast.Load()
+                        ),
+                        args=[node.value.func],
+                        keywords=[]
+                    )
+                )
+                # now we'll want to get the body of the __init__ method, binding self to the target variable
+                # and binding the arguments to the constructor call with the appropriate values
+                newinit = self.initmethod
+                # bind the calling parameters
+                for i, val in enumerate(node.value.args):
+                    newinit = inline_argument_into_function(self.initmethod.args.args[1 + i].arg, val, newinit)
+                # replace self with the name of the variable being assigned
+                newinit = inline_argument_into_function(self.initmethod.args.args[0].arg, ast.Name(id=var, ctx=ast.Store()), newinit)
+                # return the result, e.g.:
+                #     z = C.D.__new__(C.D)
+                #     z.x = 3
+                #     z.y = 2
+                return [varinit] + utils.get_function_def(newinit).body
+            return node
+    
+    # go through every inner class
+    for innerc in cdef_to_be_inlined.body:
+        if isinstance(innerc, ast.ClassDef):
+            for method in innerc.body:
+                if isinstance(method, ast.FunctionDef) and method.name == '__init__':
+                    n = cdef_to_be_inlined.name + "." + innerc.name
+                    fdef_dest = InlineInit(n, method).visit(fdef_dest)
+    return ast.unparse(ast.fix_missing_locations(fdef_dest))
+
 def inline_scheme_into_game(Scheme: Type[Crypto.Scheme], Game: Type[Crypto.Game]) -> str:
     """Returns a string representing the provided cryptographic game with all calls to methods of the given cryptographic scheme replaced with the body of those functions, with arguments to the call appropriately bound and with local variables named unambiguously."""
     Game_copy = utils.get_class_def(Game)
@@ -352,7 +410,9 @@ def inline_scheme_into_game(Scheme: Type[Crypto.Scheme], Game: Type[Crypto.Game]
             # references to the scheme will look like "self.Scheme.whatever"
             # replace these with "Scheme.whatever" so that they can easily be replaced
             fdef = utils.AttributeNodeReplacer(['self', 'Scheme'], Scheme.__name__).visit(fdef)
-            Game_newbody.append(utils.get_function_def(inline_all_static_method_calls(Scheme, cast(ast.FunctionDef, fdef))))
+            fdef = utils.get_function_def(inline_all_static_method_calls(Scheme, cast(ast.FunctionDef, fdef)))
+            fdef = utils.get_function_def(inline_all_inner_class_init_calls(Scheme, cast(ast.FunctionDef, fdef)))
+            Game_newbody.append(fdef)
     Game_copy.body = Game_newbody
     return ast.unparse(ast.fix_missing_locations(Game_copy))
 

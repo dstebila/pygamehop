@@ -100,11 +100,13 @@ class TestInlineReductionIntoGame(unittest.TestCase):
                 self.adversary = Adversary(P2fromP1)
             def main(self) -> Crypto.Bit:
                 P2fromP1_KGᴠ1ⴰpk = P1.KeyGen()
-                pk = P2fromP1.PK(P2fromP1_KGᴠ1ⴰpk)
+                pk = P2fromP1.PK.__new__(P2fromP1.PK)
+                pk.pk = P2fromP1_KGᴠ1ⴰpk
                 b = random.choice([0, 1])
                 msge = "hi!" if b == 0 else "bye"
                 P2fromP1_ENCᴠ1ⴰct = P1.Encrypt(pk.pk, msge)
-                ct = P2fromP1.CT(P2fromP1_ENCᴠ1ⴰct)
+                ct = P2fromP1.CT.__new__(P2fromP1.CT)
+                ct.ct = P2fromP1_ENCᴠ1ⴰct
                 bnew = self.adversary.hi_or_not(pk, ct)
                 bstar = 0 if bnew else 1
                 ret = 1 if b == bstar else 0
