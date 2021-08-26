@@ -58,13 +58,14 @@ class G2(Crypto.Game):
         self.Scheme = Scheme
         self.adversary = Adversary(Scheme)
     def main(self) -> Crypto.Bit:
-        self.pk = self.Scheme.KG()
+        pk = self.Scheme.KG()
+        self.pk = pk
         b = random.choice([0,1])
         msge = "hi!" if b == 0 else "bye"
         ct = self.Scheme.ENC(self.pk, msge)
         bnew = self.adversary.hi_or_not(self.pk, ct, self.o_encconcat)
         bstar = 0 if bnew else 1
-        ret = 1 if b == bstar else 1
+        ret = 1 if b == bstar else 0
         return Crypto.Bit(ret)
     def o_encconcat(self, m1: str, m2: str) -> P2.CT:
         return self.Scheme.ENC(self.pk, m1 + m2)
@@ -77,16 +78,20 @@ class P2fromP1(P2):
             self.ct = ct
     @staticmethod
     def KG():
-        return P2fromP1.PK(P1.KeyGen())
+        pk = P1.KeyGen()
+        return P2fromP1.PK(pk)
     @staticmethod
     def ENC(pk, msg):
-        return P2fromP1.CT(P1.Encrypt(pk.pk, msg))
+        ct = P1.Encrypt(pk.pk, msg)
+        return P2fromP1.CT(ct)
 class R(Crypto.Reduction, G1_Adversary):
     def __init__(self, Scheme: Type[P1], inner_adversary: G2_Adversary):
         self.Scheme = Scheme
         self.inner_adversary = inner_adversary
     def hi_or_bye(self, pk: P1.PublicKey, ct: P1.Ciphertext, o_encrypter: Callable[[str], P1.Ciphertext]) -> int:
-        g = self.inner_adversary.hi_or_not(P2fromP1.PK(pk), P2fromP1.CT(ct), R.o_encconcat)
+        pkprime = P2fromP1.PK(pk)
+        ctprime = P2fromP1.CT(ct)
+        g = self.inner_adversary.hi_or_not(pkprime, ctprime, R.o_encconcat)
         ret = 0 if g else 1
         return ret
     def o_encconcat(self, m1: str, m2: str) -> P2.CT:
@@ -101,13 +106,18 @@ class TestInlineReductionIntoGameWithOracle(unittest.TestCase):
                 self.Scheme = P2fromP1
                 self.adversary = Adversary(P2fromP1)
             def main(self) -> Crypto.Bit:
-                self.pk = P2fromP1.PK(P1.KeyGen())
+                P2fromP1_KGᴠ1ⴰpk = P1.KeyGen()
+                pk = P2fromP1.PK.__new__(P2fromP1.PK)
+                pk.pk = P2fromP1_KGᴠ1ⴰpk
+                self.pk = pk
                 b = random.choice([0, 1])
                 msge = "hi!" if b == 0 else "bye"
-                ct = P2fromP1.CT(P1.Encrypt(self.pk.pk, msge))
+                P2fromP1_ENCᴠ1ⴰct = P1.Encrypt(self.pk.pk, msge)
+                ct = P2fromP1.CT.__new__(P2fromP1.CT)
+                ct.ct = P2fromP1_ENCᴠ1ⴰct
                 bnew = self.adversary.hi_or_not(self.pk, ct, self.o_encconcat)
                 bstar = 0 if bnew else 1
-                ret = 1 if b == bstar else 1
+                ret = 1 if b == bstar else 0
                 return Crypto.Bit(ret)
             def o_encconcat(self, m1: str, m2: str) -> P2.CT:
                 return P2fromP1.ENC(self.pk, m1 + m2)
@@ -126,7 +136,9 @@ class TestInlineReductionIntoGameWithOracle(unittest.TestCase):
                 b = random.choice([0, 1])
                 msge = 'hi!' if b == 0 else 'bye'
                 ct = P1.Encrypt(self.pk, msge)
-                self_adversary_hi_or_byeᴠ1ⴰg = self.adversary.hi_or_not(P2fromP1.PK(self.pk), P2fromP1.CT(ct), self.o_encconcat)
+                self_adversary_hi_or_byeᴠ1ⴰpkprime = P2fromP1.PK(self.pk)
+                self_adversary_hi_or_byeᴠ1ⴰctprime = P2fromP1.CT(ct)
+                self_adversary_hi_or_byeᴠ1ⴰg = self.adversary.hi_or_not(self_adversary_hi_or_byeᴠ1ⴰpkprime, self_adversary_hi_or_byeᴠ1ⴰctprime, self.o_encconcat)
                 self_adversary_hi_or_byeᴠ1ⴰret = 0 if self_adversary_hi_or_byeᴠ1ⴰg else 1
                 bstar = self_adversary_hi_or_byeᴠ1ⴰret
                 ret = 1 if b == bstar else 0
