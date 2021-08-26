@@ -67,7 +67,7 @@ def expected_result(f):
     return ast.unparse(ast.parse(s))
 
 class TestCanonicalize(unittest.TestCase):
-    def test_inline_function_order(self):
+    def oldtest_inline_function_order(self):
         f = gamehop.inlining.inline_class(f_inline_function_order, 'v', class_inline_function_order)
         s1 = gamehop.verification.canonicalize_function(f)
         f2 = gamehop.utils.get_function_def(f_inline_function_order_expected_result)
@@ -80,21 +80,21 @@ class TestCanonicalize(unittest.TestCase):
         gamehop.verification.canonicalization.canonicalize_function_name(f2)
         s2 = ast.unparse(f2)
         self.assertEqual(s1, s2)
-    def test_inline_init_arg(self):
+    def oldtest_inline_init_arg(self):
         test1 = gamehop.inlining.inline_class(f_inline_init_arg, 'v', class_inline_init_arg)
         s1 = gamehop.verification.canonicalize_function(test1)
         f2 = gamehop.utils.get_function_def(f_inline_init_arg_expected_result)
         gamehop.verification.canonicalization.canonicalize_function_name(f2)
         s2 = ast.unparse(f2)
         self.assertEqual(s1, s2)
-    def test_inline_init_arg2(self):
+    def oldtest_inline_init_arg2(self):
         test1 = gamehop.inlining.inline_class(f_inline_init_arg2, 'v', class_inline_init_arg2)
         s1 = gamehop.verification.canonicalize_function(test1)
         f2 = gamehop.utils.get_function_def(f_inline_init_arg2_expected_result)
         gamehop.verification.canonicalization.canonicalize_function_name(f2)
         s2 = ast.unparse(f2)
         self.assertEqual(s1, s2)
-    def test_inline_init_arg3(self):
+    def oldtest_inline_init_arg3(self):
         test1 = gamehop.inlining.inline_class(f_inline_init_arg3, 'v', class_inline_init_arg3)
         s1 = gamehop.verification.canonicalize_function(test1)
         f2 = gamehop.utils.get_function_def(f_inline_init_arg3_expected_result)
