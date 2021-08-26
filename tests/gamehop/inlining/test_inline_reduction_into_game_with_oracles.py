@@ -89,13 +89,14 @@ class R(Crypto.Reduction, G1_Adversary):
         self.Scheme = Scheme
         self.inner_adversary = inner_adversary
     def hi_or_bye(self, pk: P1.PublicKey, ct: P1.Ciphertext, o_encrypter: Callable[[str], P1.Ciphertext]) -> int:
+        self.io_encrypter = o_encrypter
         pkprime = P2fromP1.PK(pk)
         ctprime = P2fromP1.CT(ct)
-        g = self.inner_adversary.hi_or_not(pkprime, ctprime, R.o_encconcat)
+        g = self.inner_adversary.hi_or_not(pkprime, ctprime, self.o_encconcat)
         ret = 0 if g else 1
         return ret
     def o_encconcat(self, m1: str, m2: str) -> P2.CT:
-        ct = self.o_encrypter(m1 + m2)
+        ct = self.io_encrypter(m1 + m2)
         return P2fromP1.CT(ct)
 
 class TestInlineReductionIntoGameWithOracle(unittest.TestCase):

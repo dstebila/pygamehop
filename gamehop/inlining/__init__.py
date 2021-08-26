@@ -486,8 +486,22 @@ def inline_reduction_into_game(R: Type[Crypto.Reduction], GameForR: Type[Crypto.
     for fdef in OraclesToSave:
         # calls to this oracle in OutputGame will be of the form R.o_whatever
         # first we'll give those calls a temporary name
-        OutputGame.body = utils.AttributeNodeReplacer(['self', fdef.name], 'to_be_replaced_' + fdef.name).visit(OutputGame.body)
-        fdef.name = 'to_be_replaced_' + fdef.name
+        OutputGame.body = utils.AttributeNodeReplacer(['self', 'i' + fdef.name], R.__name__ + '_i' + fdef.name).visit(OutputGame.body)
+        # Stateful games that need to save a reference to their oracle will have had a line like
+        #     self.io_whatever = o_whatever
+        # By the line above, this will have been transformed into 
+        #     R_io_whatever = self.o_whatever
+        # This is now a redundant line, so we'll remove that
+        class OracleSaverRemover(utils.NewNodeTransformer):
+            def __init__(self, Rname: str, fdefname: str): 
+                self.Rname = Rname
+                self.fdefname = fdefname
+            def visit_Assign(self, node: ast.Assign):
+                if len(node.targets) == 1 and isinstance(node.targets[0], ast.Name) and node.targets[0].id == self.Rname + '_i' + self.fdefname and ast.unparse(node.value) == 'self.' + self.fdefname:
+                    return None
+                else: return node
+        OutputGame = OracleSaverRemover(R.__name__, fdef.name).visit(OutputGame)
+        fdef.name = R.__name__ + '_i' + fdef.name
         # remove self from the function
         del fdef.args.args[0]
         # inline this function into every method of the OutputGame
