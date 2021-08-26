@@ -89,8 +89,12 @@ class TestInlineFunction(unittest.TestCase):
 
     def test_no_assignment_with_return(self):
         def f(a, b): inlinand(a, 3)
-        with self.assertRaisesRegex(ValueError, "Could not fully inline inlinand into f since f calls inlinand in an unsupported way; the only supported way is an assignment statement of the form foo = inlinand\\(bar\\)"):
-            gamehop.inlining.inline_function_call(inlinand, f)
+        def f_expected_result(a, b):
+            inlinandᴠ1ⴰc = a + 3
+            inlinandᴠ1ⴰc
+        self.assertEqual(
+            gamehop.inlining.inline_function_call(inlinand, f),
+            expected_result(f_expected_result))
 
     def test_if_body(self):
         def f(a,b):

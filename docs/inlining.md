@@ -11,6 +11,8 @@ Output: When a function or class is an output, it will be given as a string.
 - [Inline argument into function](#inline-argument-into-function)
 - [Inline function call](#inline-function-call)
 - [Inline calls to all static methods of a given class](#inline-calls-to-all-static-methods-of-a-given-class)
+- [Inline calls to all non-static methods of a given object](#inline-calls-to-all-non-static-methods-of-a-given-object)
+- [Inline all `__init__` calls on inner classes](#inline-all-init-calls-on-inner-classes)
 - [Inline all methods of a cryptographic scheme into a cryptographic game](#inline-all-methods-of-a-cryptographic-scheme-into-a-cryptographic-game)
 - [Inline reduction into a cryptographic game](#inline-reduction-into-a-cryptographic-game)
 
@@ -143,6 +145,43 @@ inline_all_nonstatic_method_calls('o', C, f)
 def f(x):
     o_Aᴠ1ⴰr = x + 2 + o.c
     z = o_Aᴠ1ⴰr
+```
+
+Raises:
+
+- `NotImplementedError` and `ValueError` for the reasons given in `inline_function_call`.
+
+### Inline all `__init__` calls on inner classes
+
+Within a function replace all calls to constructors of inner classes of a given class with the body of the method, with the arguments to the call appropriately bound and with local variables named unambiguously.
+
+```python
+def inline_all_inner_class_init_calls(
+	c_to_be_inlined: Union[Type[Any], str, ast.ClassDef], 
+	f_dest: Union[Callable, str, ast.FunctionDef]
+) -> str:
+```
+
+Example:
+
+```python
+class C():
+    class D():
+       def __init__(self, a, b):
+           self.x = a
+           w = a + b
+           self.y = w
+def f(x): z = C.D(3, int(4))
+
+inline_all_nonstatic_method_calls('o', C, f)
+
+# returns:
+
+def f(x):
+    z = C.D.__new__(C.D)
+    z.x = 3
+    C_D___init__ᴠ1ⴰw = 3 + 2
+    z.y = C_D___init__ᴠ1ⴰw
 ```
 
 Raises:

@@ -164,21 +164,23 @@ def helper_make_lines_of_inlined_function(fdef_to_be_inlined: ast.FunctionDef, p
     assert len(params) == len(working_copy.args.args)
     replacements = {arg.arg: params[argnum] for argnum, arg in enumerate(working_copy.args.args)}
     working_copy = utils.NameNodeReplacer(replacements).visit(working_copy)
-    # the last line is a return statement, strip that out to be just an expression
-    assert isinstance(working_copy.body[-1], ast.Return)
-    working_copy.body[-1] = ast.Expr(value=working_copy.body[-1].value)
+    # if the last line is a return statement, strip that out to be just an expression
+    if isinstance(working_copy.body[-1], ast.Return):
+        working_copy.body[-1] = ast.Expr(value=working_copy.body[-1].value)
     return working_copy.body
 
 class InlineFunctionCallIntoStatements(utils.NewNodeTransformer):
     """Helper node transformer for inline_function_call. Does the actual replacement.  If the optional selfname argument is given, then the arguments list will be prepended with an argument corresponding to selfname."""
-    def __init__(self, f_to_be_inlined, f_dest_name, selfname = None):
+    def __init__(self, f_to_be_inlined, f_dest_name, selfname = None, f_to_be_inlined_name = None):
         self.f_to_be_inlined = f_to_be_inlined
         self.fdef_to_be_inlined = utils.get_function_def(f_to_be_inlined)
         self.f_to_be_inlined_has_return = isinstance(self.fdef_to_be_inlined.body[-1], ast.Return)
-        if isinstance(self.f_to_be_inlined, types.FunctionType):
-            # methods of inner classes will have names like Blah.<locals>.Foo.Bar; this removes everything before Foo.Bar
-            self.f_src_name = self.f_to_be_inlined.__qualname__.split('<locals>.')[-1]
-        else: self.f_src_name = self.fdef_to_be_inlined.name
+        if f_to_be_inlined_name == None:
+            if isinstance(self.f_to_be_inlined, types.FunctionType):
+                # methods of inner classes will have names like Blah.<locals>.Foo.Bar; this removes everything before Foo.Bar
+                self.f_src_name = self.f_to_be_inlined.__qualname__.split('<locals>.')[-1]
+            else: self.f_src_name = self.fdef_to_be_inlined.name
+        else: self.f_src_name = f_to_be_inlined_name
         self.f_dest_name = f_dest_name
         self.selfname = selfname
         self.replacement_count = 0
@@ -200,8 +202,21 @@ class InlineFunctionCallIntoStatements(utils.NewNodeTransformer):
             newlines[-1] = ast.Assign(targets = stmt.targets, value = newlines[-1].value)
             return newlines
         else: return stmt
+    def visit_Expr(self, stmt):
+        # replace f(x)
+        if isinstance(stmt, ast.Expr) and isinstance(stmt.value, ast.Call) and ast.unparse(stmt.value.func) == self.f_src_name:
+            # prepare the replacement
+            self.replacement_count += 1
+            prefix = self.f_src_name.replace('.', '_')
+            # if selfname is provided, prepend the list of arguments with an argument based on selfname before doing the substitution
+            if self.selfname == None: newargs = stmt.value.args
+            else: newargs = [ast.arg(arg=self.selfname)] + stmt.value.args
+            # copy the expanded lines
+            newlines = helper_make_lines_of_inlined_function(self.fdef_to_be_inlined, newargs, f'{prefix}ᴠ{self.replacement_count}')
+            return newlines
+        else: return stmt
 
-def inline_function_call(f_to_be_inlined: Union[Callable, str, ast.FunctionDef], f_dest: Union[Callable, str, ast.FunctionDef], selfname: Optional[str] = None) -> str:
+def inline_function_call(f_to_be_inlined: Union[Callable, str, ast.FunctionDef], f_dest: Union[Callable, str, ast.FunctionDef], selfname: Optional[str] = None, f_to_be_inlined_name: Optional[str] = None) -> str:
     """Returns a string representing the provided destination function with all calls to the function-to-be-inlined replaced with the body of that function, with arguments to the call appropriately bound and with local variables named unambiguously. If the optional selfname argument is given, then the arguments list will be prepended with an argument corresponding to selfname."""
 
     fdef_to_be_inlined = utils.get_function_def(f_to_be_inlined)
@@ -219,7 +234,7 @@ def inline_function_call(f_to_be_inlined: Union[Callable, str, ast.FunctionDef],
 
     # go through every line of the inlinee and replace all calls that we know how to handle
     newdest = fdef_dest
-    newdest.body = InlineFunctionCallIntoStatements(f_to_be_inlined, fdef_dest.name, selfname=selfname).visit(newdest.body)
+    newdest.body = InlineFunctionCallIntoStatements(f_to_be_inlined, fdef_dest.name, selfname=selfname, f_to_be_inlined_name=f_to_be_inlined_name).visit(newdest.body)
 
     # if there's still a call to our function somewhere, it must have been somewhere other than on a bare Assign line; raise an error
     class ContainsCall(utils.NewNodeVisitor):
@@ -336,29 +351,26 @@ def inline_all_static_method_calls(c_to_be_inlined: Union[Type[Any], str, ast.Cl
     return ast.unparse(ast.fix_missing_locations(fdef_dest))
 
 def inline_all_inner_class_init_calls(c_to_be_inlined: Union[Type[Any], str, ast.ClassDef], f_dest: Union[Callable, str, ast.FunctionDef]) -> str:
+    """Returns a string where calls to __init__ methods of inner classes of c_to_be_inlined are inlined into f_dest, with arguments to the call appropriately bound and with local variables named unambiguously."""
 
     cdef_to_be_inlined = utils.get_class_def(c_to_be_inlined)
     fdef_dest = utils.get_function_def(f_dest)
     
-    class InlineInit(utils.NewNodeTransformer):
-        def __init__(self, needle: str, initmethod: ast.FunctionDef):
+    class ReplaceInit(utils.NewNodeTransformer):
+        def __init__(self, needle: str):
             self.needle = needle
-            self.initmethod = initmethod
         def visit_Assign(self, node):
             if isinstance(node.value, ast.Call) and ast.unparse(node.value.func) == self.needle:
                 if len(node.targets) != 1 or not isinstance(node.targets[0], ast.Name):
                     raise ValueError(f"Left-hand side of assignment statements involving constructors must be a single variable {ast.unparse(node)}")
                 # for example, suppose the statement is
                 #     z = C.D(3, 2)
-                # and C.D's __init__ method is:
-                #     def __init__(self, x, y):
-                #         self.x = x
-                #         self.y = y
-                var = node.targets[0].id
-                # add a statement
+                # construct statements
                 #     z = C.D.__new__(C.D)
-                varinit = ast.Assign(
-                    targets = [ast.Name(id=var, ctx=ast.Store())],
+                #     C.D.__init__(z, 3, 2)
+                ret = []
+                ret.append(ast.Assign(
+                    targets = [node.targets[0]],
                     value = ast.Call(
                         func=ast.Attribute(
                             value=node.value.func,
@@ -368,20 +380,19 @@ def inline_all_inner_class_init_calls(c_to_be_inlined: Union[Type[Any], str, ast
                         args=[node.value.func],
                         keywords=[]
                     )
-                )
-                # now we'll want to get the body of the __init__ method, binding self to the target variable
-                # and binding the arguments to the constructor call with the appropriate values
-                newinit = self.initmethod
-                # bind the calling parameters
-                for i, val in enumerate(node.value.args):
-                    newinit = inline_argument_into_function(self.initmethod.args.args[1 + i].arg, val, newinit)
-                # replace self with the name of the variable being assigned
-                newinit = inline_argument_into_function(self.initmethod.args.args[0].arg, ast.Name(id=var, ctx=ast.Store()), newinit)
-                # return the result, e.g.:
-                #     z = C.D.__new__(C.D)
-                #     z.x = 3
-                #     z.y = 2
-                return [varinit] + utils.get_function_def(newinit).body
+                ))
+                ret.append(ast.Expr(
+                    value = ast.Call(
+                        func=ast.Attribute(
+                            value=node.value.func,
+                            attr='__init__',
+                            ctx=ast.Load()
+                        ),
+                        args=[node.targets[0]] + node.value.args,
+                        keywords=[]
+                    )
+                ))
+                return ret
             return node
     
     # go through every inner class
@@ -390,7 +401,14 @@ def inline_all_inner_class_init_calls(c_to_be_inlined: Union[Type[Any], str, ast
             for method in innerc.body:
                 if isinstance(method, ast.FunctionDef) and method.name == '__init__':
                     n = cdef_to_be_inlined.name + "." + innerc.name
-                    fdef_dest = InlineInit(n, method).visit(fdef_dest)
+                    # convert
+                    #     z = C.D(3, 2)
+                    # to
+                    #     z = C.D.__new__(C.D)
+                    #     C.D.__init__(z, 3, 2)
+                    fdef_dest = ReplaceInit(n).visit(fdef_dest)
+                    # then inline calls to C.D.__init__
+                    fdef_dest = utils.get_function_def(inline_function_call(method, fdef_dest, f_to_be_inlined_name=n + ".__init__"))
     return ast.unparse(ast.fix_missing_locations(fdef_dest))
 
 def inline_scheme_into_game(Scheme: Type[Crypto.Scheme], Game: Type[Crypto.Game]) -> str:

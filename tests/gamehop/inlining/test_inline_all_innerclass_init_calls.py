@@ -44,8 +44,8 @@ class TestInlineAllInnerClassInitCallsIntoFunction(unittest.TestCase):
         def f_expected_result(x):
             z = C.D.__new__(C.D)
             z.x = 3
-            C_D___new__v1_w = 3 + 2
-            z.y = C_D___new__v1_w
+            C_D___init__ᴠ1ⴰw = 3 + 2
+            z.y = C_D___init__ᴠ1ⴰw
             return z
         self.assertEqual(
             gamehop.inlining.inline_all_inner_class_init_calls(C, f),
