@@ -1,6 +1,5 @@
 import ast
 import copy
-import inspect
 import types
 from typing import cast, Any, Callable, List, Optional, Union, Tuple, Type
 
@@ -493,4 +492,14 @@ def inline_reduction_into_game(R: Type[Crypto.Reduction], GameForR: Type[Crypto.
             OutputGame.body[i] = utils.get_function_def(inline_function_call(fdef, otherfdef))
     # rename all remaining references to R to self
     OutputGame = utils.NameRenamer({R.__name__: 'self'}, False).visit(OutputGame)
+    # go through every method of the game (__init__, main, oracles)
+    for i, fdef in enumerate(OutputGame.body):
+        # make sure the game only consists of functions
+        if not isinstance(fdef, ast.FunctionDef):
+            raise ValueError(f"Unable to handle games with members that are anything other than functions; game {OutputGame.name}, member {ast.unparse(fdef).splitlines()[0]}")
+        # __init__ has a special form for games and must always consist of just two lines, setting self.Scheme and self.Adversary
+        # bind self.Scheme to the given Scheme
+        if fdef.name == "__init__": continue
+        else:
+            OutputGame.body[i] = utils.get_function_def(inline_all_inner_class_init_calls(TargetScheme, cast(ast.FunctionDef, fdef)))
     return ast.unparse(ast.fix_missing_locations(OutputGame))

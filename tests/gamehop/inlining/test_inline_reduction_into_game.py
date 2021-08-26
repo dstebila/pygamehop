@@ -126,8 +126,10 @@ class TestInlineReductionIntoGame(unittest.TestCase):
                 b = random.choice([0, 1])
                 msge = 'hi!' if b == 0 else 'bye'
                 ct = P1.Encrypt(pk, msge)
-                self_adversary_hi_or_byeᴠ1ⴰpkprime = P2fromP1.PK(pk)
-                self_adversary_hi_or_byeᴠ1ⴰctprime = P2fromP1.CT(ct)
+                self_adversary_hi_or_byeᴠ1ⴰpkprime = P2fromP1.PK.__new__(P2fromP1.PK)
+                self_adversary_hi_or_byeᴠ1ⴰpkprime.pk = pk
+                self_adversary_hi_or_byeᴠ1ⴰctprime = P2fromP1.CT.__new__(P2fromP1.CT)
+                self_adversary_hi_or_byeᴠ1ⴰctprime.ct = ct
                 self_adversary_hi_or_byeᴠ1ⴰg = self.adversary.hi_or_not(self_adversary_hi_or_byeᴠ1ⴰpkprime, self_adversary_hi_or_byeᴠ1ⴰctprime)
                 self_adversary_hi_or_byeᴠ1ⴰret = 0 if self_adversary_hi_or_byeᴠ1ⴰg else 1
                 bstar = self_adversary_hi_or_byeᴠ1ⴰret
