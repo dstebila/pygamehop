@@ -460,11 +460,15 @@ def inline_reduction_into_game(R: Type[Crypto.Reduction], GameForR: Type[Crypto.
         elif fdef.name == "main" or fdef.name.startswith("o_"):
             if fdef.args.args[0].arg != "self":
                 raise ValueError(f"First parameter of {fdef.name} is called '{fdef.args.args[0].arg}', should be called 'self'.")
-            fdef = utils.get_function_def(inline_all_nonstatic_method_calls('self.adversary', R, cast(ast.FunctionDef, fdef)))
+            # inline self.adversary as R
+            fdef = utils.AttributeNodeReplacer(['self', 'adversary'], R.__name__).visit(fdef)
+            fdef = utils.get_function_def(inline_all_nonstatic_method_calls(R.__name__, R, cast(ast.FunctionDef, fdef)))
+            # rename any of R's member variables to self
+            fdef = utils.rename_variables(fdef, {R.__name__: 'self'}, False)
             # replace references to self.Scheme with the scheme that R was using
             fdef = utils.AttributeNodeReplacer(['self', 'Scheme'], SchemeForR.__name__).visit(fdef)
             # replace R's calls to its inner adversary with calls to the outer game's self.adversary
-            fdef = utils.AttributeNodeReplacer(['self', 'adversary', 'inner_adversary'], 'self.adversary').visit(fdef)
+            fdef = utils.AttributeNodeReplacer(['self', 'inner_adversary'], 'self.adversary').visit(fdef)
             # GameForR's oracles will need to be saved
             assert isinstance(fdef, ast.FunctionDef) # needed for typechecker
             if fdef.name.startswith("o_"):
@@ -490,8 +494,6 @@ def inline_reduction_into_game(R: Type[Crypto.Reduction], GameForR: Type[Crypto.
         for i, otherfdef in enumerate(OutputGame.body):
             assert isinstance(otherfdef, ast.FunctionDef) # needed for typechecker
             OutputGame.body[i] = utils.get_function_def(inline_function_call(fdef, otherfdef))
-    # rename all remaining references to R to self
-    OutputGame = utils.NameRenamer({R.__name__: 'self'}, False).visit(OutputGame)
     # go through every method of the game (__init__, main, oracles)
     for i, fdef in enumerate(OutputGame.body):
         # make sure the game only consists of functions
