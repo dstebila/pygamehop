@@ -1,8 +1,10 @@
 from typing import cast, Tuple, Type
 
 import gamehop.inlining
+import gamehop.verification
 from gamehop.primitives import Crypto, PKE
 from gamehop.proofs2 import Proof
+import gamehop.utils
 
 from nestedPKE import NestedPKE, PKE1, PKE2
 
@@ -27,7 +29,12 @@ class R1(PKE.INDCPA_Adversary, Crypto.Reduction): # this is a INDCPA adversary f
         ctprime = cast(NestedPKE.Ciphertext, ct2)
         return self.inner_adversary.guess(ctprime)
 
-print(gamehop.inlining.inline_scheme_into_game(NestedPKE, PKE.INDCPA.get_left()))
-print(gamehop.inlining.inline_reduction_into_game(R1, PKE.INDCPA.get_left(), PKE1, PKE.INDCPA.get_left(), NestedPKE))
+g0 = gamehop.inlining.inline_scheme_into_game(NestedPKE, PKE.INDCPA.get_left())
+print(g0)
+print(gamehop.verification.canonicalize_game(g0))
+g1 = gamehop.inlining.inline_reduction_into_game(R1, PKE.INDCPA.get_left(), PKE1, PKE.INDCPA.get_left(), NestedPKE)
+print(g1)
+print(gamehop.verification.canonicalize_game(g1))
+gamehop.utils.stringDiff(gamehop.verification.canonicalize_game(g0), gamehop.verification.canonicalize_game(g1))
 
 # proof1.addDistinguishingProofStep(PKE.INDCPA, 'pke1', R1)

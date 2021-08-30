@@ -28,7 +28,8 @@ class INDCPA_Left(Crypto.Game):
         (m0, m1) = self.adversary.challenge(pk)
         ct = self.Scheme.Encrypt(pk, m0)
         r = self.adversary.guess(ct)
-        ret = r if len(m0) == len(m1) else Crypto.Bit(0)
+        if len(m0) == len(m1): ret = r
+        else: ret = Crypto.Bit(0)
         return ret
 
 class INDCPA_Right(Crypto.Game):
@@ -40,7 +41,8 @@ class INDCPA_Right(Crypto.Game):
         (m0, m1) = self.adversary.challenge(pk)
         ct = self.Scheme.Encrypt(pk, m1)
         r = self.adversary.guess(ct)
-        ret = r if len(m0) == len(m1) else Crypto.Bit(0)
+        if len(m0) == len(m1): ret = r
+        else: ret = Crypto.Bit(0)
         return ret
 
 INDCPA = Crypto.DistinguishingExperimentLeftOrRight(INDCPA_Left, INDCPA_Right, INDCPA_Adversary)
