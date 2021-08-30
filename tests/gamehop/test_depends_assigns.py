@@ -14,6 +14,10 @@ class TestDependsOn(unittest.TestCase):
         s = 'a = x.y(z)'
         self.assertEqual(gamehop.utils.vars_depends_on(ast.parse(s).body[0]), ['x', 'z'])
 
+    def test_Attribute2(self):
+        s = 'a.b = x.y(z)'
+        self.assertEqual(gamehop.utils.vars_depends_on(ast.parse(s).body[0]), ['a', 'x', 'z'])
+
     def test_BinOp(self):
         s = 'a = x + y'
         self.assertEqual(gamehop.utils.vars_depends_on(ast.parse(s).body[0]), ['x', 'y'])
@@ -58,6 +62,10 @@ class TestAssignsTo(unittest.TestCase):
 
     def test_Attribute(self):
         s = 'a = x.y(z)'
+        self.assertEqual(gamehop.utils.vars_assigns_to(ast.parse(s).body[0]), ['a'])
+
+    def test_Attribute2(self):
+        s = 'a.b = x.y(z)'
         self.assertEqual(gamehop.utils.vars_assigns_to(ast.parse(s).body[0]), ['a'])
 
     def test_BinOp(self):

@@ -127,7 +127,12 @@ def stored_vars(node):
     return varfinder.stored_vars
 
 def vars_depends_on(node: Optional[ast.AST]) -> List[str]:
-    if isinstance(node, ast.Assign): return vars_depends_on(node.value)
+    if isinstance(node, ast.Assign):
+        r = []
+        # we have to go through the targets to find any attributed objects that are assigned to, since this assignment statement depends on them
+        for t in node.targets: r.extend(vars_depends_on(t))
+        r.extend(vars_depends_on(node.value))
+        return r
     elif isinstance(node, ast.Attribute): return vars_depends_on(node.value)
     elif isinstance(node, ast.BinOp): return vars_depends_on(node.left) + vars_depends_on(node.right)
     elif isinstance(node, ast.Call): return vars_depends_on(node.func) + sum([vars_depends_on(arg) for arg in node.args], start=[])
@@ -143,7 +148,9 @@ def vars_depends_on(node: Optional[ast.AST]) -> List[str]:
 def vars_assigns_to(node: Union[ast.AST, List[ast.stmt]]) -> List[str]:
     if isinstance(node, list): return sum([vars_assigns_to(stmt) for stmt in node], start=[])
     elif isinstance(node, ast.Assign): return sum([vars_assigns_to(v) for v in node.targets], start=[])
-    elif isinstance(node, ast.Attribute): return vars_assigns_to(node.value)
+    elif isinstance(node, ast.Attribute): 
+        if isinstance(node.ctx, ast.Store): return vars_depends_on(node.value)
+        else: return []
     elif isinstance(node, ast.BinOp): return []
     elif isinstance(node, ast.Call): return []
     elif isinstance(node, ast.Compare): return []

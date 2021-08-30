@@ -75,6 +75,16 @@ def f_degenerate_expected_result(self, A, B, C, D, E):
     mask = D('label', m0)
     r = E(ct, mask, m0)
     return r
+def f_attribute(A, a, b):
+    x = A()
+    (x.u, x.v) = a, b
+    y = x.u + x.v
+    return y
+def f_attribute_expected_result(A, a, b):
+    x = A()
+    (x.u, x.v) = a, b
+    y = x.u + x.v
+    return y
 
 def expected_result(f):
     s = inspect.getsource(f)
@@ -109,6 +119,13 @@ class TestCanonicalizeLineOrder(unittest.TestCase):
         self.assertEqual(
             ast.unparse(f),
             expected_result(f_ordering_expected_result)
+        )
+    def test_attribute(self):
+        f = gamehop.utils.get_function_def(f_attribute)
+        gamehop.verification.canonicalization.canonicalize_line_order(f)
+        self.assertEqual(
+            ast.unparse(f),
+            expected_result(f_attribute_expected_result)
         )
     def test_KEMfromPKEtestcase(self):
         f1 = gamehop.utils.get_function_def(f_KEMfromPKEtestcase1)

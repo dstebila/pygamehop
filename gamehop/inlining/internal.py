@@ -27,9 +27,11 @@ def find_all_variables(f: Union[Callable, str, ast.FunctionDef]) -> List[str]:
                 elif isinstance(target, ast.Tuple) or isinstance(target, ast.List):
                     for elt in target.elts:
                         if isinstance(elt, ast.Name) and elt.id not in vars: vars.append(elt.id)
-                # elif isinstance(target, ast.Attribute):
-                #     attr_name = target.value.id + '.' + target.attr
-                #     if attr_name not in vars: vars.append(attr_name)
+                elif isinstance(target, ast.Attribute):
+                    t: Any = target
+                    while isinstance(t, ast.Attribute): t = t.value
+                    if isinstance(t, ast.Name):
+                        if t.id not in vars: vars.append(t.id)
                 else:
                     raise NotImplementedError("Can't deal with assignment target type " + str(type(target)))
     return vars
