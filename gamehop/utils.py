@@ -31,7 +31,7 @@ class NewNodeTransformer(ast.NodeTransformer):
 
         # When we encounter these types of nodes we insert any
         # prelude statements before the node.
-        self.prelude_anchor_types = [ ast.Assign, ast.Return, ast.If]
+        self.prelude_anchor_types = [ ast.Assign, ast.Return, ast.FunctionDef, ast.If]
 
     def unique_variable_name(self):
         v = f'_var_{self.unique_string_counter}'
