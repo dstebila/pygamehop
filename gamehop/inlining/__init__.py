@@ -95,7 +95,7 @@ def inline_function_into_statements(inlinee: List[ast.stmt], inlinand: ast.Funct
 
     # check if the last line of the inlinand is a return statement,
     inlinand_has_return = isinstance(inlinand_def.body[-1], ast.Return)
-    
+
     # go through every line of the inlinee and replace all calls that we know how to handle
     newinlinee = []
     replacement_count = replacements
@@ -180,6 +180,7 @@ class InlineFunctionCallIntoStatements(utils.NewNodeTransformer):
         else: self.f_src_name = self.fdef_to_be_inlined.name
         self.f_dest_name = f_dest_name
         self.replacement_count = 0
+        super().__init__()
     def visit_Assign(self, stmt):
         # replace y = f(x)
         if isinstance(stmt, ast.Assign) and isinstance(stmt.value, ast.Call) and ast.unparse(stmt.value.func) == self.f_src_name:
@@ -216,7 +217,7 @@ def inline_function_call(f_to_be_inlined: Union[Callable, str, ast.FunctionDef],
 
     # go through every line of the inlinee and replace all calls that we know how to handle
     newdest = fdef_dest
-    newdest.body = InlineFunctionCallIntoStatements(f_to_be_inlined, fdef_dest.name).visit(newdest.body)
+    newdest.body = InlineFunctionCallIntoStatements(f_to_be_inlined, fdef_dest.name).visit_statements(newdest.body)
 
     # if there's still a call to our function somewhere, it must have been somewhere other than on a bare Assign line; raise an error
     class ContainsCall(utils.NewNodeVisitor):
@@ -300,8 +301,8 @@ def inline_all_method_calls(c_to_be_inlined: Union[Type[Any], str, ast.ClassDef]
 
     cdef_to_be_inlined = utils.get_class_def(c_to_be_inlined)
     fdef_dest = utils.get_function_def(f_dest)
-    
-    # go through every function 
+
+    # go through every function
     for f in cdef_to_be_inlined.body:
         if isinstance(f, ast.FunctionDef):
             # can't handle classes with non-static functions

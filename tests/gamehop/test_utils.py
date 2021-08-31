@@ -3,18 +3,14 @@ import inspect
 import unittest
 import gamehop.utils
 
-def expected_result(f):
+def dexpected_result(f):
     s = ast.unparse(gamehop.utils.get_function_def(f))
     s = s.replace('_expected_result', '')
     return ast.unparse(ast.parse(s))
 
-class TestNewNodeTransformer(unittest.TestCase):
+class TestNewNodeTransformeroeu(unittest.TestCase):
     def test_prelude_statements(self):
         class NewNodeTester(gamehop.utils.NewNodeTransformer):
-
-            def visit_Assign(self, node):
-                self.generic_visit(node)
-                return self.pop_prelude_statements() + [ node ]
 
             def visit_Call(self, node):
                 self.generic_visit(node)  # fix up all children _first_
@@ -32,19 +28,19 @@ class TestNewNodeTransformer(unittest.TestCase):
         def a(): pass
         def b(): pass
         def c(): pass
-        def f():
+        def f_blarg():
             x = a(b(c(1)))
             return x
 
-        def f_expected_result():
+        def f_blarg_expected_result():
             _var_0 = c(1)
             _var_1 = b(_var_0)
             x = a(_var_1)
             return x
-        f_ast = ast.parse(gamehop.utils.get_function_def(f))
+        f_ast = ast.parse(gamehop.utils.get_function_def(f_blarg))
         nnt = NewNodeTester()
         f_new_ast = nnt.visit(f_ast)
         ast.fix_missing_locations(f_new_ast)
         f_transformed = ast.unparse(f_new_ast)
 
-        self.assertEqual(f_transformed, expected_result(f_expected_result))
+        self.assertEqual(f_transformed, dexpected_result(f_blarg_expected_result))

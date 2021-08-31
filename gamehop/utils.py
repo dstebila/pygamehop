@@ -25,8 +25,13 @@ class NewNodeVisitor(ast.NodeVisitor):
 
 class NewNodeTransformer(ast.NodeTransformer):
     """Adds the ability to handle List[ast.stmt] to ast.NodeTransformer"""
-    prelude_statements: List[ast.stmt] = list()
-    unique_string_counter: int = 0
+    def __init__(self):
+        self.prelude_statements: List[ast.stmt] = list()
+        self.unique_string_counter: int = 0
+
+        # When we encounter these types of nodes we insert any
+        # prelude statements before the node.
+        self.prelude_anchor_types = [ ast.Assign, ast.Return, ast.If]
 
     def unique_variable_name(self):
         v = f'_var_{self.unique_string_counter}'
@@ -41,26 +46,27 @@ class NewNodeTransformer(ast.NodeTransformer):
         self.prelude_statements = list()
         return new_statements
 
-    def visit(self, node):
-        if isinstance(node, list):
-            newnode = ast.Module()
-            newnode.body = node
-            return super().visit(newnode).body
-        else:
-            return super().visit(node)
+    def visit_statements(self, stmts: List[ast.stmt]) -> List[ast.stmt]:
+        newnode = ast.Module()
+        newnode.body = stmts
+        return self.visit(newnode).body
 
     def generic_visit(self, node):
-        if isinstance(node, list):
-            newnode = ast.Module()
-            newnode.body = node
-            return super().generic_visit(newnode).body
-        else:
-            return super().generic_visit(node)
+        visit_val = super().generic_visit(node)
+        if not type(node) in self.prelude_anchor_types or len(self.prelude_statements) == 0:
+            return visit_val
+
+        # Ensure we have a list of new nodes to add
+        if not isinstance(visit_val, list):
+            visit_val = [ visit_val ]
+
+        return self.pop_prelude_statements() + visit_val
 
 class VariableFinder(NewNodeVisitor):
     def __init__(self):
         self.stored_vars = list()
         self.loaded_vars = list()
+        super().__init__()
 
     def visit_Name(self, node:ast.Name) -> None:
         if isinstance(node.ctx, ast.Load):
@@ -73,6 +79,8 @@ class NameRenamer(NewNodeTransformer):
     def __init__(self, mapping: dict, error_if_exists: bool):
         self.mapping = mapping
         self.error_if_exists = error_if_exists
+        super().__init__()
+
     def visit_Name(self, node: ast.Name) -> ast.Name:
         if self.error_if_exists and (node.id in self.mapping.values()): raise ValueError("New name '{:s}' already exists in function".format(node.id))
         if node.id in self.mapping: return ast.Name(id=self.mapping[node.id], ctx=node.ctx)
@@ -91,6 +99,8 @@ class NamePrefixer(NewNodeTransformer):
     def __init__(self, prefix: str):
         self.prefix = prefix
         self.stored_vars: List[str] = list()
+        super().__init__()
+
     def visit_Name(self, node: ast.Name) -> ast.Name:
         # rename new stored variables, and remember that we did so
         if isinstance(node.ctx, ast.Store):
@@ -105,12 +115,13 @@ class NamePrefixer(NewNodeTransformer):
         return node
 
 def prefix_names(node, prefix):
-    return NamePrefixer(prefix).visit(node)
+    return NamePrefixer(prefix).visit_statements(node)
 
 class NameNodeReplacer(NewNodeTransformer):
     """Replaces all instances of a Name node with a given node, for each name in the given dictionary of replacements."""
     def __init__(self, replacements: Dict[str, ast.expr]):
         self.replacements = replacements
+        super().__init__()
     def visit_Name(self, node):
         if node.id in self.replacements: return self.replacements[node.id]
         else: return node

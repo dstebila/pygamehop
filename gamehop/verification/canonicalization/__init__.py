@@ -147,9 +147,9 @@ def collapse_useless_assigns(f: ast.FunctionDef) -> None:
                                 value=ast.Name(id=tmpvar_formatstr.format(l), ctx=ast.Load())
                             )
                         )
-                    # the new body should be everything before the current statement, 
-                    # followed by all the tmpvar = ... assigns, 
-                    # followed by all the ... = tmpvar assigns, 
+                    # the new body should be everything before the current statement,
+                    # followed by all the tmpvar = ... assigns,
+                    # followed by all the ... = tmpvar assigns,
                     # followed by everything after the current statement
                     new_f_body = list()
                     new_f_body.extend(f.body[:i])
@@ -167,7 +167,7 @@ def collapse_useless_assigns(f: ast.FunctionDef) -> None:
 def assignee_vars(stmt: ast.Assign) -> List[str]:
     if len(stmt.targets) != 1: raise NotImplementedError("Cannot handle assignment statements with multiple targets")
     if isinstance(stmt.targets[0], ast.Name): return [stmt.targets[0].id]
-    elif isinstance(stmt.targets[0], ast.Tuple): 
+    elif isinstance(stmt.targets[0], ast.Tuple):
         ret = list()
         for x in stmt.targets[0].elts:
             if not isinstance(x, ast.Name): raise NotImplementedError("Cannot handle tuples containing things other than variables")
@@ -248,7 +248,7 @@ def canonicalize_line_order(f: ast.FunctionDef) -> None:
             return 0
         filteredneighbors.sort(key=keyfn)
         for n in filteredneighbors:
-            if n not in ret: 
+            if n not in ret:
                 ret.append(n)
             if n not in left_to_process:
                 left_to_process.append(n)
@@ -263,7 +263,7 @@ def show_call_graph(f: ast.FunctionDef) -> None:
 def canonicalize_argument_order(f: ast.FunctionDef) -> None:
     """Modify (in place) the given function definition to canonicalize the order of the arguments
     based on the order in which the returned variable depends on intermediate variables. Arguments
-    that do not affect the return variable are removed. Assumes that canonicalize_line_order 
+    that do not affect the return variable are removed. Assumes that canonicalize_line_order
     has already been called."""
     body = copy.deepcopy(f.body)
     # make sure the final statement is a return
