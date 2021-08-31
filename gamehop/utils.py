@@ -25,12 +25,21 @@ class NewNodeVisitor(ast.NodeVisitor):
 
 class NewNodeTransformer(ast.NodeTransformer):
     """Adds the ability to handle List[ast.stmt] to ast.NodeTransformer"""
-    new_statements: List[ast.stmt] = list()
+    prelude_statements: List[ast.stmt] = list()
+    unique_string_counter: int = 0
 
-    def combine_new_statements(self, some_statements):
-        all_new_statements = list(some_statements).extend(self.new_statements)
-        self.new_statements = list()
-        return all_new_statements()
+    def unique_variable_name(self):
+        v = f'_var_{self.unique_string_counter}'
+        self.unique_string_counter += 1
+        return v
+
+    def add_prelude_statement(self, statement: ast.stmt) -> None:
+        self.prelude_statements.append(statement)
+
+    def pop_prelude_statements(self) -> List[ast.stmt]:
+        new_statements = self.prelude_statements[:]
+        self.prelude_statements = list()
+        return new_statements
 
     def visit(self, node):
         if isinstance(node, list):
@@ -39,6 +48,7 @@ class NewNodeTransformer(ast.NodeTransformer):
             return super().visit(newnode).body
         else:
             return super().visit(node)
+
     def generic_visit(self, node):
         if isinstance(node, list):
             newnode = ast.Module()
