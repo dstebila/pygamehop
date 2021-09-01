@@ -12,6 +12,7 @@ typecheck_library:
 	$(MYPY) --ignore-missing-imports -p gamehop.inlining
 	$(MYPY) --ignore-missing-imports -p gamehop.verification
 	$(MYPY) --ignore-missing-imports -p gamehop.primitives
+	$(MYPY) --ignore-missing-imports -p gamehop
 
 unittest_library:
 	env PYTHONPATH=. $(PYTEST) -v tests/gamehop
@@ -35,4 +36,3 @@ example_figures:
 	convert -density 144 examples/nestedPKE/nestedPKE_is_INDCPA_proof2.pdf docs/images/nestedPKE_is_INDCPA_proof2.png
 	rm -f examples/*/*.aux
 	rm -f examples/*/*.log
-

@@ -34,18 +34,19 @@ def if_statements_to_expressions(f: ast.FunctionDef ) -> None:
     """
     filterast.filter_AST(f.body, noifs=False)
     iftransformer = IfTransformer()
-    iftransformer.visit(f.body)
+    iftransformer.visit_statements(f.body)
     ast.fix_missing_locations(f)
     filterast.filter_AST(f.body, noifs=True)
 
 class IfTransformer(utils.NewNodeTransformer):
     def __init__(self):
         self.replacement_count = 0
+        super().__init__()
 
     def visit_If(self, node: ast.If):
         # first fix up the bodies
-        self.generic_visit(node.body)
-        self.generic_visit(node.orelse)
+        self.visit_statements(node.body)
+        self.visit_statements(node.orelse)
 
         # find all the variables written to in the bodies
         body_stored_vars = utils.stored_vars(node.body)

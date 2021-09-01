@@ -1,6 +1,9 @@
 import ast
+import copy
+import inspect
 import types
 from typing import cast, Any, Callable, List, Optional, Type, Union
+
 
 from .. import utils
 from ..primitives import Crypto
@@ -74,6 +77,7 @@ class InlineFunctionCallIntoStatements(utils.NewNodeTransformer):
         self.f_dest_name = f_dest_name
         self.selfname = selfname
         self.replacement_count = 0
+        super().__init__()
     def visit_Assign(self, stmt):
         # replace y = f(x)
         if isinstance(stmt, ast.Assign) and isinstance(stmt.value, ast.Call) and ast.unparse(stmt.value.func) == self.f_src_name:
@@ -124,7 +128,7 @@ def inline_function_call(f_to_be_inlined: Union[Callable, str, ast.FunctionDef],
 
     # go through every line of the inlinee and replace all calls that we know how to handle
     newdest = fdef_dest
-    newdest.body = InlineFunctionCallIntoStatements(f_to_be_inlined, fdef_dest.name, selfname=selfname, f_to_be_inlined_name=f_to_be_inlined_name).visit(newdest.body)
+    newdest.body = InlineFunctionCallIntoStatements(f_to_be_inlined, fdef_dest.name, selfname=selfname, f_to_be_inlined_name=f_to_be_inlined_name).visit_statements(newdest.body)
 
     # if there's still a call to our function somewhere, it must have been somewhere other than on a bare Assign line; raise an error
     class ContainsCall(utils.NewNodeVisitor):
@@ -152,7 +156,7 @@ def inline_all_nonstatic_method_calls(o_name: str, c_to_be_inlined: Union[Type[A
     """Returns a string representing the provided destination function with all calls to non-static methods of the given object replaced with the body of that function, with arguments to the call appropriately bound and with local variables named unambiguously."""
     cdef_to_be_inlined = utils.get_class_def(c_to_be_inlined)
     fdef_dest = utils.get_function_def(f_dest)
-    # go through every function 
+    # go through every function
     for f in cdef_to_be_inlined.body:
         if isinstance(f, ast.FunctionDef):
             if is_static_functiondef(f): continue
@@ -167,8 +171,8 @@ def inline_all_static_method_calls(c_to_be_inlined: Union[Type[Any], str, ast.Cl
 
     cdef_to_be_inlined = utils.get_class_def(c_to_be_inlined)
     fdef_dest = utils.get_function_def(f_dest)
-    
-    # go through every function 
+
+    # go through every function
     for f in cdef_to_be_inlined.body:
         if isinstance(f, ast.FunctionDef):
             # can't handle classes with non-static functions
@@ -184,10 +188,11 @@ def inline_all_inner_class_init_calls(c_to_be_inlined: Union[Type[Any], str, ast
 
     cdef_to_be_inlined = utils.get_class_def(c_to_be_inlined)
     fdef_dest = utils.get_function_def(f_dest)
-    
+
     class ReplaceInit(utils.NewNodeTransformer):
         def __init__(self, needle: str):
             self.needle = needle
+            super().__init__()
         def visit_Assign(self, node):
             if isinstance(node.value, ast.Call) and ast.unparse(node.value.func) == self.needle:
                 if len(node.targets) != 1 or not isinstance(node.targets[0], ast.Name):
@@ -223,7 +228,7 @@ def inline_all_inner_class_init_calls(c_to_be_inlined: Union[Type[Any], str, ast
                 ))
                 return ret
             return node
-    
+
     # go through every inner class
     for innerc in cdef_to_be_inlined.body:
         if isinstance(innerc, ast.ClassDef):
@@ -316,16 +321,17 @@ def inline_reduction_into_game(R: Type[Crypto.Reduction], GameForR: Type[Crypto.
     for fdef in OraclesToSave:
         # calls to this oracle in OutputGame will be of the form R.o_whatever
         # first we'll give those calls a temporary name
-        OutputGame.body = utils.AttributeNodeReplacer(['self', 'i' + fdef.name], R.__name__ + '_i' + fdef.name).visit(OutputGame.body)
+        OutputGame.body = utils.AttributeNodeReplacer(['self', 'i' + fdef.name], R.__name__ + '_i' + fdef.name).visit_statements(OutputGame.body)
         # Stateful games that need to save a reference to their oracle will have had a line like
         #     self.io_whatever = o_whatever
-        # By the line above, this will have been transformed into 
+        # By the line above, this will have been transformed into
         #     R_io_whatever = self.o_whatever
         # This is now a redundant line, so we'll remove that
         class OracleSaverRemover(utils.NewNodeTransformer):
-            def __init__(self, Rname: str, fdefname: str): 
+            def __init__(self, Rname: str, fdefname: str):
                 self.Rname = Rname
                 self.fdefname = fdefname
+                super().__init__()
             def visit_Assign(self, node: ast.Assign):
                 if len(node.targets) == 1 and isinstance(node.targets[0], ast.Name) and node.targets[0].id == self.Rname + '_i' + self.fdefname and ast.unparse(node.value) == 'self.' + self.fdefname:
                     return None
