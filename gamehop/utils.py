@@ -31,12 +31,21 @@ class NewNodeTransformer(ast.NodeTransformer):
 
         # When we encounter these types of nodes we insert any
         # prelude statements before the node.
-        self.prelude_anchor_types = [ ast.Assign, ast.Return, ast.FunctionDef, ast.If]
+        self.prelude_anchor_types = { ast.Assign, ast.Return, ast.FunctionDef, ast.If }
+        self.new_scope_types = { ast.FunctionDef, ast.ClassDef }
+
+        # Keep track of the variables that are in scope
+        # We will push a new set when a new scope (eg function, class def ) is
+        # created
+        self.scopes: List[List[str]] = list()
+        self.scopes.append(list())
 
     def unique_variable_name(self):
         v = f'_var_{self.unique_string_counter}'
         self.unique_string_counter += 1
         return v
+
+    # Prelude statements
 
     def add_prelude_statement(self, statement: ast.stmt) -> None:
         self.prelude_statements.append(statement)
@@ -46,21 +55,101 @@ class NewNodeTransformer(ast.NodeTransformer):
         self.prelude_statements = list()
         return new_statements
 
+
+    # scopes
+
+    def new_scope(self) -> None:
+        self.scopes.append(list())
+
+    def pop_scope(self) -> None:
+        self.scopes.pop()
+
+    def in_scope(self, varname: str) -> bool:
+        for s in self.scopes[::-1]:
+            if varname in s: return True
+        return False
+
+    def add_var_to_scope(self, varname: str) -> None:
+        self.scopes[-1].append(varname)
+
+    def add_var_to_scope_from_nodes(self, nodes: Union[ast.AST, List[ast.AST]]) -> None:
+        if isinstance(nodes, ast.AST):
+            nodes = [ nodes ]
+        for s in nodes:
+            if type(s) == ast.Assign:
+                for v in vars_assigns_to(s):
+                    self.add_var_to_scope(v)
+
+
+    def vars_in_scope(self) -> List[str]:
+        return sum(self.scopes, [])
+
+    def vars_in_local_scope(self) -> List[str]:
+        return list(self.scopes[-1])
+
     def visit_statements(self, stmts: List[ast.stmt]) -> List[ast.stmt]:
         newnode = ast.Module()
         newnode.body = stmts
-        return self.visit(newnode).body
+
+        # This is fine as long as nobody overrides visit_Module!
+        return self.generic_visit(newnode).body
 
     def generic_visit(self, node):
+
+        # we need to create any new scope before visiting children
+        if type(node) in self.new_scope_types:
+            self.new_scope()
+
+        # # ifs need special attention because a variable may be assigned to
+        # # in one branch but not the other
+        # if type(node) == ast.If:
+        #     # test is in common
+        #     super().generic_visit(node.test)
+        #
+        #     # create a new scope for the body so that we don't count them as
+        #     # in scope in the orelse
+        #     self.new_scope()
+        #     for child in node.body:
+        #         super().generic_visit(child)
+        #     ifscope = self.vars_in_local_scope()
+        #     self.pop_scope()
+        #
+        #     # create a new scope for the orelse so that we don't count them as
+        #     # in scope later when the orelse may not have run
+        #     self.new_scope()
+        #     for child in node.orelse:
+        #         super().generic_visit(child)
+        #
+        #     elsescope = self.vars_in_local_scope()
+        #     self.pop_scope()
+        #
+        #     # we only want to keep variables that were assigned to
+        #     # in _both_ branches, otherwise they may not be defined
+        #     bothscopes = ifscope + elsescope
+        #     for v in bothscopes:
+        #         if bothscopes.count(v) == 2:
+        #             self.add_var_to_scope(v)
+        #
+        # else:
+        #     visit_val = super().generic_visit(node)
         visit_val = super().generic_visit(node)
+        # Remove the scope now that it is complete
+        if type(node) in self.new_scope_types:
+            self.pop_scope()
+
+
         if not type(node) in self.prelude_anchor_types or len(self.prelude_statements) == 0:
+            self.add_var_to_scope_from_nodes(visit_val)
             return visit_val
 
         # Ensure we have a list of new nodes to add
         if not isinstance(visit_val, list):
             visit_val = [ visit_val ]
 
-        return self.pop_prelude_statements() + visit_val
+        ret_val = self.pop_prelude_statements() + visit_val
+        self.add_var_to_scope_from_nodes(ret_val)
+
+        return ret_val
 
 class VariableFinder(NewNodeVisitor):
     def __init__(self):
@@ -172,6 +261,7 @@ def vars_depends_on(node: Optional[ast.AST]) -> List[str]:
     elif isinstance(node, ast.Name): return [node.id] if isinstance(node.ctx, ast.Load) else []
     elif isinstance(node, ast.Return): return [] if node.value == None else vars_depends_on(node.value)
     elif isinstance(node, ast.Tuple): return sum([vars_depends_on(e) for e in node.elts], start=[])
+    elif isinstance(node, ast.arg): return [ node.arg ]
     else: raise NotImplementedError("Cannot handle AST objects of type {:s}".format(type(node).__name__))
 
 def vars_assigns_to(node: Union[ast.AST, List[ast.stmt]]) -> List[str]:

@@ -46,6 +46,30 @@ class TestNewNodeTransformer(unittest.TestCase):
 
         self.assertEqual(f_transformed, expected_result(f_expected_result))
 
+    def test_scopes(self):
+        class NewNodeTester(gamehop.utils.NewNodeTransformer):
+            def visit_Call(self, node):
+                self.thescope = self.vars_in_scope()
+                self.a_in_scope = self.in_scope('a')
+                self.z_in_scope = self.in_scope('z')
+
+        def g(): pass
+        def f():
+            a = 1
+            def blarg():
+                b = 1
+                g(2)
+            return x
+
+        f_ast = ast.parse(gamehop.utils.get_function_def(f))
+        nnt = NewNodeTester()
+        f_new_ast = nnt.visit(f_ast)
+
+        self.assertEqual(nnt.thescope, [ 'a', 'b' ])
+        self.assertEqual(nnt.a_in_scope, True)
+        self.assertEqual(nnt.z_in_scope, False)
+        self.assertEqual(nnt.scopes, [[]])
+        self.assertEqual(nnt.in_scope('a'), False)
 
 
 class TestAttributeNodeReplacer(unittest.TestCase):
