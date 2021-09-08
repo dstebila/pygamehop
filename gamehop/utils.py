@@ -94,44 +94,48 @@ class NewNodeTransformer(ast.NodeTransformer):
         # This is fine as long as nobody overrides visit_Module!
         return self.generic_visit(newnode).body
 
+
+    def visit_if(self, node):
+
+        # ifs need special attention because a variable may be assigned to
+        # in one branch but not the other
+
+
+        # test is in common
+        new_test = self.generic_visit(node.test)
+
+        # create a new scope for the body so that we don't count them as
+        # in scope in the orelse
+        self.new_scope()
+        new_body     = sum( [ ensure_list(self.generic_visit(child)) for child in node.body ] , [])
+
+        ifscope = self.vars_in_local_scope()
+        self.pop_scope()
+
+        # create a new scope for the orelse so that we don't count them as
+        # in scope later when the orelse may not have run
+        self.new_scope()
+        new_orelse = sum( [ ensure_list(self.generic_visit(child)) for child in node.orelse ], [] )
+        elsescope = self.vars_in_local_scope()
+        self.pop_scope()
+
+        # we only want to keep variables that were assigned to
+        # in _both_ branches, otherwise they may not be defined
+        bothscopes = ifscope + elsescope
+        for v in bothscopes:
+            if bothscopes.count(v) == 2:
+                self.add_var_to_scope(v)
+        return self.pop_prelude_statements() + [ ast.If(new_test, new_body, new_orelse) ]
+
+
     def generic_visit(self, node):
 
         # we need to create any new scope before visiting children
         if type(node) in self.new_scope_types:
             self.new_scope()
 
-        # ifs need special attention because a variable may be assigned to
-        # in one branch but not the other
-        if type(node) == ast.If:
-            # test is in common
-            new_test = self.generic_visit(node.test)
+        visit_val = super().generic_visit(node)
 
-            # create a new scope for the body so that we don't count them as
-            # in scope in the orelse
-            self.new_scope()
-            new_body = sum( [ ensure_list(self.generic_visit(child)) for child in node.body ] , [])
-
-            ifscope = self.vars_in_local_scope()
-            self.pop_scope()
-
-            # create a new scope for the orelse so that we don't count them as
-            # in scope later when the orelse may not have run
-            self.new_scope()
-            new_orelse = sum( [ ensure_list(self.generic_visit(child)) for child in node.orelse ], [] )
-            elsescope = self.vars_in_local_scope()
-            self.pop_scope()
-
-            # we only want to keep variables that were assigned to
-            # in _both_ branches, otherwise they may not be defined
-            bothscopes = ifscope + elsescope
-            for v in bothscopes:
-                if bothscopes.count(v) == 2:
-                    self.add_var_to_scope(v)
-            visit_val = ast.If(new_test, new_body, new_orelse)
-
-        else:
-            visit_val = super().generic_visit(node)
-        # visit_val = super().generic_visit(node)
         # Remove the scope now that it is complete
         if type(node) in self.new_scope_types:
             self.pop_scope()
