@@ -101,19 +101,19 @@ class NewNodeTransformer(ast.NodeTransformer):
         # in one branch but not the other
 
         # test is in common
-        new_test = self.generic_visit(node.test)
+        new_test = self.visit(node.test)
 
         # create a new scope for the body so that we don't count them as
         # in scope in the orelse
         self.new_scope()
-        new_body = sum( [ ensure_list(self.generic_visit(child)) for child in node.body ] , [])
+        new_body = sum( [ ensure_list(self.visit(child)) for child in node.body ] , [])
         ifscope = self.vars_in_local_scope()
         self.pop_scope()
 
         # create a new scope for the orelse so that we don't count them as
         # in scope later when the orelse may not have run
         self.new_scope()
-        new_orelse = sum( [ ensure_list(self.generic_visit(child)) for child in node.orelse ], [])
+        new_orelse = sum( [ ensure_list(self.visit(child)) for child in node.orelse ], [])
         elsescope = self.vars_in_local_scope()
         self.pop_scope()
 
