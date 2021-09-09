@@ -70,7 +70,8 @@ class NewNodeTransformer(ast.NodeTransformer):
         return False
 
     def add_var_to_scope(self, varname: str) -> None:
-        self.scopes[-1].append(varname)
+        if not varname in self.scopes[-1]:
+            self.scopes[-1].append(varname)
 
     def add_var_to_scope_from_nodes(self, nodes: Union[ast.AST, List[ast.AST]]) -> None:
         if isinstance(nodes, ast.AST):
@@ -95,11 +96,9 @@ class NewNodeTransformer(ast.NodeTransformer):
         return self.generic_visit(newnode).body
 
 
-    def visit_if(self, node):
-
+    def visit_If(self, node):
         # ifs need special attention because a variable may be assigned to
         # in one branch but not the other
-
 
         # test is in common
         new_test = self.generic_visit(node.test)
@@ -107,15 +106,14 @@ class NewNodeTransformer(ast.NodeTransformer):
         # create a new scope for the body so that we don't count them as
         # in scope in the orelse
         self.new_scope()
-        new_body     = sum( [ ensure_list(self.generic_visit(child)) for child in node.body ] , [])
-
+        new_body = sum( [ ensure_list(self.generic_visit(child)) for child in node.body ] , [])
         ifscope = self.vars_in_local_scope()
         self.pop_scope()
 
         # create a new scope for the orelse so that we don't count them as
         # in scope later when the orelse may not have run
         self.new_scope()
-        new_orelse = sum( [ ensure_list(self.generic_visit(child)) for child in node.orelse ], [] )
+        new_orelse = sum( [ ensure_list(self.generic_visit(child)) for child in node.orelse ], [])
         elsescope = self.vars_in_local_scope()
         self.pop_scope()
 
@@ -125,6 +123,7 @@ class NewNodeTransformer(ast.NodeTransformer):
         for v in bothscopes:
             if bothscopes.count(v) == 2:
                 self.add_var_to_scope(v)
+
         return self.pop_prelude_statements() + [ ast.If(new_test, new_body, new_orelse) ]
 
 
