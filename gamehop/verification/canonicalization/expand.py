@@ -44,13 +44,3 @@ def expand_non_compact_expressions(f: ast.FunctionDef) -> None:
 
     ExpandNonCompactExpressions(var_format = "φ{:d}").visit(f)
     ast.fix_missing_locations(f)
-
-
-def call_arguments(f: ast.FunctionDef) -> None:
-    """Modify (in place) the given function definition so that all non-trivial
-    (not a constant, not a variable name) arguments to function calls appear as
-    intermediate assignments immediately preceding the function call."""
-
-    #ExtractCallArguments().visit(f)
-    ExpandNonCompactExpressions(var_format = "φ{:d}").visit(f)
-    ast.fix_missing_locations(f)
