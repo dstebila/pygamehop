@@ -131,6 +131,36 @@ class TestNewNodeTransformer(unittest.TestCase):
         self.assertEqual(nnt.end_scope, [ 'a', 'b' ])
 
 
+    def test_parents(self):
+        class NewNodeTester(gamehop.utils.NewNodeTransformer):
+            def visit_Call(self, node):
+                if node.func.id == 'g':
+                    self.g_call_parent_type = type(self.parent()).__name__
+                elif node.func.id == 'h':
+                    self.h_call_parent_type = type(self.parent()).__name__
+                elif node.func.id == 'j':
+                    self.j_call_parent_type = type(self.parent()).__name__
+                return node
+        def g(): pass
+        def h(): pass
+        def j(): pass
+
+        def f():
+            g()
+            if h():
+                pass
+            x = j()
+
+        f_ast = ast.parse(gamehop.utils.get_function_def(f))
+        nnt = NewNodeTester()
+        f_ast = nnt.visit( f_ast )
+
+        self.assertEqual(nnt.g_call_parent_type, 'Expr')
+        self.assertEqual(nnt.h_call_parent_type, 'If')
+        self.assertEqual(nnt.j_call_parent_type, 'Assign')
+
+
+
 class TestAttributeNodeReplacer(unittest.TestCase):
 
     def test_one_level(self):

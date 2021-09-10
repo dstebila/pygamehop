@@ -47,56 +47,56 @@ def expected_result(f):
 class TestSimplifyBooleanOperators(unittest.TestCase):
     def test_andT(self):
         f = gamehop.utils.get_function_def(f_andT)
-        f = simplify.boolean_operators(f)
+        f = simplify.simplify(f)
         self.assertEqual(
             ast.unparse(f),
             expected_result(f_andT_expected_result)
         )
     def test_andF(self):
         f = gamehop.utils.get_function_def(f_andF)
-        f = simplify.boolean_operators(f)
+        f = simplify.simplify(f)
         self.assertEqual(
             ast.unparse(f),
             expected_result(f_andF_expected_result)
         )
     def test_orT(self):
         f = gamehop.utils.get_function_def(f_orT)
-        f = simplify.boolean_operators(f)
+        f = simplify.simplify(f)
         self.assertEqual(
             ast.unparse(f),
             expected_result(f_orT_expected_result)
         )
     def test_orF(self):
         f = gamehop.utils.get_function_def(f_orF)
-        f = simplify.boolean_operators(f)
+        f = simplify.simplify(f)
         self.assertEqual(
             ast.unparse(f),
             expected_result(f_orF_expected_result)
         )
     def test_manyT(self):
         f = gamehop.utils.get_function_def(f_manyT)
-        f = simplify.boolean_operators(f)
+        f = simplify.simplify(f)
         self.assertEqual(
             ast.unparse(f),
             expected_result(f_manyT_expected_result)
         )
     def test_manyF(self):
         f = gamehop.utils.get_function_def(f_manyF)
-        f = simplify.boolean_operators(f)
+        f = simplify.simplify(f)
         self.assertEqual(
             ast.unparse(f),
             expected_result(f_manyF_expected_result)
         )
     def test_manyT_with_nonconst(self):
         f = gamehop.utils.get_function_def(f_manyT_with_nonconst)
-        f = simplify.boolean_operators(f)
+        f = simplify.simplify(f)
         self.assertEqual(
             ast.unparse(f),
             expected_result(f_manyT_with_nonconst_expected_result)
         )
     def test_manyF_with_nonconst(self):
         f = gamehop.utils.get_function_def(f_manyF_with_nonconst)
-        f = simplify.boolean_operators(f)
+        f = simplify.simplify(f)
         self.assertEqual(
             ast.unparse(f),
             expected_result(f_manyF_with_nonconst_expected_result)
