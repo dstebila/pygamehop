@@ -45,13 +45,14 @@ class NewNodeTransformer(ast.NodeTransformer):
     - if you define __init__ then you must call super().__init__() to get
         the local variables set up correctly
      """
-    def __init__(self):
+    def __init__(self, counter=0, var_format = '_var_{:d}'):
         self.prelude_statements: List[ast.stmt] = list()
-        self.unique_string_counter: int = 0
+        self.unique_string_counter: int = counter
+        self.var_format = var_format
 
         # When we encounter these types of nodes we insert any
         # prelude statements before the node.
-        self.prelude_anchor_types = { ast.Assign, ast.Return, ast.FunctionDef, ast.If }
+        self.prelude_anchor_types = { ast.Assign, ast.Return, ast.FunctionDef, ast.If, ast.Expr }
         self.new_scope_types = { ast.FunctionDef, ast.ClassDef }
 
         # Keep track of the variables that are in scope
@@ -64,7 +65,7 @@ class NewNodeTransformer(ast.NodeTransformer):
         self.ancestors = list()
 
     def unique_variable_name(self):
-        v = f'_var_{self.unique_string_counter}'
+        v = self.var_format.format(self.unique_string_counter)
         self.unique_string_counter += 1
         return v
 

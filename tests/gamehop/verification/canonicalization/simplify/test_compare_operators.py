@@ -55,14 +55,14 @@ def expected_result(f):
 class TestSimplifyCompareOperators(unittest.TestCase):
     def test_compareF(self):
         f = gamehop.utils.get_function_def(f_compareF)
-        f = simplify.compare_operators(f)
+        f = simplify.simplify(f)
         self.assertEqual(
             ast.unparse(f),
             expected_result(f_compareF_expected_result)
         )
     def test_compareT(self):
         f = gamehop.utils.get_function_def(f_compareT)
-        f = simplify.compare_operators(f)
+        f = simplify.simplify(f)
         self.assertEqual(
             ast.unparse(f),
             expected_result(f_compareT_expected_result)
