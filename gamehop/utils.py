@@ -45,9 +45,10 @@ class NewNodeTransformer(ast.NodeTransformer):
     - if you define __init__ then you must call super().__init__() to get
         the local variables set up correctly
      """
-    def __init__(self, counter=0):
+    def __init__(self, counter=0, var_format = '_var_{:d}'):
         self.prelude_statements: List[ast.stmt] = list()
         self.unique_string_counter: int = counter
+        self.var_format = var_format
 
         # When we encounter these types of nodes we insert any
         # prelude statements before the node.
@@ -63,8 +64,8 @@ class NewNodeTransformer(ast.NodeTransformer):
         # Keep track of the parent of the node being transformed
         self.ancestors = list()
 
-    def unique_variable_name(self, var_format = '_var_{:d}'):
-        v = var_format.format(self.unique_string_counter)
+    def unique_variable_name(self):
+        v = self.var_format.format(self.unique_string_counter)
         self.unique_string_counter += 1
         return v
 
