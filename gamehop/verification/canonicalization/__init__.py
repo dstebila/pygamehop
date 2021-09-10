@@ -13,26 +13,6 @@ def canonicalize_function_name(f: ast.FunctionDef, name = 'f') -> None:
     f.name = name
     ast.fix_missing_locations(f)
 
-def canonicalize_return(f: ast.FunctionDef) -> None:
-    """Modify (in place) the given function definition to simplify its return statement to be either a constant or a single variable."""
-    class ReturnExpander(ast.NodeTransformer):
-        def visit_Return(self, node):
-            # if it directly returns a constant or variable, consider that canonical
-            if isinstance(node.value, ast.Constant): return node
-            if isinstance(node.value, ast.Name): return node
-            # otherwise, make a new assignment for that return value and then return the newly assigned variable
-            assign = ast.Assign(
-                targets = [ast.Name(id='ρ', ctx=ast.Store())],
-                value = node.value
-            )
-            ret = ast.Return(
-                value = ast.Name(id='ρ', ctx=ast.Load())
-            )
-            return [assign, ret]
-    fprime = ReturnExpander().visit(f)
-    f.body = fprime.body
-    ast.fix_missing_locations(f)
-
 def canonicalize_variable_names(f: ast.FunctionDef, prefix = 'v') -> None:
     """Modify (in place) the given function definition to give variables canonical names."""
     # first rename everything to a random string followed by a counter

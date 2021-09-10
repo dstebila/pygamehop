@@ -38,9 +38,6 @@ def canonicalize_function(f: Union[Callable, str]) -> str:
         debug_helper(functionDef, "ifstatements.if_statements_to_expressions")
         expand.expand_non_compact_expressions(functionDef)
         debug_helper(functionDef, "expand.expand_non_compact_expressions")
-        # canonicalize return statement
-        canonicalization.canonicalize_return(functionDef)
-        debug_helper(functionDef, "canonicalization.canonicalize_return")
         # canonicalize function name
         canonicalization.canonicalize_function_name(functionDef)
         debug_helper(functionDef, "canonicalization.canonicalize_function_name")
@@ -68,8 +65,6 @@ def canonicalize_game(c: Union[Type[Any], str, ast.ClassDef]) -> str:
         debug_helper(f, "ifstatements.if_statements_to_expressions")
         expand.expand_non_compact_expressions(f)
         debug_helper(f, "expand.expand_non_compact_expressions")
-        canonicalization.canonicalize_return(f)
-        debug_helper(f, "canonicalization.canonicalize_return")
         canonicalization.collapse_useless_assigns(f)
         debug_helper(f, "canonicalization.collapse_useless_assigns")
         canonicalization.simplify.simplify(f)
