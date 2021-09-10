@@ -24,7 +24,27 @@ class NewNodeVisitor(ast.NodeVisitor):
             super().visit(node)
 
 class NewNodeTransformer(ast.NodeTransformer):
-    """Adds the ability to handle List[ast.stmt] to ast.NodeTransformer"""
+    """Adds new abilities to the ast.NodeTtransformer class:
+
+    - the ability to handle List[ast.stmt] using visit_statements()
+    - keeping track of variables defined, respecting scopes.  i.e.
+        variables defined functionDefs and ClassDefs are removed from the
+        scope when those nodes have been processed.  Also, variables defined
+        in the body or orelse of if statements are only added to the scope if
+        they are defined in _both_ branches.  Locally, each branch keeps track
+        of all variables it defines
+    - keeping track of the parent of nodes as they are processed, available through
+        parent(), which returns None if there is no parent, eg. if this a top-level node
+    - if you need a new variable name, unique_variable_name() will give you one.
+        each call returns a new name.
+
+    Thinks to keep in mind:
+    - scopes for ifs are implemented with a visit_If method.  If you override
+        this method then you are responsible for keeping track of the scopes
+        (if scopes are being used)
+    - if you define __init__ then you must call super().__init__() to get
+        the local variables set up correctly
+     """
     def __init__(self):
         self.prelude_statements: List[ast.stmt] = list()
         self.unique_string_counter: int = 0
