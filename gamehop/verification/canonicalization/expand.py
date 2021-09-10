@@ -1,122 +1,83 @@
 import ast
 import copy
+from .. import utils
 
 from typing import Dict, List
 
 from ...inlining import internal
 
-class ExtractCallArguments(ast.NodeTransformer):
+class ExtractCallArguments(utils.NewNodeTransformer):
     """For every call node, if any of its arguments are not a constant or a variable
     name, extract that argument into a new assign statement to a temporary variable.
-    The new assign statements are logged in the self.predecessors member. 
-    Temporary variables names will be assigned starting at counter, and the counter 
-    will be updated as new variables are added. The inner most arguments will be 
+    The new assign statements are logged in the self.predecessors member.
+    Temporary variables names will be assigned starting at counter, and the counter
+    will be updated as new variables are added. The inner most arguments will be
     extracted first."""
-    def __init__(self, counter):
-        self.predecessors = []
-        self.counter = counter
+    def value_to_name(self, node):
+        # create a new assign statement to capture the value
+        newvar = self.unique_variable_name("φ{:d}")
+        newassign = ast.Assign(
+            targets = [ ast.Name(id = newvar, ctx = ast.Store) ],
+            value = node
+        )
+        self.add_prelude_statement(newassign)
+
+        # return a new Name node that refers to the value
+        return ast.Name(id = newvar, ctx = ast.Load)
+
+
     def visit_Call(self, node):
-        newnode = copy.deepcopy(node)
-        if len(newnode.keywords) > 0: raise NotImplementedError("Cannot handle calls with keywords")
-        # go through each argument
-        for i in range(len(newnode.args)):
-            arg = newnode.args[i]
-            # no changes needed for arguments that are a constant or a variable name
-            if isinstance(arg, ast.Constant) or isinstance(arg, ast.Name): pass
-            else:
-                # recurse on the argument and extract any of its non-trivial arguments
-                recurser = ExtractCallArguments(self.counter)
-                newarg = recurser.visit(arg)
-                # save any of its non-trivial arguments to the predecessor list
-                self.predecessors.extend(recurser.predecessors)
-                # update the counter based on how many it extracted
-                self.counter = recurser.counter
-                # add an assign statement to predecessors, assigning this argument
-                # to a temporary variable
-                tmpvar = "φ{:d}".format(self.counter)
-                self.counter += 1
-                self.predecessors.append(ast.Assign(
-                    targets=[ast.Name(id=tmpvar, ctx=ast.Store())],
-                    value=newarg
-                ))
-                # replace the argument with the temporary variable
-                newnode.args[i] = ast.Name(id=tmpvar, ctx=ast.Load())
-        return newnode
+        self.generic_visit(node)  # fix up all children first
+
+        # Valid places for a call are value for an assign value or an Expr (bare function call)
+        if isinstance(self.parent(), ast.Assign) or isinstance(self.parent(), ast.Expr):
+            return node
+
+        return self.value_to_name(node)
 
 def call_arguments(f: ast.FunctionDef) -> None:
-    """Modify (in place) the given function definition so that all non-trivial 
-    (not a constant, not a variable name) arguments to function calls appear as 
+    """Modify (in place) the given function definition so that all non-trivial
+    (not a constant, not a variable name) arguments to function calls appear as
     intermediate assignments immediately preceding the function call."""
-    counter = 0
-    # go through each statement in the body
-    # replace it with any extracted argument assignments, then the (possibly
-    # simplified) statement itself 
-    newbody = list()
-    for stmt in f.body:
-        extractor = ExtractCallArguments(counter)
-        stmt = extractor.visit(stmt)
-        counter = extractor.counter
-        newbody.extend(extractor.predecessors)
-        newbody.append(stmt)
-    f.body = newbody
+
+    ExtractCallArguments().visit(f)
     ast.fix_missing_locations(f)
 
-class ExtractIfExpArguments(ast.NodeTransformer):
+class ExtractIfExpArguments(utils.NewNodeTransformer):
     """For every IfExp node, if any of its arguments are not a constant or a variable
     name, extract that argument into a new assign statement to a temporary variable.
-    The new assign statements are logged in the self.predecessors member. 
-    Temporary variables names will be assigned starting at counter, and the counter 
-    will be updated as new variables are added. The inner most arguments will be 
+    The new assign statements are logged in the self.predecessors member.
+    Temporary variables names will be assigned starting at counter, and the counter
+    will be updated as new variables are added. The inner most arguments will be
     extracted first."""
-    def __init__(self, counter):
-        self.predecessors = []
-        self.counter = counter
+
+    def value_to_name(self, node):
+        # create a new assign statement to capture the value
+        newvar = self.unique_variable_name("φifexp{:d}")
+        newassign = ast.Assign(
+            targets = [ ast.Name(id = newvar, ctx = ast.Store) ],
+            value = node
+        )
+        self.add_prelude_statement(newassign)
+
+        # return a new Name node that refers to the value
+        return ast.Name(id = newvar, ctx = ast.Load)
+
+    def fix_non_compact_value(self, value):
+        if isinstance(value, ast.Constant) or isinstance(value, ast.Name):
+            return value
+        return self.value_to_name(value)
+
     def visit_IfExp(self, node):
-        newnode = copy.deepcopy(node)
-        # we'll iterate through the three parts of an IfExp
-        subnodes = [newnode.body, newnode.test, newnode.orelse]
-        for i in range(len(subnodes)):
-            subnode = subnodes[i]
-            # no changes needed for arguments that are a constant or a variable name
-            if isinstance(subnode, ast.Constant) or isinstance(subnode, ast.Name): pass
-            else:
-                # recurse on the subnode and expand any of its non-trivial IfExp
-                recurser = ExtractIfExpArguments(self.counter)
-                newsubnode = recurser.visit(subnode)
-                # save any of its non-trivial expansions to the predecessor list
-                self.predecessors.extend(recurser.predecessors)
-                # update the counter based on how many it extracted
-                self.counter = recurser.counter
-                # add an assign statement to predecessors, assigning this subnode
-                # to a temporary variable
-                tmpvar = "φifexp{:d}".format(self.counter)
-                self.counter += 1
-                self.predecessors.append(ast.Assign(
-                    targets=[ast.Name(id=tmpvar, ctx=ast.Store())],
-                    value=newsubnode
-                ))
-                # replace the subnode with the temporary variable
-                subnodes[i] = ast.Name(id=tmpvar, ctx=ast.Load())
-        # set the IfExp's parts
-        newnode.body = subnodes[0]
-        newnode.test = subnodes[1]
-        newnode.orelse = subnodes[2]
-        return newnode
+        self.generic_visit(node)
+        node.body = self.fix_non_compact_value(node.body)
+        node.test = self.fix_non_compact_value(node.test)
+        node.orelse = self.fix_non_compact_value(node.orelse)
+        return node
 
 def ifexpressions(f: ast.FunctionDef) -> None:
-    """Modify (in place) the given function definition so that all non-trivial 
+    """Modify (in place) the given function definition so that all non-trivial
     (not a constant, not a variable name) arguments to if expressions (b if c else d)
     appear as intermediate assignments immediately preceding the if expression."""
-    counter = 0
-    # go through each statement in the body
-    # replace it with any extracted argument assignments, then the (possibly
-    # simplified) statement itself 
-    newbody = list()
-    for stmt in f.body:
-        extractor = ExtractIfExpArguments(counter)
-        stmt = extractor.visit(stmt)
-        counter = extractor.counter
-        newbody.extend(extractor.predecessors)
-        newbody.append(stmt)
-    f.body = newbody
+    ExtractIfExpArguments().visit(f)
     ast.fix_missing_locations(f)

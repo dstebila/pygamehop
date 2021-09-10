@@ -45,11 +45,11 @@ class TestExpandIfExp(unittest.TestCase):
         def f(y):
             a = b(y) if c(y) else d(y) if e(y) else f(y)
         def f_expected_result(y):
-            φifexp0 = b(y)
-            φifexp1 = c(y)
-            φifexp2 = d(y)
-            φifexp3 = e(y)
-            φifexp4 = f(y)
-            φifexp5 = φifexp2 if φifexp3 else φifexp4
-            a = φifexp0 if φifexp1 else φifexp5
+            φifexp0 = d(y)
+            φifexp1 = e(y)
+            φifexp2 = f(y)
+            φifexp3 = b(y)
+            φifexp4 = c(y)
+            φifexp5 = φifexp0 if φifexp1 else φifexp2
+            a = φifexp3 if φifexp4 else φifexp5
         do_it(self, f, f_expected_result)
