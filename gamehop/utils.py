@@ -40,6 +40,9 @@ class NewNodeTransformer(ast.NodeTransformer):
         self.scopes: List[List[str]] = list()
         self.scopes.append(list())
 
+        # Keep track of the parent of the node being transformed
+        self.ancestors = list()
+
     def unique_variable_name(self):
         v = f'_var_{self.unique_string_counter}'
         self.unique_string_counter += 1
@@ -88,32 +91,44 @@ class NewNodeTransformer(ast.NodeTransformer):
     def vars_in_local_scope(self) -> List[str]:
         return list(self.scopes[-1])
 
+
+    # Keep track of parent of each node
+    def parent(self):
+        if len(self.ancestors) < 1:
+            return None
+        return self.ancestors[-1]
+
+    def push_parent(self, node):
+        self.ancestors.append(node)
+
+    def pop_parent(self):
+        self.ancestors.pop()
+
     def visit_statements(self, stmts: List[ast.stmt]) -> List[ast.stmt]:
-        newnode = ast.Module()
-        newnode.body = stmts
-
-        # This is fine as long as nobody overrides visit_Module!
-        return self.generic_visit(newnode).body
-
+        # overwrite the old statements with whatever we get back
+        stmts[:] = sum( [ ensure_list(self.visit(stmt)) for stmt in stmts ] , [])
+        return stmts
 
     def visit_If(self, node):
+        self.push_parent(node)
         # ifs need special attention because a variable may be assigned to
         # in one branch but not the other
 
+
         # test is in common
-        new_test = self.visit(node.test)
+        node.test = self.visit(node.test)
 
         # create a new scope for the body so that we don't count them as
         # in scope in the orelse
         self.new_scope()
-        new_body = sum( [ ensure_list(self.visit(child)) for child in node.body ] , [])
+        node.body = sum( [ ensure_list(self.visit(child)) for child in node.body ] , [])
         ifscope = self.vars_in_local_scope()
         self.pop_scope()
 
         # create a new scope for the orelse so that we don't count them as
         # in scope later when the orelse may not have run
         self.new_scope()
-        new_orelse = sum( [ ensure_list(self.visit(child)) for child in node.orelse ], [])
+        node.orelse = sum( [ ensure_list(self.visit(child)) for child in node.orelse ], [])
         elsescope = self.vars_in_local_scope()
         self.pop_scope()
 
@@ -124,7 +139,8 @@ class NewNodeTransformer(ast.NodeTransformer):
             if bothscopes.count(v) == 2:
                 self.add_var_to_scope(v)
 
-        return self.pop_prelude_statements() + [ ast.If(new_test, new_body, new_orelse) ]
+        self.pop_parent()
+        return self.pop_prelude_statements() + [ node ]
 
 
     def generic_visit(self, node):
@@ -133,7 +149,10 @@ class NewNodeTransformer(ast.NodeTransformer):
         if type(node) in self.new_scope_types:
             self.new_scope()
 
-        visit_val = super().generic_visit(node)
+        # We need to set this node as parent before we visit its childen
+        self.push_parent(node)
+        visit_val = super().generic_visit(node)  # this call will only visit children
+        self.pop_parent()
 
         # Remove the scope now that it is complete
         if type(node) in self.new_scope_types:
