@@ -267,33 +267,39 @@ def canonicalize_argument_order(f: ast.FunctionDef) -> None:
     f.args.args = new_args
     ast.fix_missing_locations(f)
 
+
+class LambdaReplacer(utils.NewNodeTransformer):
+    def __init__(self) -> None:
+        self.lambdas: Dict[str, ast.Lambda] = dict()
+        super().__init__()
+
+    def visit_Assign(self, node) -> None:
+        self.generic_visit(node)
+        if isinstance(node.value, ast.Lambda):
+            # TODO: is this correct way to handle multiple targets?
+            for target in node.targets:
+                assert isinstance(target, ast.Name)
+                self.lambdas[target.id] = node.value
+            return None  # we will inline this lambda, so remove the assign
+        else:
+            return node
+            
+    def visit_Call(self, node):
+        self.generic_visit(node)
+        if isinstance(node.func, ast.Name) and node.func.id in self.lambdas:
+            lam = self.lambdas[node.func.id]
+            lamargs = lam.args.args
+            callargs = node.args
+            assert len(lamargs) == len(callargs)
+            lambody = copy.deepcopy(lam.body)
+            mappings = dict()
+            for i in range(len(lamargs)):
+                mappings[lamargs[i].arg] = callargs[i]
+            return utils.NameNodeReplacer(mappings).visit(lambody)
+        else: return node
+
+
 def inline_lambdas(f: ast.FunctionDef) -> None:
     """Modify (in place) the given function definition to replace all calls to lambdas with their body."""
-    # extract all the lambda definitions
-    new_body: List[ast.stmt] = list()
-    lambdas = dict()
-    for stmt in f.body:
-        if isinstance(stmt, ast.Assign) and isinstance(stmt.value, ast.Lambda):
-            for target in stmt.targets:
-                assert isinstance(target, ast.Name)
-                lambdas[target.id] = stmt.value
-        else:
-            new_body.append(stmt)
-    f.body = new_body
-    class LambdaReplacer(ast.NodeTransformer):
-        def __init__(self, lambdas):
-            self.lambdas = lambdas
-        def visit_Call(self, node):
-            if isinstance(node.func, ast.Name) and node.func.id in lambdas:
-                lam = lambdas[node.func.id]
-                lamargs = lam.args.args
-                callargs = node.args
-                assert len(lamargs) == len(callargs)
-                lambody = copy.deepcopy(lam.body)
-                mappings = dict()
-                for i in range(len(lamargs)):
-                    mappings[lamargs[i].arg] = callargs[i]
-                return utils.NameNodeReplacer(mappings).visit(lambody)
-            else: return node
-    f = LambdaReplacer(lambdas).visit(f)
+    f = LambdaReplacer().visit(f)
     ast.fix_missing_locations(f)

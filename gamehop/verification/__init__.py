@@ -34,6 +34,9 @@ def canonicalize_function(f: Union[Callable, str]) -> str:
     str_current = ast.unparse(ast.fix_missing_locations(functionDef))
     while str_previous != str_current:
         str_previous = str_current
+        # Inline lambdas first so that the inlined expression will be expanded later
+        canonicalization.inline_lambdas(functionDef)
+        debug_helper(functionDef, "canonicalization.inline_lambdas")
         ifstatements.if_statements_to_expressions(functionDef)
         debug_helper(functionDef, "ifstatements.if_statements_to_expressions")
         expand.expand_non_compact_expressions(functionDef)
@@ -41,8 +44,6 @@ def canonicalize_function(f: Union[Callable, str]) -> str:
         # canonicalize function name
         canonicalization.canonicalize_function_name(functionDef)
         debug_helper(functionDef, "canonicalization.canonicalize_function_name")
-        canonicalization.inline_lambdas(functionDef)
-        debug_helper(functionDef, "canonicalization.inline_lambdas")
         canonicalization.collapse_useless_assigns(functionDef)
         debug_helper(functionDef, "canonicalization.collapse_useless_assigns")
         canonicalization.simplify.simplify(functionDef)
