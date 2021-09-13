@@ -15,6 +15,10 @@ def stringDiff(a,b):
 
 class NewNodeVisitor(ast.NodeVisitor):
     """Adds the ability to handle List[ast.stmt] to ast.NodeVistor"""
+    def __init__(self, node=None):
+        if node is not None:
+            self.visit(node)
+            
     def visit(self, node):
         if isinstance(node, list):
             newnode = ast.Module()

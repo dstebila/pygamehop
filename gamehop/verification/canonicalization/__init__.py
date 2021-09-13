@@ -33,22 +33,24 @@ def canonicalize_variable_names(f: ast.FunctionDef, prefix = 'v') -> None:
     f.body = f_2ndpass.body
     ast.fix_missing_locations(f)
 
-class FindVariableDependencies(ast.NodeVisitor):
+class FindVariableDependencies(utils.NewNodeVisitor):
     """Find all the variables a node depends on."""
-    def __init__(self):
+    def __init__(self, node = None):
         self.loads = list()
         self.stores = list()
+        super().__init__(node)
+
     def visit_Name(self, node):
         if isinstance(node.ctx, ast.Load) and node.id not in self.loads: self.loads.append(node.id)
         if isinstance(node.ctx, ast.Store) and node.id not in self.stores: self.stores.append(node.id)
 
+def dependent_vars(stmt: ast.Assign) -> List[str]:
+    return FindVariableDependencies(stmt.value).loads
+
 def contains_name(node: Union[ast.AST, List], name: str) -> bool:
     """Determines whether the given node (or list of nodes) contains a variable with the given name."""
-    if isinstance(node, ast.AST): searchin = [node]
-    else: searchin = node
-    for element in searchin:
-        var_deps = FindVariableDependencies()
-        var_deps.visit(element)
+    for element in utils.ensure_list(node):
+        var_deps = FindVariableDependencies(element)
         if name in var_deps.stores or name in var_deps.loads: return True
     return False
 
@@ -144,15 +146,7 @@ def assignee_vars(stmt: ast.Assign) -> List[str]:
         return ret
     else: raise NotImplementedError("Cannot handle assignments with left sides of the type " + str(type(stmt.targets[0]).__name__))
 
-def dependent_vars(stmt: ast.Assign) -> List[str]:
-    class FindLoadNames(ast.NodeVisitor):
-        def __init__(self):
-            self.found = list()
-        def visit_Name(self, node):
-            if isinstance(node.ctx, ast.Load): self.found.append(node.id)
-    finder = FindLoadNames()
-    finder.visit(stmt.value)
-    return finder.found
+
 
 # generate a graph of the lines of the function
 def function_to_graph(t: ast.FunctionDef):
@@ -283,7 +277,7 @@ class LambdaReplacer(utils.NewNodeTransformer):
             return None  # we will inline this lambda, so remove the assign
         else:
             return node
-            
+
     def visit_Call(self, node):
         self.generic_visit(node)
         if isinstance(node.func, ast.Name) and node.func.id in self.lambdas:
