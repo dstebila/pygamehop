@@ -10,12 +10,16 @@ def f_constant(y):
     x = a
     return x
 def f_constant_expected_result(y):
+    a = 7
+    x = 7
     return 7
 def f_variable(y):
     a = y
     x = a
     return x
 def f_variable_expected_result(y):
+    a = y
+    x = y
     return y
 def f_reassign(y):
     a = y
@@ -25,7 +29,11 @@ def f_reassign(y):
     x = a
     g(x)
 def f_reassign_expected_result(y):
+    a = y
+    x = y
     g(y)
+    a = 7
+    x = 7
     g(7)
 def f_tuple(y):
     x = 4
@@ -33,6 +41,9 @@ def f_tuple(y):
     (a, b, c) = (x, y, z)
     g(a + 1, b + 2, c + 3, x + 4)
 def f_tuple_expected_result(y):
+    x = 4
+    z = y
+    (a, b, c) = (4, y, y)
     g(4 + 1, y + 2, y + 3, 4 + 4)
 def f_tuple2():
     c = 1
@@ -40,6 +51,9 @@ def f_tuple2():
     (a,b) = (c,d)
     return a
 def f_tuple2_expected_result():
+    c = 1
+    d = 2
+    (a,b) = (1,2)
     return 1
 def f_tuple3(a, b):
     c = (a, b)

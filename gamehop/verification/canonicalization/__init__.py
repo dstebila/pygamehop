@@ -52,8 +52,32 @@ def contains_name(node: Union[ast.AST, List], name: str) -> bool:
     var_deps = VariableDependencies(node)
     return name in var_deps.stores or name in var_deps.loads
 
+class VariableCollapser(utils.NewNodeTransformer):
+    def visit_Name(self, node):
+        node = self.generic_visit(node)
+        if not isinstance(node.ctx, ast.Load):
+            return node
+
+        if not self.in_scope(node.id):   # this includes cases like function names
+            return node
+
+        value = self.var_value(node.id)
+        if isinstance(value, ast.Constant) or isinstance(value, ast.Name) or isinstance(value, tuple):
+            return value
+
+        # TODO: handle tuples as values
+        return node
+
+
+
+
 def collapse_useless_assigns(f: ast.FunctionDef) -> None:
     """Modify (in place) the given function definition to remove all lines containing tautological/useless assignments. For example, if the code contains a line "x = a" followed by a line "y = x + b", it replaces all subsequent instances of x with a, yielding the single line "y = a + b", up until x is set in another assignment statement.  Handles tuples.  Doesn't handle any kind of logic involving if statements or loops."""
+
+    VariableCollapser().visit(f)
+    ast.fix_missing_locations(f)
+    return
+
     # keep looping until nothing changes
     keep_going = True
     while keep_going:

@@ -156,9 +156,9 @@ class TestNewNodeTransformer(unittest.TestCase):
         f_transformed = ast.unparse(f_new_ast)
 
         self.assertEqual(f_transformed, expected_result(f_expected_result))
-        self.assertEqual(nnt.if_scope, [ 'a', 'b', 'c' ])
-        self.assertEqual(nnt.orelse_scope, [ 'a', 'b', 'd' ])
-        self.assertEqual(nnt.end_scope, [ 'a', 'b' ])
+        self.assertEqual(nnt.if_scope, [ 't', 'a', 'b', 'c' ])
+        self.assertEqual(nnt.orelse_scope, [ 't', 'a', 'b', 'd' ])
+        self.assertEqual(nnt.end_scope, [ 't', 'a', 'b' ])
 
         f_ast = ast.parse(gamehop.utils.get_function_def(f))
         nnt = NewNodeTester()
@@ -170,6 +170,45 @@ class TestNewNodeTransformer(unittest.TestCase):
         self.assertEqual(nnt.if_scope, [ 'a', 'b', 'c' ])
         self.assertEqual(nnt.orelse_scope, [ 'a', 'b', 'd' ])
         self.assertEqual(nnt.end_scope, [ 'a', 'b' ])
+
+
+    def test_scopes_tuple_values(self):
+        class NewNodeTester(gamehop.utils.NewNodeTransformer):
+            def visit_Call(self, node):
+                if node.func.id == 'g':
+                    if not self.in_scope('a'): assert(False)
+                    if not self.in_scope('b'): assert(False)
+                    if not self.in_scope('c'): assert(False)
+                    if not self.in_scope('d'): assert(False)
+                    if not self.in_scope('e'): assert(False)
+                    if not self.in_scope('f'): assert(False)
+                    self.a = self.var_value('a').value
+                    self.b = self.var_value('b').value
+                    self.c = self.var_value('c').value
+                    self.d = self.var_value('d').value
+                    self.e = self.var_value('e').value
+                    self.f = self.var_value('f').value
+
+                return node
+        def g(): pass
+        def f(t):
+            a = b = 1
+            c, d = (1, 2)
+            (e, f) = (3,4)
+            g()
+
+        f_ast = ast.parse(gamehop.utils.get_function_def(f))
+        nnt = NewNodeTester()
+        f_new_ast = nnt.visit(f_ast)
+
+        self.assertEqual(nnt.a, 1)
+        self.assertEqual(nnt.b, 1)
+        self.assertEqual(nnt.c, 1)
+        self.assertEqual(nnt.d, 2)
+        self.assertEqual(nnt.e, 3)
+        self.assertEqual(nnt.f, 4)
+
+
 
 
     def test_parents(self):
