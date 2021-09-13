@@ -19,11 +19,11 @@ class TestNewNodeTransformer(unittest.TestCase):
                     if isinstance(a, ast.Call):
                         newvar = self.unique_variable_name()
                         newassign = ast.Assign(
-                            targets = [ ast.Name(id = newvar, ctx = ast.Store) ],
+                            targets = [ ast.Name(id = newvar, ctx = ast.Store()) ],
                             value = a
                         )
                         self.add_prelude_statement(newassign)
-                        node.args[i] = ast.Name(id = newvar, ctx = ast.Load)
+                        node.args[i] = ast.Name(id = newvar, ctx = ast.Load())
                 return node
 
         def a(): pass

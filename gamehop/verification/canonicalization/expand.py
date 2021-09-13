@@ -17,13 +17,13 @@ class ExpandNonCompactExpressions(utils.NewNodeTransformer):
         # create a new assign statement to capture the value
         newvar = self.unique_variable_name()
         newassign = ast.Assign(
-            targets = [ ast.Name(id = newvar, ctx = ast.Store) ],
+            targets = [ ast.Name(id = newvar, ctx = ast.Store()) ],
             value = node
         )
         self.add_prelude_statement(newassign)
 
         # return a new Name node that refers to the value
-        return ast.Name(id = newvar, ctx = ast.Load)
+        return ast.Name(id = newvar, ctx = ast.Load())
 
     def generic_visit(self, node):
         newval = super().generic_visit(node) # fix up children first

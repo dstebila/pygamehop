@@ -15,6 +15,8 @@ class TestExpandCallArguments(unittest.TestCase):
         ''' We have to be careful not to expand out the bodies of lambdas,
         because they make no sense when taken out of the lambda context: the
         arguments are not variables in scope outside the lambda body.
+
+        Probably this doesn't matter since we now inline lambdas before expanding.
         '''
         def f():
             somef = lambda x: x + 1
@@ -31,3 +33,38 @@ class TestExpandCallArguments(unittest.TestCase):
             ast.unparse(f),
             expected_result(f_expected_result)
         )
+    def test_function_call_in_return(self):
+        def g(x):
+            return x
+        def f(z):
+            return g(z)
+
+        def f_expected_result(z):
+            φ0 = g  (z)
+            return φ0
+
+        fdef = gamehop.utils.get_function_def(f)
+        expand.expand_non_compact_expressions(fdef)
+
+        s1 = ast.unparse(fdef)
+        s2 = expected_result(f_expected_result)
+        self.assertEqual(s1, s2)
+
+    def test_function_call_in_if(self):
+        def g(x):
+            return x
+        def f(z):
+            if g(z):
+                pass
+
+        def f_expected_result(z):
+            φ0 = g(z)
+            if φ0:
+                pass
+
+        fdef = gamehop.utils.get_function_def(f)
+        expand.expand_non_compact_expressions(fdef)
+
+        s1 = ast.unparse(fdef)
+        s2 = expected_result(f_expected_result)
+        self.assertEqual(s1, s2)

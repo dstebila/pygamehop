@@ -4,12 +4,13 @@ import unittest
 
 import gamehop
 import gamehop.verification
+import gamehop.verification.canonicalization as canonicalization
 
 def f_inline_function_order_helper(x):
     return x + 1
 class class_inline_function_order():
     def f(self):
-        return f_inline_function_order_helper(1)        
+        return f_inline_function_order_helper(1)
 def f_inline_function_order(v: class_inline_function_order):
     x = v.f()
     y = v.f()
@@ -36,7 +37,7 @@ def f_inline_init_arg(v: class_inline_init_arg, x: class_inline_init_arg_helper)
 def f_inline_init_arg_expected_result(v0: class_inline_init_arg_helper):
     v1 = v0.prop
     return v1
-    
+
 class class_inline_init_arg2_helper():
     prop: 1
 class class_inline_init_arg2():
@@ -62,9 +63,9 @@ def f_inline_init_arg3_expected_result(v0: class_inline_init_arg3_helper):
 
 
 def expected_result(f):
-    s = inspect.getsource(f)
-    s = s.replace('_expected_result', '')
-    return ast.unparse(ast.parse(s))
+    fdef = gamehop.utils.get_function_def(f)
+    fdef.name = fdef.name.replace('_expected_result', '')
+    return ast.unparse(fdef)
 
 class TestCanonicalize(unittest.TestCase):
     def oldtest_inline_function_order(self):
@@ -101,3 +102,40 @@ class TestCanonicalize(unittest.TestCase):
         gamehop.verification.canonicalization.canonicalize_function_name(f2)
         s2 = ast.unparse(f2)
         self.assertEqual(s1, s2)
+
+    def test_inline_lamda_then_expand(self):
+        def g(x):
+            return x
+        def f(z):
+            h = lambda x: g(x)
+            r = h(z)
+            return r
+
+        def f_expected_result(v0):
+            v1 = g(v0)
+            return v1
+
+        fdef = gamehop.utils.get_function_def(f)
+        s1 = gamehop.verification.canonicalize_function(fdef)
+        self.assertEqual(
+            s1,
+            expected_result(f_expected_result)
+        )
+
+    def test_inline_lamda_then_expand_2(self):
+        def g(x):
+            return x
+        def f(z):
+            h = lambda x: g(x)
+            return h(z)
+
+        def f_expected_result(v0):
+            v1 = g(v0)
+            return v1
+
+        fdef = gamehop.utils.get_function_def(f)
+
+        self.assertEqual(
+            gamehop.verification.canonicalize_function(fdef),
+            expected_result(f_expected_result)
+        )
