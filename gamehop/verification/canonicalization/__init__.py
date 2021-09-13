@@ -33,7 +33,7 @@ def canonicalize_variable_names(f: ast.FunctionDef, prefix = 'v') -> None:
     f.body = f_2ndpass.body
     ast.fix_missing_locations(f)
 
-class FindVariableDependencies(utils.NewNodeVisitor):
+class VariableDependencies(utils.NewNodeVisitor):
     """Find all the variables a node depends on."""
     def __init__(self, node = None):
         self.loads = list()
@@ -45,14 +45,12 @@ class FindVariableDependencies(utils.NewNodeVisitor):
         if isinstance(node.ctx, ast.Store) and node.id not in self.stores: self.stores.append(node.id)
 
 def dependent_vars(stmt: ast.Assign) -> List[str]:
-    return FindVariableDependencies(stmt.value).loads
+    return VariableDependencies(stmt.value).loads
 
 def contains_name(node: Union[ast.AST, List], name: str) -> bool:
     """Determines whether the given node (or list of nodes) contains a variable with the given name."""
-    for element in utils.ensure_list(node):
-        var_deps = FindVariableDependencies(element)
-        if name in var_deps.stores or name in var_deps.loads: return True
-    return False
+    var_deps = VariableDependencies(node)
+    return name in var_deps.stores or name in var_deps.loads
 
 def collapse_useless_assigns(f: ast.FunctionDef) -> None:
     """Modify (in place) the given function definition to remove all lines containing tautological/useless assignments. For example, if the code contains a line "x = a" followed by a line "y = x + b", it replaces all subsequent instances of x with a, yielding the single line "y = a + b", up until x is set in another assignment statement.  Handles tuples.  Doesn't handle any kind of logic involving if statements or loops."""
