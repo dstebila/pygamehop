@@ -3,7 +3,9 @@ import inspect
 import unittest
 
 import gamehop.inlining.internal
-import gamehop.verification.canonicalization
+import gamehop.verification.canonicalization as canonicalization
+import gamehop.utils as utils
+
 
 def f_basic1(x, y):
     r = (x, y)
@@ -31,9 +33,9 @@ def f_arith_expected_result(x: int, y: int):
     return r
 
 def expected_result(f):
-    s = inspect.getsource(f)
-    s = s.replace('_expected_result', '')
-    return ast.unparse(ast.parse(s))
+    fdef = gamehop.utils.get_function_def(f)
+    fdef.name = fdef.name.replace('_expected_result', '')
+    return ast.unparse(fdef)
 
 class TestCanonicalizeArgumentOrder(unittest.TestCase):
     def test_basic1(self):
@@ -63,4 +65,73 @@ class TestCanonicalizeArgumentOrder(unittest.TestCase):
         self.assertEqual(
             ast.unparse(f),
             expected_result(f_arith_expected_result)
+        )
+
+    def test_two_uses(self):
+        def g(x): pass
+        def f(a,b):
+            g(a)
+            g(b)
+            g(a)
+
+        def f_expected_result(a,b):
+            g(a)
+            g(b)
+            g(a)
+
+        fdef = utils.get_function_def(f)
+        canonicalization.canonicalize_argument_order(fdef)
+        self.assertEqual(
+            ast.unparse(fdef),
+            expected_result(f_expected_result)
+        )
+
+    def test_assign_overwrites(self):
+        def f(a,b):
+            a = 3
+            return a
+
+        def f_expected_result():
+            a = 3
+            return a
+
+        fdef = utils.get_function_def(f)
+        canonicalization.canonicalize_argument_order(fdef)
+        self.assertEqual(
+            ast.unparse(fdef),
+            expected_result(f_expected_result)
+        )
+
+    def test_inner_function_argument_overwrites(self):
+        def f(a,b):
+            def g(a,c):
+                return a
+
+        def f_expected_result():
+            def g(a):
+                return a
+
+        fdef = utils.get_function_def(f)
+        canonicalization.canonicalize_argument_order(fdef)
+        self.assertEqual(
+            ast.unparse(fdef),
+            expected_result(f_expected_result)
+        )
+
+    def test_inner_function_assign_overwrites(self):
+        def f(a,b):
+            def g(c):
+                a = 3
+                return a
+
+        def f_expected_result():
+            def g():
+                a = 3
+                return a
+
+        fdef = utils.get_function_def(f)
+        canonicalization.canonicalize_argument_order(fdef)
+        self.assertEqual(
+            ast.unparse(fdef),
+            expected_result(f_expected_result)
         )

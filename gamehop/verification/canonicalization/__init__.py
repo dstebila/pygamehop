@@ -192,7 +192,6 @@ class ArgumentReorderer(utils.NewNodeTransformer):
         self.name_assigns.pop()
         return return_val
 
-
     def visit_Name(self, node):
         node = self.generic_visit(node)
         if not len(self.function_arguments) > 0:
@@ -200,66 +199,26 @@ class ArgumentReorderer(utils.NewNodeTransformer):
             return node
 
         if type(node.ctx) == ast.Store:
-            self.name_assigns.append(node.id)
+            self.name_assigns[-1].append(node.id)
             return node
         assert(type(node.ctx) == ast.Load)
 
         var_name = node.id
-
         # look for the innermost function definition that has this name for an argument
         for i in range(len(self.function_arguments) - 1, -1, -1):
             if var_name in self.name_assigns[i]: break               # assign overwrote the argument
-            if var_name in self.function_new_arguments[i]: break     # inner function def overwrote the argument
             if var_name in self.function_arguments[i]:
+                if var_name in self.function_new_arguments[i]: break     # already found and assigned order
                 self.function_new_arguments[i].append(var_name)
                 break
         return node
 
-
-
 def canonicalize_argument_order(f: ast.FunctionDef) -> None:
     """Modify (in place) the given function definition to canonicalize the order of the arguments
-    based on the order in which the returned variable depends on intermediate variables. Arguments
-    that do not affect the return variable are removed. Assumes that canonicalize_line_order
-    has already been called."""
+    based on the order in which the variables appear.  Arguments that are not referred to are removed."""
 
     ArgumentReorderer().visit(f)
     ast.fix_missing_locations(f)
-    return
-
-    body = copy.deepcopy(f.body)
-    # make sure the final statement is a return
-    final_stmt = body[-1]
-    del body[-1]
-    stmts_at_level: List[List[ast.AST]] = list()
-    if not isinstance(final_stmt, ast.Return): return None
-    # if it returns a constant, then can remove all arguments
-    if isinstance(final_stmt.value, ast.Constant):
-        f.args.args = []
-        ast.fix_missing_locations(f)
-        return
-    # get the return value
-    if not isinstance(final_stmt.value, ast.Name): raise NotImplementedError("Cannot handle functions with return type " + str(type(final_stmt.value).__name__))
-    active_vars = [final_stmt.value.id]
-    # go through the statements starting from the end and accumulate the variables in order
-    for i in range(len(body)-1, -1, -1):
-        stmt = body[i]
-        if not isinstance(stmt, ast.Assign): raise NotImplementedError("Cannot handle non-assign statements ({:s}) in {:s}".format(ast.unparse(stmt), f.name))
-        dep_vars = dependent_vars(stmt)
-        ass_vars = assignee_vars(stmt)
-        if len(set(active_vars) & set(ass_vars)) != 0:
-            active_vars.extend(dep_vars)
-    # assemble the new list of arguments in order
-    new_args = []
-    vars_used = [] # since active_vars may contain some variables more than once, need to keep track of the ones we've already used
-    for v in active_vars:
-        for a in f.args.args:
-            if a.arg == v and v not in vars_used:
-                new_args.append(a)
-                vars_used.append(v)
-    f.args.args = new_args
-    ast.fix_missing_locations(f)
-
 
 class LambdaReplacer(utils.NewNodeTransformer):
     def visit_Assign(self, node) -> None:
