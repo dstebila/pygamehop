@@ -7,17 +7,23 @@ from typing import Dict, List
 from ...inlining import internal
 
 class ExpandNonCompactExpressions(utils.NewNodeTransformer):
+    # class variable
+    valid_expression_containers = {
+        ast.Assign,
+        ast.Expr,       # bare function calls and expressions as statements
+        ast.Lambda      # we can't expand out lambda bodies
+    }
     def value_to_name(self, node):
         # create a new assign statement to capture the value
         newvar = self.unique_variable_name()
         newassign = ast.Assign(
-            targets = [ ast.Name(id = newvar, ctx = ast.Store) ],
+            targets = [ ast.Name(id = newvar, ctx = ast.Store()) ],
             value = node
         )
         self.add_prelude_statement(newassign)
 
         # return a new Name node that refers to the value
-        return ast.Name(id = newvar, ctx = ast.Load)
+        return ast.Name(id = newvar, ctx = ast.Load())
 
     def generic_visit(self, node):
         newval = super().generic_visit(node) # fix up children first
@@ -25,11 +31,9 @@ class ExpandNonCompactExpressions(utils.NewNodeTransformer):
         # Keep  statements and compact values intact
         if isinstance(newval, ast.Constant) or isinstance(newval, ast.Name) or not isinstance(newval, ast.expr):
             return newval
-
         # At this point node must be an expression so newval will be too
 
-        # Valid places for non-compact values in an assign or an Expr statement
-        if isinstance(self.parent(), ast.Assign) or isinstance(self.parent(), ast.Expr):
+        if type(self.parent()) in self.valid_expression_containers:
             return newval
 
         # Anything else, assign value to a variable and use that instead

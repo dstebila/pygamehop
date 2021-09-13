@@ -19,7 +19,7 @@ class TestCanonicalizeReturn(unittest.TestCase):
             a = 7
             return 3
         f = gamehop.utils.get_function_def(f_constant)
-        gamehop.verification.canonicalization.canonicalize_return(f)
+        gamehop.verification.expand.expand_non_compact_expressions(f)
         self.assertEqual(
             ast.unparse(f),
             expected_result(f_constant_expected_result)
@@ -32,7 +32,7 @@ class TestCanonicalizeReturn(unittest.TestCase):
             a = 7
             return a
         f = gamehop.utils.get_function_def(f_variable)
-        gamehop.verification.canonicalization.canonicalize_return(f)
+        gamehop.verification.expand.expand_non_compact_expressions(f)
         self.assertEqual(
             ast.unparse(f),
             expected_result(f_variable_expected_result)
@@ -43,10 +43,10 @@ class TestCanonicalizeReturn(unittest.TestCase):
             return (a, x, y)
         def f_tuple_expected_result(x, y):
             a = 7
-            ρ = (a, x, y)
-            return ρ
+            φ0 = (a, x, y)
+            return φ0
         f = gamehop.utils.get_function_def(f_tuple)
-        gamehop.verification.canonicalization.canonicalize_return(f)
+        gamehop.verification.expand.expand_non_compact_expressions(f)
         self.assertEqual(
             ast.unparse(f),
             expected_result(f_tuple_expected_result)
@@ -55,10 +55,10 @@ class TestCanonicalizeReturn(unittest.TestCase):
         def f_attribute(x, y):
             return x.a
         def f_attribute_expected_result(x, y):
-            ρ = x.a
-            return ρ
+            φ0 = x.a
+            return φ0
         f = gamehop.utils.get_function_def(f_attribute)
-        gamehop.verification.canonicalization.canonicalize_return(f)
+        gamehop.verification.expand.expand_non_compact_expressions(f)
         self.assertEqual(
             ast.unparse(f),
             expected_result(f_attribute_expected_result)
@@ -69,10 +69,10 @@ class TestCanonicalizeReturn(unittest.TestCase):
             return y + a
         def f_operator_expected_result(x, y):
             a = 7
-            ρ = y + a
-            return ρ
+            φ0 = y + a
+            return φ0
         f = gamehop.utils.get_function_def(f_operator)
-        gamehop.verification.canonicalization.canonicalize_return(f)
+        gamehop.verification.expand.expand_non_compact_expressions(f)
         self.assertEqual(
             ast.unparse(f),
             expected_result(f_operator_expected_result)

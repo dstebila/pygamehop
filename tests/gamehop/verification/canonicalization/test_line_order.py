@@ -3,7 +3,7 @@ import inspect
 import unittest
 
 import gamehop.inlining.internal
-import gamehop.verification.canonicalization
+import gamehop.verification.canonicalization as canonicalization
 
 def f_basic1(x, y):
     v = 3
@@ -51,7 +51,7 @@ def f_ordering_expected_result(a):
     return r
 def f_KEMfromPKEtestcase1(pke):
     m0 = h(pke.MS)
-    m1 = h(pke.MS)    
+    m1 = h(pke.MS)
     ct = E(m0)
     r = g(ct, m1)
     return r
@@ -87,9 +87,9 @@ def f_attribute_expected_result(A, a, b):
     return y
 
 def expected_result(f):
-    s = inspect.getsource(f)
-    s = s.replace('_expected_result', '')
-    return ast.unparse(ast.parse(s))
+    fdef = gamehop.utils.get_function_def(f)
+    fdef.name = fdef.name.replace('_expected_result', '')
+    return ast.unparse(fdef)
 
 class TestCanonicalizeLineOrder(unittest.TestCase):
     def test_basic1(self):
@@ -142,7 +142,7 @@ class TestCanonicalizeLineOrder(unittest.TestCase):
             ast.unparse(f),
             expected_result(f_degenerate_expected_result)
         )
-    
+
     def test_KEMfromPKEtestcase2(self):
         def f(self, scheme, adversaryⴰinitⴰkem_adversary):
             (pk, sk) = scheme.KeyGen()
@@ -168,3 +168,26 @@ class TestCanonicalizeLineOrder(unittest.TestCase):
         s1 = ast.unparse(f1)
         s2 = ast.unparse(f2).replace('f_expected_result', 'f')
         self.assertEqual(s1, s2)
+
+    def test_blah(self):
+        def g(x):
+            return x
+        # def f(z):
+        #     return g(z)
+
+        def f(z):
+            return g(z)
+
+
+        def f_expected_result(z):
+            φ0 = g(z)
+            return φ0
+
+        fdef = gamehop.utils.get_function_def(f)
+        canonicalization.expand.expand_non_compact_expressions(fdef)
+        canonicalization.canonicalize_line_order(fdef)
+
+        self.assertEqual(
+            ast.unparse(fdef),
+            expected_result(f_expected_result)
+        )

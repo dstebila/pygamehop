@@ -13,26 +13,6 @@ def canonicalize_function_name(f: ast.FunctionDef, name = 'f') -> None:
     f.name = name
     ast.fix_missing_locations(f)
 
-def canonicalize_return(f: ast.FunctionDef) -> None:
-    """Modify (in place) the given function definition to simplify its return statement to be either a constant or a single variable."""
-    class ReturnExpander(ast.NodeTransformer):
-        def visit_Return(self, node):
-            # if it directly returns a constant or variable, consider that canonical
-            if isinstance(node.value, ast.Constant): return node
-            if isinstance(node.value, ast.Name): return node
-            # otherwise, make a new assignment for that return value and then return the newly assigned variable
-            assign = ast.Assign(
-                targets = [ast.Name(id='ρ', ctx=ast.Store())],
-                value = node.value
-            )
-            ret = ast.Return(
-                value = ast.Name(id='ρ', ctx=ast.Load())
-            )
-            return [assign, ret]
-    fprime = ReturnExpander().visit(f)
-    f.body = fprime.body
-    ast.fix_missing_locations(f)
-
 def canonicalize_variable_names(f: ast.FunctionDef, prefix = 'v') -> None:
     """Modify (in place) the given function definition to give variables canonical names."""
     # first rename everything to a random string followed by a counter
@@ -53,104 +33,45 @@ def canonicalize_variable_names(f: ast.FunctionDef, prefix = 'v') -> None:
     f.body = f_2ndpass.body
     ast.fix_missing_locations(f)
 
-class FindVariableDependencies(ast.NodeVisitor):
+class VariableDependencies(utils.NewNodeVisitor):
     """Find all the variables a node depends on."""
-    def __init__(self):
+    def __init__(self, node = None):
         self.loads = list()
         self.stores = list()
+        super().__init__(node)
+
     def visit_Name(self, node):
         if isinstance(node.ctx, ast.Load) and node.id not in self.loads: self.loads.append(node.id)
         if isinstance(node.ctx, ast.Store) and node.id not in self.stores: self.stores.append(node.id)
 
+def dependent_vars(stmt: ast.Assign) -> List[str]:
+    return VariableDependencies(stmt.value).loads
+
 def contains_name(node: Union[ast.AST, List], name: str) -> bool:
     """Determines whether the given node (or list of nodes) contains a variable with the given name."""
-    if isinstance(node, ast.AST): searchin = [node]
-    else: searchin = node
-    for element in searchin:
-        var_deps = FindVariableDependencies()
-        var_deps.visit(element)
-        if name in var_deps.stores or name in var_deps.loads: return True
-    return False
+    var_deps = VariableDependencies(node)
+    return name in var_deps.stores or name in var_deps.loads
+
+class VariableCollapser(utils.NewNodeTransformer):
+    def visit_Name(self, node):
+        node = self.generic_visit(node)
+        if not isinstance(node.ctx, ast.Load):
+            return node
+
+        if not self.in_scope(node.id):   # this includes cases like function names
+            return node
+
+        value = self.var_value(node.id)
+
+        if isinstance(value, ast.Constant) or isinstance(value, ast.Name) or isinstance(value, ast.Tuple):
+            return value
+
+        return node
 
 def collapse_useless_assigns(f: ast.FunctionDef) -> None:
     """Modify (in place) the given function definition to remove all lines containing tautological/useless assignments. For example, if the code contains a line "x = a" followed by a line "y = x + b", it replaces all subsequent instances of x with a, yielding the single line "y = a + b", up until x is set in another assignment statement.  Handles tuples.  Doesn't handle any kind of logic involving if statements or loops."""
-    # keep looping until nothing changes
-    keep_going = True
-    while keep_going:
-        keep_going = False
-        for i in range(len(f.body)):
-            stmt = f.body[i]
-            if isinstance(stmt, ast.Assign):
-                # assignment of the form x = a or x = 7 or x = (a, b)
-                if isinstance(stmt.targets[0], ast.Name) and (isinstance(stmt.value, ast.Name) or isinstance(stmt.value, ast.Constant) or isinstance(stmt.value, ast.Tuple)):
-                    replacer = utils.NameNodeReplacer({stmt.targets[0].id: stmt.value})
-                    # go through all subsequent statements and replace x with a until x is set anew
-                    for j in range(i + 1, len(f.body)):
-                        stmtprime = f.body[j]
-                        if isinstance(stmtprime, ast.Assign):
-                            # replace arg with val in the right hand side
-                            stmtprime.value = replacer.visit(stmtprime.value)
-                            # stop if arg is in the left
-                            if contains_name(stmtprime.targets, stmt.targets[0].id): break
-                        else:
-                            # replace arg with val in whole statement
-                            f.body[j] = replacer.visit(stmtprime)
-                    # remove the statement from the body
-                    del f.body[i]
-                    # we made a change, so loop again
-                    keep_going = True
-                    break
-                # assignment of the form (x, y) = (a, b)
-                elif isinstance(stmt.targets[0], ast.Tuple) and isinstance(stmt.value, ast.Tuple):
-                    # make sure the lengths match
-                    if len(stmt.targets[0].elts) != len(stmt.value.elts): break
-                    break_out = False
-                    # make sure everything on the left is just a name
-                    for l in range(len(stmt.targets[0].elts)):
-                        if not isinstance(stmt.targets[0].elts[l], ast.Name): break_out = True
-                    if break_out: break
-                    # expand (x, y) = (a, b) into tmpvar1 = a; tmpvar2 = b; x = tmpvar1; y = tmpvar2
-                    # this should avoid problems like the following:
-                    #     (x, y) = (f(x), g(x))
-                    # is not equivalent to
-                    #   x = f(x)
-                    #   y = g(x)
-                    # but is equivalent to
-                    #   tmpvar1 = f(x)
-                    #   tmpvar2 = g(x)
-                    #   x = tmpvar1
-                    #   y = tmpvar2
-                    newstmts_tmps_store = list()
-                    newstmts_tmps_load = list()
-                    tmpvar_formatstr = 'v_' + secrets.token_hex(10) + '_{:d}'
-                    for l in range(len(stmt.targets[0].elts)):
-                        newstmts_tmps_store.append(
-                            ast.Assign(
-                                targets=[ast.Name(id=tmpvar_formatstr.format(l), ctx=ast.Store())],
-                                value=stmt.value.elts[l]
-                            )
-                        )
-                        newstmts_tmps_load.append(
-                            ast.Assign(
-                                targets=[stmt.targets[0].elts[l]],
-                                value=ast.Name(id=tmpvar_formatstr.format(l), ctx=ast.Load())
-                            )
-                        )
-                    # the new body should be everything before the current statement,
-                    # followed by all the tmpvar = ... assigns,
-                    # followed by all the ... = tmpvar assigns,
-                    # followed by everything after the current statement
-                    new_f_body = list()
-                    new_f_body.extend(f.body[:i])
-                    new_f_body.extend(newstmts_tmps_store)
-                    new_f_body.extend(newstmts_tmps_load)
-                    new_f_body.extend(f.body[i+1:])
-                    f.body = new_f_body
-                    # we made a change, so loop again
-                    keep_going = True
-                    break
-            elif isinstance(stmt, ast.If): raise NotImplementedError("Cannot handle functions with if statements.")
-            elif isinstance(stmt, ast.For) or isinstance(stmt, ast.While): raise NotImplementedError("Cannot handle functions with loops.")
+
+    VariableCollapser().visit(f)
     ast.fix_missing_locations(f)
 
 def assignee_vars(stmt: ast.Assign) -> List[str]:
@@ -164,15 +85,7 @@ def assignee_vars(stmt: ast.Assign) -> List[str]:
         return ret
     else: raise NotImplementedError("Cannot handle assignments with left sides of the type " + str(type(stmt.targets[0]).__name__))
 
-def dependent_vars(stmt: ast.Assign) -> List[str]:
-    class FindLoadNames(ast.NodeVisitor):
-        def __init__(self):
-            self.found = list()
-        def visit_Name(self, node):
-            if isinstance(node.ctx, ast.Load): self.found.append(node.id)
-    finder = FindLoadNames()
-    finder.visit(stmt.value)
-    return finder.found
+
 
 # generate a graph of the lines of the function
 def function_to_graph(t: ast.FunctionDef):
@@ -249,71 +162,90 @@ def show_call_graph(f: ast.FunctionDef) -> None:
     networkx.draw(G, pos=pos, with_labels=True)
     matplotlib.pyplot.show()
 
+
+class ArgumentReorderer(utils.NewNodeTransformer):
+    def __init__(self):
+        self.function_arguments: List[Dict[str]] = list()
+        self.function_new_arguments: List[List[str]] = list()
+        self.name_assigns: List[List[str]] = list()
+        super().__init__(self)
+
+    def visit_FunctionDef(self, node):
+        # get all the arguments for this function along with their type annotations
+        self.function_arguments.append( { some_arg.arg: some_arg.annotation for some_arg in node.args.args } )
+
+        # here we will keep track of the order in which we find the arguments in the function body
+        self.function_new_arguments.append(list())
+
+        # here we keep track of assignments to names in the body of the function because they will thereafter not refer to arguments
+        self.name_assigns.append(list())
+
+        # visit the body.  visit_Name will collect the arguments in the order they appear
+        return_val = self.generic_visit(node)
+
+        # rebuild the ast structure for the arguments
+        node.args.args = [ ast.arg(arg = a, annotation=self.function_arguments[-1][a]) for a in self.function_new_arguments[-1] ]
+
+        # clean up
+        self.function_arguments.pop()
+        self.function_new_arguments.pop()
+        self.name_assigns.pop()
+        return return_val
+
+    def visit_Name(self, node):
+        node = self.generic_visit(node)
+        if not len(self.function_arguments) > 0:
+            # we are not in a function definition, do nothing
+            return node
+
+        if type(node.ctx) == ast.Store:
+            self.name_assigns[-1].append(node.id)
+            return node
+        assert(type(node.ctx) == ast.Load)
+
+        var_name = node.id
+        # look for the innermost function definition that has this name for an argument
+        for i in range(len(self.function_arguments) - 1, -1, -1):
+            if var_name in self.name_assigns[i]: break               # assign overwrote the argument
+            if var_name in self.function_arguments[i]:
+                if var_name in self.function_new_arguments[i]: break     # already found and assigned order
+                self.function_new_arguments[i].append(var_name)
+                break
+        return node
+
 def canonicalize_argument_order(f: ast.FunctionDef) -> None:
     """Modify (in place) the given function definition to canonicalize the order of the arguments
-    based on the order in which the returned variable depends on intermediate variables. Arguments
-    that do not affect the return variable are removed. Assumes that canonicalize_line_order
-    has already been called."""
-    body = copy.deepcopy(f.body)
-    # make sure the final statement is a return
-    final_stmt = body[-1]
-    del body[-1]
-    stmts_at_level: List[List[ast.AST]] = list()
-    if not isinstance(final_stmt, ast.Return): return None
-    # if it returns a constant, then can remove all arguments
-    if isinstance(final_stmt.value, ast.Constant):
-        f.args.args = []
-        ast.fix_missing_locations(f)
-        return
-    # get the return value
-    if not isinstance(final_stmt.value, ast.Name): raise NotImplementedError("Cannot handle functions with return type " + str(type(final_stmt.value).__name__))
-    active_vars = [final_stmt.value.id]
-    # go through the statements starting from the end and accumulate the variables in order
-    for i in range(len(body)-1, -1, -1):
-        stmt = body[i]
-        if not isinstance(stmt, ast.Assign): raise NotImplementedError("Cannot handle non-assign statements ({:s}) in {:s}".format(ast.unparse(stmt), f.name))
-        dep_vars = dependent_vars(stmt)
-        ass_vars = assignee_vars(stmt)
-        if len(set(active_vars) & set(ass_vars)) != 0:
-            active_vars.extend(dep_vars)
-    # assemble the new list of arguments in order
-    new_args = []
-    vars_used = [] # since active_vars may contain some variables more than once, need to keep track of the ones we've already used
-    for v in active_vars:
-        for a in f.args.args:
-            if a.arg == v and v not in vars_used:
-                new_args.append(a)
-                vars_used.append(v)
-    f.args.args = new_args
+    based on the order in which the variables appear.  Arguments that are not referred to are removed."""
+
+    ArgumentReorderer().visit(f)
     ast.fix_missing_locations(f)
+
+class LambdaReplacer(utils.NewNodeTransformer):
+    def visit_Assign(self, node) -> None:
+        node = self.generic_visit(node)
+        if isinstance(node.value, ast.Lambda):
+            return None  # we will inline this lambda, so remove the assign
+        else:
+            return node
+
+    def visit_Call(self, node):
+        self.generic_visit(node)
+        if not isinstance(node.func, ast.Name): return node
+        if not self.in_scope(node.func.id): return node
+        lam = self.var_value(node.func.id)
+        if not isinstance(lam, ast.Lambda): return node
+
+        lamargs = lam.args.args
+        callargs = node.args
+        assert len(lamargs) == len(callargs)
+        lambody = copy.deepcopy(lam.body)
+        mappings = dict()
+        for i in range(len(lamargs)):
+            mappings[lamargs[i].arg] = callargs[i]
+        return utils.NameNodeReplacer(mappings).visit(lambody)
+
 
 def inline_lambdas(f: ast.FunctionDef) -> None:
     """Modify (in place) the given function definition to replace all calls to lambdas with their body."""
-    # extract all the lambda definitions
-    new_body: List[ast.stmt] = list()
-    lambdas = dict()
-    for stmt in f.body:
-        if isinstance(stmt, ast.Assign) and isinstance(stmt.value, ast.Lambda):
-            for target in stmt.targets:
-                assert isinstance(target, ast.Name)
-                lambdas[target.id] = stmt.value
-        else:
-            new_body.append(stmt)
-    f.body = new_body
-    class LambdaReplacer(ast.NodeTransformer):
-        def __init__(self, lambdas):
-            self.lambdas = lambdas
-        def visit_Call(self, node):
-            if isinstance(node.func, ast.Name) and node.func.id in lambdas:
-                lam = lambdas[node.func.id]
-                lamargs = lam.args.args
-                callargs = node.args
-                assert len(lamargs) == len(callargs)
-                lambody = copy.deepcopy(lam.body)
-                mappings = dict()
-                for i in range(len(lamargs)):
-                    mappings[lamargs[i].arg] = callargs[i]
-                return utils.NameNodeReplacer(mappings).visit(lambody)
-            else: return node
-    f = LambdaReplacer(lambdas).visit(f)
+    f = LambdaReplacer().visit(f)
     ast.fix_missing_locations(f)
