@@ -60,6 +60,8 @@ def f_tuple3(a, b):
     (x, y) = c
     return x + y
 def f_tuple3_expected_result(a, b):
+    c = (a, b)
+    (x, y) = (a, b)
     return a + b
 
 

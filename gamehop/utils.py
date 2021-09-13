@@ -113,16 +113,18 @@ class NewNodeTransformer(ast.NodeTransformer):
         if isinstance(target, ast.Name):
             self.add_var_to_scope(target.id, value)
 
-        if isinstance(target, tuple):
+        if isinstance(target, ast.Tuple):
             if isinstance(value, ast.Tuple):
-                assert(False)
-                if not len(value) == len(target):
+                if not len(value.elts) == len(target.elts):
                     raise ValueError(f"Attempt to assign to a tuple from another tuple of different length")
-                for i, v in enumerate(value):
-                    self.add_var_to_scope(target.elts[i].id, v)
+                for i, v in enumerate(value.elts):
+                    var_Name = target.elts[i]
+                    assert(isinstance(var_Name, ast.Name))
+                    self.add_var_to_scope(var_Name.id, v)
             else:
-                for t in target:
+                for t in target.elts:
                     # We can't pull apart a non-tuple (eg. function call), so we can't determine the value
+                    assert(isinstance(t, ast.Name))
                     self.add_var_to_scope(t.id, None)
 
 
