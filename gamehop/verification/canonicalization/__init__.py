@@ -261,34 +261,28 @@ def canonicalize_argument_order(f: ast.FunctionDef) -> None:
 
 
 class LambdaReplacer(utils.NewNodeTransformer):
-    def __init__(self) -> None:
-        self.lambdas: Dict[str, ast.Lambda] = dict()
-        super().__init__()
-
     def visit_Assign(self, node) -> None:
-        self.generic_visit(node)
+        node = self.generic_visit(node)
         if isinstance(node.value, ast.Lambda):
-            # TODO: is this correct way to handle multiple targets?
-            for target in node.targets:
-                assert isinstance(target, ast.Name)
-                self.lambdas[target.id] = node.value
             return None  # we will inline this lambda, so remove the assign
         else:
             return node
 
     def visit_Call(self, node):
         self.generic_visit(node)
-        if isinstance(node.func, ast.Name) and node.func.id in self.lambdas:
-            lam = self.lambdas[node.func.id]
-            lamargs = lam.args.args
-            callargs = node.args
-            assert len(lamargs) == len(callargs)
-            lambody = copy.deepcopy(lam.body)
-            mappings = dict()
-            for i in range(len(lamargs)):
-                mappings[lamargs[i].arg] = callargs[i]
-            return utils.NameNodeReplacer(mappings).visit(lambody)
-        else: return node
+        if not isinstance(node.func, ast.Name): return node
+        if not self.in_scope(node.func.id): return node
+        lam = self.var_value(node.func.id)
+        if not isinstance(lam, ast.Lambda): return node
+
+        lamargs = lam.args.args
+        callargs = node.args
+        assert len(lamargs) == len(callargs)
+        lambody = copy.deepcopy(lam.body)
+        mappings = dict()
+        for i in range(len(lamargs)):
+            mappings[lamargs[i].arg] = callargs[i]
+        return utils.NameNodeReplacer(mappings).visit(lambody)
 
 
 def inline_lambdas(f: ast.FunctionDef) -> None:

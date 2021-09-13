@@ -18,7 +18,7 @@ class NewNodeVisitor(ast.NodeVisitor):
     def __init__(self, node=None):
         if node is not None:
             self.visit(node)
-            
+
     def visit(self, node):
         if isinstance(node, list):
             newnode = ast.Module()
@@ -62,8 +62,8 @@ class NewNodeTransformer(ast.NodeTransformer):
         # Keep track of the variables that are in scope
         # We will push a new set when a new scope (eg function, class def ) is
         # created
-        self.scopes: List[List[str]] = list()
-        self.scopes.append(list())
+        self.scopes: List[Dict[str, Optional[ast.expr]]] = list()
+        self.scopes.append(dict())
 
         # Keep track of the parent of the node being transformed
         self.ancestors = list()
@@ -87,7 +87,7 @@ class NewNodeTransformer(ast.NodeTransformer):
     # scopes
 
     def new_scope(self) -> None:
-        self.scopes.append(list())
+        self.scopes.append(dict())
 
     def pop_scope(self) -> None:
         self.scopes.pop()
@@ -97,9 +97,14 @@ class NewNodeTransformer(ast.NodeTransformer):
             if varname in s: return True
         return False
 
-    def add_var_to_scope(self, varname: str) -> None:
-        if not varname in self.scopes[-1]:
-            self.scopes[-1].append(varname)
+    def var_value(self, varname: str) -> Optional[ast.expr]:
+        for s in self.scopes[::-1]:
+            if varname in s: return s[varname]
+        return None
+
+
+    def add_var_to_scope(self, varname: str, value: Optional[ast.expr]) -> None:
+        self.scopes[-1][varname] = value
 
     def add_var_to_scope_from_nodes(self, nodes: Union[ast.AST, List[ast.AST]]) -> None:
         if isinstance(nodes, ast.AST):
@@ -107,14 +112,14 @@ class NewNodeTransformer(ast.NodeTransformer):
         for s in nodes:
             if type(s) == ast.Assign:
                 for v in vars_assigns_to(s):
-                    self.add_var_to_scope(v)
+                    self.add_var_to_scope(v, s.value)
 
 
     def vars_in_scope(self) -> List[str]:
-        return sum(self.scopes, [])
+        return sum([ list(scope.keys()) for scope in self.scopes ], [])
 
     def vars_in_local_scope(self) -> List[str]:
-        return list(self.scopes[-1])
+        return list(self.scopes[-1].keys())
 
 
     # Keep track of parent of each node
@@ -162,7 +167,7 @@ class NewNodeTransformer(ast.NodeTransformer):
         bothscopes = ifscope + elsescope
         for v in bothscopes:
             if bothscopes.count(v) == 2:
-                self.add_var_to_scope(v)
+                self.add_var_to_scope(v, None)
 
         self.pop_parent()
         return self.pop_prelude_statements() + [ node ]

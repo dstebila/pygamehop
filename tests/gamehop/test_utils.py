@@ -68,8 +68,49 @@ class TestNewNodeTransformer(unittest.TestCase):
         self.assertEqual(nnt.thescope, [ 'a', 'b' ])
         self.assertEqual(nnt.a_in_scope, True)
         self.assertEqual(nnt.z_in_scope, False)
-        self.assertEqual(nnt.scopes, [[]])
+        self.assertEqual(nnt.scopes, [dict()])
         self.assertEqual(nnt.in_scope('a'), False)
+
+    def test_scopes_values(self):
+        class NewNodeTester(gamehop.utils.NewNodeTransformer):
+            def visit_Call(self, node):
+                if node.func.id == 'g':
+                    self.inscope_c_val = ast.unparse(self.var_value('c'))
+                elif node.func.id == 'h':
+                    self.outscope_c_val = self.var_value('c')
+                elif node.func.id == 'j':
+                    self.end_a_val = ast.unparse(self.var_value('a'))
+                    self.end_b_val = self.var_value('b')
+                    self.bogus_val = self.var_value('bogus')
+                return node
+        def g(): pass
+        def h(): pass
+        def j(): pass
+        def f(t):
+            a = 1
+            def k():
+                c = 1
+                g()
+            h()
+            if t:
+                b = 5
+                c = 2
+            else:
+                b = 3
+                d = 2
+                h()
+            j()
+            return x
+
+        f_ast = ast.parse(gamehop.utils.get_function_def(f))
+        nnt = NewNodeTester()
+        f_new_ast = nnt.visit(f_ast)
+
+        self.assertEqual(nnt.inscope_c_val, '1')
+        self.assertEqual(nnt.outscope_c_val, None)
+        self.assertEqual(nnt.end_a_val, '1')
+        self.assertEqual(nnt.end_b_val, None)
+        self.assertEqual(nnt.bogus_val, None)
 
 
     def test_scopes_if(self):
