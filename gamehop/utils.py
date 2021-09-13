@@ -168,7 +168,7 @@ class NewNodeTransformer(ast.NodeTransformer):
         if isinstance(nodes, ast.AST):
             nodes = [ nodes ]
         for s in nodes:
-            if type(s) == ast.Assign:
+            if isinstance(s, ast.Assign):
                 for v in s.targets:
                     self.add_target_to_scope(v, s.value)
 
