@@ -43,11 +43,34 @@ class NewNodeTransformer(ast.NodeTransformer):
         each call returns a new name.
 
     Thinks to keep in mind:
-    - scopes for ifs are implemented with a visit_If method.  If you override
-        this method then you are responsible for keeping track of the scopes
-        (if scopes are being used)
+    - if you define any of these functions then you must deal with the scopes etc. yourself
+        see the functions below to use as a template:
+        - visit_If
+        - visit_FunctionDef
+        - visit_ClassDef
+        - visit_Name
     - if you define __init__ then you must call super().__init__() to get
         the local variables set up correctly
+
+    TODO:
+
+    - refactor this, with a Scope object.  Keep track of (separately):
+        - loads in scope
+        - stores in scope
+        - arguments in scope
+        - loads that hit arguments, in order
+        - loads that hit stores, in order
+        - loads that weren't in the local scope
+
+    - rewrite so that it doesn't depend on ast.NodeTransformer.  In particular,
+        - write own generic_visit() so that we can directly look at children which are lists
+         (eg. if.body) generically
+        - have a nice way of calling internal visit_Thing which then calls descendent
+         visit_Thing if present.  Will make things easier to code rather than forcing
+         a subclass to reimplement the visit_Thing functionality here, eg. for
+         visit_FunctionDef
+        - Get this functionality into the NodeVisitor somehow.  Nothing here changes any
+         nodes, so it shouldn't be too bad. 
      """
     def __init__(self, counter=0, var_format = '_var_{:d}'):
         self.prelude_statements: List[ast.stmt] = list()
@@ -63,6 +86,11 @@ class NewNodeTransformer(ast.NodeTransformer):
         # created
         self.scopes: List[Dict[str, Optional[ast.expr]]] = list()
         self.scopes.append(dict())
+
+        # keep track of whenever we load a Name that is not in scope.  Do this
+        # per scope
+        self.out_of_scopes: List[List[str]] = list()
+        self.out_of_scopes.append(list())
 
         # Keep track of the parent of the node being transformed
         self.ancestors = list()
@@ -87,14 +115,22 @@ class NewNodeTransformer(ast.NodeTransformer):
 
     def new_scope(self) -> None:
         self.scopes.append(dict())
+        self.out_of_scopes.append(list())
 
     def pop_scope(self) -> None:
         self.scopes.pop()
+        out_of_local_scope_vars = self.out_of_scopes.pop()
+        for var in out_of_local_scope_vars:
+            if not self.in_local_scope(var):
+                self.out_of_scopes[-1].append(var)
 
     def in_scope(self, varname: str) -> bool:
         for s in self.scopes[::-1]:
             if varname in s: return True
         return False
+
+    def in_local_scope(self, varname: str) -> bool:
+        return varname in self.scopes[-1]
 
     def var_value(self, varname: str) -> Optional[ast.expr]:
         for s in self.scopes[::-1]:
@@ -209,6 +245,14 @@ class NewNodeTransformer(ast.NodeTransformer):
         self.pop_scope()
         return node
 
+    def visit_Name(self, node):
+        if not isinstance(node.ctx, ast.Load):
+            return node
+
+        if not self.in_local_scope(node.id):
+            self.out_of_scopes[-1].append(node.id)
+
+        return node
 
     def generic_visit(self, node):
         # We need to set this node as parent before we visit its childen
