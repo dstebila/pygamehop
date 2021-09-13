@@ -66,9 +66,9 @@ def f_tuple3_expected_result(a, b):
 
 
 def expected_result(f):
-    s = inspect.getsource(f)
-    s = s.replace('_expected_result', '')
-    return ast.unparse(ast.parse(s))
+    fdef = gamehop.utils.get_function_def(f)
+    fdef.name = fdef.name.replace('_expected_result', '')
+    return ast.unparse(fdef)
 
 class TestCollapseAssigns(unittest.TestCase):
     def test_constant(self):
@@ -112,4 +112,26 @@ class TestCollapseAssigns(unittest.TestCase):
         self.assertEqual(
             ast.unparse(f),
             expected_result(f_tuple3_expected_result)
+        )
+
+    def test_basic(self):
+        def f(x):
+            if x:
+                a = 1
+            else:
+                a = 2
+            return a
+
+        def f_expected_result(x):
+            if x:
+                a = 1
+            else:
+                a = 2
+            return a
+
+        fdef = gamehop.utils.get_function_def(f)
+        gamehop.verification.canonicalization.collapse_useless_assigns(fdef)
+        self.assertEqual(
+            ast.unparse(fdef),
+            expected_result(f_expected_result)
         )

@@ -62,10 +62,10 @@ class VariableCollapser(utils.NewNodeTransformer):
             return node
 
         value = self.var_value(node.id)
+
         if isinstance(value, ast.Constant) or isinstance(value, ast.Name) or isinstance(value, ast.Tuple):
             return value
 
-        # TODO: handle tuples as values
         return node
 
 def collapse_useless_assigns(f: ast.FunctionDef) -> None:
