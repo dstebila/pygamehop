@@ -162,11 +162,58 @@ def show_call_graph(f: ast.FunctionDef) -> None:
     networkx.draw(G, pos=pos, with_labels=True)
     matplotlib.pyplot.show()
 
+
+class ArgumentReorderer(utils.NewNodeTransformer):
+    def __init__(self):
+        self.function_arguments: List[Dict[str]] = list()
+        self.function_new_arguments: List[List[str]] = list()
+        super().__init__(self)
+
+    def visit_FunctionDef(self, node):
+        # get all the arguments for this function
+        self.function_arguments.append( { some_arg.arg: some_arg.annotation for some_arg in node.args.args } )
+
+        # here we will keep track of the order in which we find the arguments in the function body
+        self.function_new_arguments.append(list())
+
+        # visit the body.  visit_Name will collect the arguments in the order they appear
+        return_val = self.generic_visit(node)
+
+        # rebuild the ast structure for the arguments
+        node.args.args = [ ast.arg(arg = a, annotation=self.function_arguments[-1][a]) for a in self.function_new_arguments[-1] ]
+
+        # clean up
+        self.function_arguments.pop()
+        self.function_new_arguments.pop()
+        return return_val
+
+    def visit_Name(self, node):
+        node = self.generic_visit(node)
+        if type(node.ctx) != ast.Load:
+            return node
+
+        var_name = node.id
+        if len(self.function_arguments) > 0:
+            if var_name in self.function_arguments[-1] and not var_name in self.function_new_arguments[-1]:
+                self.function_new_arguments[-1].append(var_name)
+
+        # TODO: deal with case where an assignment to a local variable in an inner function hides the outer argument
+        # or argument to inner function
+
+        return node
+
+
+
 def canonicalize_argument_order(f: ast.FunctionDef) -> None:
     """Modify (in place) the given function definition to canonicalize the order of the arguments
     based on the order in which the returned variable depends on intermediate variables. Arguments
     that do not affect the return variable are removed. Assumes that canonicalize_line_order
     has already been called."""
+
+    ArgumentReorderer().visit(f)
+    ast.fix_missing_locations(f)
+    return
+
     body = copy.deepcopy(f.body)
     # make sure the final statement is a return
     final_stmt = body[-1]
