@@ -2,17 +2,34 @@ import ast
 import types
 from typing import Any, Callable, Dict, List, Optional, Set, Type, Union, TypeVar
 
+T = TypeVar('T')
+def ensure_list(thing: Union[T, List[T]]) -> List[T]:
+    if isinstance(thing, list):
+        return thing
+    else:
+        return [ thing ]
+
+def glue_list_and_vals(vals: List[Union[T, List[T], None]]) -> List[T]:
+    ret_val: List[T] = list()
+    for v in vals:
+        if isinstance(v, list):
+            ret_val.extend(v)
+        else:
+            if v is None:
+                continue
+            else:
+                ret_val.append(v)
+    return ret_val
 
 class NodeTraverser():
-    def __new__(cls):
+    def __new__(cls, *args, **kwargs):
         # set up all variables that we depend on
         # do it in __new__ so that subclasse don't need to call super().__init__()
         instance = super(NodeTraverser, cls).__new__(cls)
         return instance
 
-    def visit(self, node: ast.AST) -> ast.AST:
+    def visit(self, node: ast.AST):
         # call visit_Blah for this type of node
-        print(type(node).__name__)
         visit_function_name = f"visit_{type(node).__name__}"
         if hasattr(self, visit_function_name):
             visit_function = getattr(self, visit_function_name)
@@ -20,19 +37,19 @@ class NodeTraverser():
         else:
             return self.generic_visit(node)
 
-    def visit_FunctionDef(self, node: ast.FunctionDef) -> ast.AST:
+    def visit_FunctionDef(self, node: ast.FunctionDef) -> Optional[ast.AST]:
         return self.generic_visit(node)
 
     def visit_stmts(self, stmts: List[ast.stmt]) -> List[ast.AST]:
-        return [ self.visit(stmt) for stmt in stmts]
+        return glue_list_and_vals([ self.visit(stmt) for stmt in stmts])
 
     def visit_exprs(self, exprs: List[ast.expr]) -> List[ast.AST]:
-        return [ self.visit(expr) for expr in exprs ]
+        return glue_list_and_vals([ self.visit(expr) for expr in exprs ])
 
-    def visit_child_list(self, l: List) -> List:
-        return l
+    def visit_child_list(self, children: List) -> List:
+        return glue_list_and_vals([ self.visit(v) for v in children ])
 
-    def generic_visit(self, node: ast.AST) -> ast.AST:
+    def generic_visit(self, node: ast.AST) -> Optional[ast.AST]:
         ''' Iterate over all childern of the given node, listed in node._fields.
             This means:
             - if a child is a AST node, then visit() it and replace the current node
@@ -46,6 +63,7 @@ class NodeTraverser():
             - all other children are not visited
             - empty lists are not visited
         '''
+        if node is None: return None
         for field_name in node._fields:
             if hasattr(node, field_name):
                 child = getattr(node, field_name)
@@ -60,8 +78,11 @@ class NodeTraverser():
                         child[:] = self.visit_child_list(child)
 
                 elif isinstance(child, ast.AST):
-                    setattr(node, field_name, self.visit(child))
-
+                    new_child = self.visit(child)
+                    if new_child is None:
+                        delattr(node, field_name)
+                    else:
+                        setattr(node, field_name, new_child)
                 else:
                     # for now, do nothing, but maybe in the future we will want
                     # to visit non-node fields

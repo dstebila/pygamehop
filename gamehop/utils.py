@@ -5,6 +5,7 @@ import difflib
 import inspect
 import types
 from typing import Any, Callable, Dict, List, Optional, Set, Type, Union, TypeVar
+from . import node_traverser as nt
 
 def stringDiff(a,b):
     differences = difflib.ndiff(a.splitlines(keepends=True), b.splitlines(keepends=True))
@@ -27,7 +28,7 @@ class NewNodeVisitor(ast.NodeVisitor):
         else:
             super().visit(node)
 
-class NewNodeTransformer(ast.NodeTransformer):
+class NewNodeTransformer(nt.NodeTraverser):
     """Adds new abilities to the ast.NodeTtransformer class:
 
     - the ability to handle List[ast.stmt] using visit_statements()
@@ -70,7 +71,7 @@ class NewNodeTransformer(ast.NodeTransformer):
          a subclass to reimplement the visit_Thing functionality here, eg. for
          visit_FunctionDef
         - Get this functionality into the NodeVisitor somehow.  Nothing here changes any
-         nodes, so it shouldn't be too bad. 
+         nodes, so it shouldn't be too bad.
      """
     def __init__(self, counter=0, var_format = '_var_{:d}'):
         self.prelude_statements: List[ast.stmt] = list()
