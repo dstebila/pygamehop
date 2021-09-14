@@ -28,18 +28,6 @@ class NewNodeVisitor(ast.NodeVisitor):
         else:
             super().visit(node)
 
-class VariableFinder(NewNodeVisitor):
-    def __init__(self):
-        self.stored_vars = list()
-        self.loaded_vars = list()
-        super().__init__()
-
-    def visit_Name(self, node:ast.Name) -> None:
-        if isinstance(node.ctx, ast.Load):
-            if node.id not in self.loaded_vars: self.loaded_vars.append(node.id)
-        if isinstance(node.ctx, ast.Store):
-            if node.id not in self.stored_vars: self.stored_vars.append(node.id)
-
 class NameRenamer(nt.NodeTraverser):
     """Replaces ids in Name nodes based on the provided mapping.  Raises a ValueError if the new name is already used in the function."""
     def __init__(self, mapping: dict, error_if_exists: bool):
@@ -117,9 +105,7 @@ class AttributeNodeReplacer(nt.NodeTraverser):
         return ast.Attribute(value=self.visit(node.value), attr=node.attr, ctx=node.ctx)
 
 def stored_vars(node):
-    varfinder = VariableFinder()
-    varfinder.visit(node)
-    return varfinder.stored_vars
+    return [ n.id for n in nt.nodes(node, nodetype = ast.Name) if isinstance(n.ctx, ast.Store) ]
 
 def vars_depends_on(node: Optional[ast.AST]) -> List[str]:
     if isinstance(node, ast.Assign):

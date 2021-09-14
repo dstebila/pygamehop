@@ -252,3 +252,33 @@ class TestNodeTraverser(unittest.TestCase):
         self.assertEqual(nnt.g_call_parent_type, 'Expr')
         self.assertEqual(nnt.h_call_parent_type, 'If')
         self.assertEqual(nnt.j_call_parent_type, 'Assign')
+
+    def test_nodes_basic(self):
+        def g(): pass
+        def h(): pass
+        def f():
+            g()
+            h(g())
+            h()
+        f_ast = ast.parse(utils.get_function_def(f))
+        node_names = [ type(node).__name__ for node in nt.nodes(f_ast)]
+        self.assertEqual(
+            node_names,
+            [ 'FunctionDef','arguments', 'Expr', 'Call', 'Name', 'Load',
+            'Expr', 'Call', 'Name', 'Load', 'Call', 'Name', 'Load', 'Expr',
+            'Call', 'Name', 'Load']
+       )
+
+    def test_nodes_type_filtered(self):
+        def g(): pass
+        def h(): pass
+        def f():
+            g()
+            h(g())
+            h()
+        f_ast = ast.parse(utils.get_function_def(f))
+        node_names = [ node.id for node in nt.nodes(f_ast, nodetype = ast.Name)]
+        self.assertEqual(
+            node_names,
+            [ 'g', 'h', 'g', 'h' ]
+       )

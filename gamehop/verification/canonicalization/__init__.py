@@ -34,24 +34,12 @@ def canonicalize_variable_names(f: ast.FunctionDef, prefix = 'v') -> None:
     f.body = f_2ndpass.body
     ast.fix_missing_locations(f)
 
-class VariableDependencies(utils.NewNodeVisitor):
-    """Find all the variables a node depends on."""
-    def __init__(self, node = None):
-        self.loads = list()
-        self.stores = list()
-        super().__init__(node)
-
-    def visit_Name(self, node):
-        if isinstance(node.ctx, ast.Load) and node.id not in self.loads: self.loads.append(node.id)
-        if isinstance(node.ctx, ast.Store) and node.id not in self.stores: self.stores.append(node.id)
-
 def dependent_vars(stmt: ast.Assign) -> List[str]:
-    return VariableDependencies(stmt.value).loads
+    return [ n.id for n in nt.nodes(stmt.value, nodetype = ast.Name) if isinstance(n.ctx, ast.Load) ]
 
 def contains_name(node: Union[ast.AST, List], name: str) -> bool:
     """Determines whether the given node (or list of nodes) contains a variable with the given name."""
-    var_deps = VariableDependencies(node)
-    return name in var_deps.stores or name in var_deps.loads
+    return any( True for n in nt.nodes(node, nodetype = ast.Name) if n.id == name )
 
 class VariableCollapser(nt.NodeTraverser):
     def visit_Name(self, node):

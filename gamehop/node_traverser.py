@@ -24,6 +24,18 @@ def glue_list_and_vals(vals: List[Union[T, List[T], None]]) -> List[T]:
             ret_val.append(v)
     return ret_val
 
+def nodes(node, nodetype = ast.AST):
+    if isinstance(node, list):
+        for i in node:
+            yield from nodes(i, nodetype)
+    else:
+        if isinstance(node, nodetype): yield node        
+        if hasattr(node, '_fields'):
+            for field_name in node._fields:
+                if not hasattr(node, field_name): continue
+                field = getattr(node, field_name)
+                yield from nodes(field, nodetype)
+
 class NodeTraverser():
     """Improved AST tree traversal over the ast.NodeTransformer class.
     Improved features:
