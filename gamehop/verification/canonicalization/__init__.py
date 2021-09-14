@@ -225,12 +225,16 @@ class LambdaReplacer(nt.NodeTraverser):
     def visit_Assign(self, node) -> None:
         node = self.generic_visit(node)
         if isinstance(node.value, ast.Lambda):
+            # we need to manually add this to the scope because
+            # it will not be added when we return None.
+            # This lambda will disappear when the curret scope ends
+            self.add_var_to_scope_from_nodes(node)
             return None  # we will inline this lambda, so remove the assign
         else:
             return node
 
     def visit_Call(self, node):
-        self.generic_visit(node)
+        node = self.generic_visit(node)
         if not isinstance(node.func, ast.Name): return node
         if not self.in_scope(node.func.id): return node
         lam = self.var_value(node.func.id)
