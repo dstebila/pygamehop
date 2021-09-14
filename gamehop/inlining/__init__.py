@@ -4,7 +4,7 @@ import inspect
 import types
 from typing import cast, Any, Callable, List, Optional, Type, Union
 
-
+from .. import node_traverser as nt
 from .. import utils
 from ..primitives import Crypto
 
@@ -62,7 +62,7 @@ def helper_make_lines_of_inlined_function(fdef_to_be_inlined: ast.FunctionDef, p
         working_copy.body[-1] = ast.Expr(value=working_copy.body[-1].value)
     return working_copy.body
 
-class InlineFunctionCallIntoStatements(utils.NewNodeTransformer):
+class InlineFunctionCallIntoStatements(utils.nt.NodeTraverser):
     """Helper node transformer for inline_function_call. Does the actual replacement.  If the optional selfname argument is given, then the arguments list will be prepended with an argument corresponding to selfname."""
     def __init__(self, f_to_be_inlined, f_dest_name, selfname = None, f_to_be_inlined_name = None):
         self.f_to_be_inlined = f_to_be_inlined
@@ -189,7 +189,7 @@ def inline_all_inner_class_init_calls(c_to_be_inlined: Union[Type[Any], str, ast
     cdef_to_be_inlined = utils.get_class_def(c_to_be_inlined)
     fdef_dest = utils.get_function_def(f_dest)
 
-    class ReplaceInit(utils.NewNodeTransformer):
+    class ReplaceInit(utils.nt.NodeTraverser):
         def __init__(self, needle: str):
             self.needle = needle
             super().__init__()
@@ -327,7 +327,7 @@ def inline_reduction_into_game(R: Type[Crypto.Reduction], GameForR: Type[Crypto.
         # By the line above, this will have been transformed into
         #     R_io_whatever = self.o_whatever
         # This is now a redundant line, so we'll remove that
-        class OracleSaverRemover(utils.NewNodeTransformer):
+        class OracleSaverRemover(utils.nt.NodeTraverser):
             def __init__(self, Rname: str, fdefname: str):
                 self.Rname = Rname
                 self.fdefname = fdefname

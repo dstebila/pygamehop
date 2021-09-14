@@ -7,6 +7,7 @@ import networkx
 
 from ...inlining import internal
 from ... import utils
+from ... import node_traverser as nt
 
 def canonicalize_function_name(f: ast.FunctionDef, name = 'f') -> None:
     """Modify (in place) the given function definition to have a canonical name."""
@@ -52,7 +53,7 @@ def contains_name(node: Union[ast.AST, List], name: str) -> bool:
     var_deps = VariableDependencies(node)
     return name in var_deps.stores or name in var_deps.loads
 
-class VariableCollapser(utils.NewNodeTransformer):
+class VariableCollapser(nt.NodeTraverser):
     def visit_Name(self, node):
         node = self.generic_visit(node)
         if not isinstance(node.ctx, ast.Load):
@@ -163,7 +164,7 @@ def show_call_graph(f: ast.FunctionDef) -> None:
     matplotlib.pyplot.show()
 
 
-class ArgumentReorderer(utils.NewNodeTransformer):
+class ArgumentReorderer(nt.NodeTraverser):
     def __init__(self):
         self.function_arguments: List[Dict[str]] = list()
         self.function_new_arguments: List[List[str]] = list()
@@ -220,16 +221,20 @@ def canonicalize_argument_order(f: ast.FunctionDef) -> None:
     ArgumentReorderer().visit(f)
     ast.fix_missing_locations(f)
 
-class LambdaReplacer(utils.NewNodeTransformer):
+class LambdaReplacer(nt.NodeTraverser):
     def visit_Assign(self, node) -> None:
         node = self.generic_visit(node)
         if isinstance(node.value, ast.Lambda):
+            # we need to manually add this to the scope because
+            # it will not be added when we return None.
+            # This lambda will disappear when the curret scope ends
+            self.add_var_to_scope_from_nodes(node)
             return None  # we will inline this lambda, so remove the assign
         else:
             return node
 
     def visit_Call(self, node):
-        self.generic_visit(node)
+        node = self.generic_visit(node)
         if not isinstance(node.func, ast.Name): return node
         if not self.in_scope(node.func.id): return node
         lam = self.var_value(node.func.id)

@@ -9,7 +9,7 @@ def expected_result(f):
     fdef.name = fdef.name.replace('_expected_result', '')
     return ast.unparse(fdef)
 
-class class TestTemplate(unittest.TestCase):
+class TestTemplate(unittest.TestCase):
     def test_template(self):
         def f():
             return 1
