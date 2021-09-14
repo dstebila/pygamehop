@@ -281,7 +281,7 @@ class NodeTraverser():
         return ret_val
 
     def visit_exprs(self, exprs: List[ast.expr]) -> List[ast.AST]:
-        return glue_list_and_vals([ self.visit_expr(expr) for expr in exprs ])
+        return glue_list_and_vals([ self.visit(expr) for expr in exprs ])
 
     def visit_child_list(self, children: List) -> List:
         return glue_list_and_vals([ self.visit(v) for v in children ])
