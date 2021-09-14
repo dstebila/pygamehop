@@ -3,6 +3,8 @@ import copy
 from ... import utils
 from typing import List
 from ... import filterast
+from ... import node_traverser as nt
+
 
 def if_statements_to_expressions(f: ast.FunctionDef ) -> None:
     """Modify, in place, f so that all if statements become if expressions like so:
@@ -38,7 +40,7 @@ def if_statements_to_expressions(f: ast.FunctionDef ) -> None:
     ast.fix_missing_locations(f)
     filterast.filter_AST(f.body, noifs=True)
 
-class IfTransformer(utils.NewNodeTransformer):
+class IfTransformer(nt.NodeTraverser):
     def __init__(self):
         self.replacement_count = 0
         super().__init__()

@@ -1,8 +1,10 @@
 import ast
 import copy
 from .. import utils
+from ... import node_traverser as nt
 
-class NodeSimplifier(utils.NewNodeTransformer):
+
+class NodeSimplifier(nt.NodeTraverser):
     def visit_UnaryOp(self, node):
         node = self.generic_visit(node)
         if not(isinstance(node.operand, ast.Constant)): return node

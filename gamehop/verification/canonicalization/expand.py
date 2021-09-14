@@ -5,8 +5,9 @@ from .. import utils
 from typing import Dict, List
 
 from ...inlining import internal
+from ... import node_traverser as nt
 
-class ExpandNonCompactExpressions(utils.NewNodeTransformer):
+class ExpandNonCompactExpressions(nt.NodeTraverser):
     # class variable
     valid_expression_containers = {
         ast.Assign,

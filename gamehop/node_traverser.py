@@ -22,23 +22,220 @@ def glue_list_and_vals(vals: List[Union[T, List[T], None]]) -> List[T]:
     return ret_val
 
 class NodeTraverser():
-    def __new__(cls, *args, **kwargs):
-        # set up all variables that we depend on
-        # do it in __new__ so that subclasse don't need to call super().__init__()
-        instance = super(NodeTraverser, cls).__new__(cls)
-        return instance
+    """Improved AST tree traversal over the ast.NodeTtransformer class:
 
-    def visit(self, node: ast.AST):
-        # call visit_Blah for this type of node
-        visit_function_name = f"visit_{type(node).__name__}"
-        if hasattr(self, visit_function_name):
-            visit_function = getattr(self, visit_function_name)
-            return visit_function(node)
-        else:
-            return self.generic_visit(node)
+    - the ability to handle List[ast.stmt] using visit_statements()
+    - keeping track of variables defined, respecting scopes.  i.e.
+        variables defined functionDefs and ClassDefs are removed from the
+        scope when those nodes have been processed.  Also, variables defined
+        in the body or orelse of if statements are only added to the scope if
+        they are defined in _both_ branches.  Locally, each branch keeps track
+        of all variables it defines
+    - keeping track of the parent of nodes as they are processed, available through
+        parent(), which returns None if there is no parent, eg. if this a top-level node
+    - if you need a new variable name, unique_variable_name() will give you one.
+        each call returns a new name.
 
-    def visit_FunctionDef(self, node: ast.FunctionDef) -> Optional[ast.AST]:
-        return self.generic_visit(node)
+    Thinks to keep in mind:
+    - if you define any of these functions then you must deal with the scopes etc. yourself
+        see the functions below to use as a template:
+        - visit_If
+    - if you define __init__ then you must call super().__init__() to get
+        the local variables set up correctly
+
+    TODO:
+
+    - refactor this, with a Scope object.  Keep track of (separately):
+        - loads in scope
+        - stores in scope
+        - arguments in scope
+        - loads that hit arguments, in order
+        - loads that hit stores, in order
+        - loads that weren't in the local scope
+
+    - Get this functionality into the NodeVisitor somehow.  Nothing here changes any
+     nodes, so it shouldn't be too bad.
+     """
+    def __init__(self, counter=0, var_format = '_var_{:d}'):
+        self.prelude_statements: List[ast.stmt] = list()
+        self.unique_string_counter: int = counter
+        self.var_format = var_format
+
+        # When we encounter these types of nodes we insert any
+        # prelude statements before the node.
+        self.prelude_anchor_types = { ast.Assign, ast.Return, ast.FunctionDef, ast.If, ast.Expr }
+
+        # Keep track of the variables that are in scope
+        # We will push a new set when a new scope (eg function, class def ) is
+        # created
+        self.scopes: List[Dict[str, Optional[ast.expr]]] = list()
+        self.scopes.append(dict())
+
+        # keep track of whenever we load a Name that is not in scope.  Do this
+        # per scope
+        self.out_of_scopes: List[List[str]] = list()
+        self.out_of_scopes.append(list())
+
+        # Keep track of the parent of the node being transformed
+        self.ancestors = list()
+
+    def unique_variable_name(self):
+        v = self.var_format.format(self.unique_string_counter)
+        self.unique_string_counter += 1
+        return v
+
+    # Prelude statements
+
+    def add_prelude_statement(self, statement: ast.stmt) -> None:
+        self.prelude_statements.append(statement)
+
+    def pop_prelude_statements(self) -> List[ast.stmt]:
+        new_statements = self.prelude_statements[:]
+        self.prelude_statements = list()
+        return new_statements
+
+
+    # scopes
+
+    def new_scope(self) -> None:
+        self.scopes.append(dict())
+        self.out_of_scopes.append(list())
+
+    def pop_scope(self) -> None:
+        self.scopes.pop()
+        out_of_local_scope_vars = self.out_of_scopes.pop()
+        for var in out_of_local_scope_vars:
+            if not self.in_local_scope(var):
+                self.out_of_scopes[-1].append(var)
+
+    def in_scope(self, varname: str) -> bool:
+        for s in self.scopes[::-1]:
+            if varname in s: return True
+        return False
+
+    def in_local_scope(self, varname: str) -> bool:
+        return varname in self.scopes[-1]
+
+    def var_value(self, varname: str) -> Optional[ast.expr]:
+        for s in self.scopes[::-1]:
+            if varname in s: return s[varname]
+        return None
+
+
+    def add_var_to_scope(self, varname: str, value: Optional[ast.expr]) -> None:
+        ''' Add a variable name to scope, storing the associated value expression'''
+        self.scopes[-1][varname] = value
+
+    def add_target_to_scope(self, target, value: ast.expr):
+        ''' Process an assign's target (which could be a tuple), figuring out
+        the appropriate value from the given assign value'''
+
+        if isinstance(target, ast.Name):
+            self.add_var_to_scope(target.id, value)
+
+        if isinstance(target, ast.Tuple):
+            if isinstance(value, ast.Tuple):
+                if not len(value.elts) == len(target.elts):
+                    raise ValueError(f"Attempt to assign to a tuple from another tuple of different length")
+                for i, v in enumerate(value.elts):
+                    var_Name = target.elts[i]
+                    assert(isinstance(var_Name, ast.Name))
+                    self.add_var_to_scope(var_Name.id, v)
+            else:
+                for t in target.elts:
+                    # We can't pull apart a non-tuple (eg. function call), so we can't determine the value
+                    assert(isinstance(t, ast.Name))
+                    self.add_var_to_scope(t.id, None)
+
+
+    def add_var_to_scope_from_nodes(self, nodes: Union[ast.AST, List[ast.AST]]) -> None:
+        if isinstance(nodes, ast.AST):
+            nodes = [ nodes ]
+        for s in nodes:
+            if isinstance(s, ast.Assign):
+                for v in s.targets:
+                    self.add_target_to_scope(v, s.value)
+
+    def vars_in_scope(self) -> List[str]:
+        return sum([ list(scope.keys()) for scope in self.scopes ], [])
+
+    def vars_in_local_scope(self) -> List[str]:
+        return list(self.scopes[-1].keys())
+
+
+    # Keep track of parent of each node
+    def parent(self):
+        if len(self.ancestors) < 1:
+            return None
+        return self.ancestors[-1]
+
+    def push_parent(self, node):
+        self.ancestors.append(node)
+
+    def pop_parent(self):
+        self.ancestors.pop()
+
+
+    # visitor functions
+
+    def visit_If(self, node):
+        self.push_parent(node)
+        # ifs need special attention because a variable may be assigned to
+        # in one branch but not the other
+
+        # test is in common
+        node.test = self.visit(node.test)
+
+        # create a new scope for the body so that we don't count them as
+        # in scope in the orelse
+        self.new_scope()
+        node.body = sum( [ ensure_list(self.visit(child)) for child in node.body ] , [])
+        ifscope = self.vars_in_local_scope()
+        self.pop_scope()
+
+        # create a new scope for the orelse so that we don't count them as
+        # in scope later when the orelse may not have run
+        self.new_scope()
+        node.orelse = sum( [ ensure_list(self.visit(child)) for child in node.orelse ], [])
+        elsescope = self.vars_in_local_scope()
+        self.pop_scope()
+
+        # we only want to keep variables that were assigned to
+        # in _both_ branches, otherwise they may not be defined
+        bothscopes = ifscope + elsescope
+        for v in bothscopes:
+            if bothscopes.count(v) == 2:
+                self.add_var_to_scope(v, None)
+            #TODO: if both assign same value, then we can add
+        self.pop_parent()
+        return self.pop_prelude_statements() + [ node ]
+
+    def _visit_FunctionDef(self, node):
+        self.new_scope()
+
+        # Function parameters will be in scope
+        for arg in node.args.args:
+            self.add_var_to_scope(arg.arg, None)
+
+        node = self.call_subclass_visitor(node)
+        self.pop_scope()
+        return node
+
+    def _visit_ClassDef(self, node):
+        self.new_scope()
+        node = self.call_subclass_visitor(node)
+        self.pop_scope()
+        return node
+
+    def _visit_Name(self, node):
+        if not isinstance(node.ctx, ast.Load):
+            return self.call_subclass_visitor(node)
+
+        if not self.in_local_scope(node.id):
+            self.out_of_scopes[-1].append(node.id)
+
+        return self.call_subclass_visitor(node)
+
 
     def visit_stmts(self, stmts: List[ast.stmt]) -> List[ast.AST]:
         return glue_list_and_vals([ self.visit(stmt) for stmt in stmts])
@@ -49,7 +246,55 @@ class NodeTraverser():
     def visit_child_list(self, children: List) -> List:
         return glue_list_and_vals([ self.visit(v) for v in children ])
 
-    def generic_visit(self, node: ast.AST) -> Optional[ast.AST]:
+    def visit_statements(self, stmts: List[ast.stmt]) -> List[ast.stmt]:
+        # overwrite the old statements with whatever we get back
+        stmts[:] = sum( [ ensure_list(self.visit(stmt)) for stmt in stmts ] , [])
+        return stmts
+
+    def visit(self, node: ast.AST):
+        '''Calls visit_NodeType where NodeType is the name of the type of
+        the node passed in.  If this function is not present then instead
+        generic_visitor() is called.
+
+        Note: before visit_NodeType is called, the internal function
+        _visit_NodeType() may be called.  These functions are internal to
+        NodeTraverser to take care of NodeTraverser base class functionality.
+        '''
+        visit_function_name = f"_visit_{type(node).__name__}"
+        if hasattr(self, visit_function_name):
+            visit_function = getattr(self, visit_function_name)
+            return visit_function(node)
+        else:
+            return self.call_subclass_visitor(node)
+
+    def call_subclass_visitor(self, node: ast.AST):
+        '''Calls visit_NodeType where NodeType is the name of the type of
+        the node passed in.  If this function is not present then instead
+        call_subclass_visitor() is called.
+        '''
+        visit_function_name = f"visit_{type(node).__name__}"
+        if hasattr(self, visit_function_name):
+            visit_function = getattr(self, visit_function_name)
+            return visit_function(node)
+        else:
+            return self.generic_visit(node)
+
+    def generic_visit(self, node):
+        # We need to set this node as parent before we visit its childen
+        self.push_parent(node)
+        visit_val = self.visit_fields(node)  # this call will only visit children
+        self.pop_parent()
+
+        if not type(node) in self.prelude_anchor_types or len(self.prelude_statements) == 0:
+            self.add_var_to_scope_from_nodes(visit_val)
+            return visit_val
+
+        ret_val = self.pop_prelude_statements() + ensure_list(visit_val)
+        self.add_var_to_scope_from_nodes(ret_val)
+
+        return ret_val
+
+    def visit_fields(self, node: ast.AST) -> Optional[ast.AST]:
         ''' Iterate over all childern of the given node, listed in node._fields.
             This means:
             - if a child is a AST node, then visit() it and replace the current node
