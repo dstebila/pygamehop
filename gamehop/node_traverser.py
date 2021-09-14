@@ -245,6 +245,8 @@ class NodeTraverser():
         self.pop_parent()
         return node
 
+    # Internal visitors
+
     def _visit_FunctionDef(self, node):
         # Functions create a new scope
         self.new_scope()
@@ -273,10 +275,39 @@ class NodeTraverser():
 
         return self.call_subclass_visitor(node)
 
+    # parent class visitors
+
+    def visit_stmt(self, stmt: ast.stmt):
+        visit_val = self.visit_internal(stmt)
+
+        # If there are no prelude statements to add here, then just
+        # return the value.  But first fix up the scope!
+        if len(self.prelude_statements[-1]) == 0:
+            if visit_val is not None:
+                self.add_var_to_scope_from_nodes(visit_val)
+            return visit_val
+
+        # all statements are eligible to have preludes in front of them
+        ret_val = self.pop_prelude_statements() + ensure_list(visit_val)
+
+        # update the scope based on the up-to-date statements
+        self.add_var_to_scope_from_nodes(ret_val)
+        return ret_val
+
+    def visit_expr(self, expr: ast.expr):
+        return self.visit_internal(expr)
+
+    # list visitors
 
     def visit_stmts(self, stmts: List[ast.stmt]) -> List[ast.AST]:
+        # push a new context for prelude statements so that we only
+        # process preludes from this block of statements
         self.prelude_statements.append(list())
         ret_val = glue_list_and_vals([ self.visit_stmt(stmt) for stmt in stmts])
+
+        # we should have processed all preludes by now.  End of block
+        # so pop off the current prelude context
+        assert(len(self.prelude_statements[-1]) == 0)
         self.prelude_statements.pop()
         return ret_val
 
@@ -291,19 +322,7 @@ class NodeTraverser():
         stmts[:] = sum( [ ensure_list(self.visit(stmt)) for stmt in stmts ] , [])
         return stmts
 
-    def visit_stmt(self, stmt: ast.stmt):
-        visit_val = self.visit_internal(stmt)
-        if len(self.prelude_statements[-1]) == 0:
-            if visit_val is not None:
-                self.add_var_to_scope_from_nodes(visit_val)
-            return visit_val
-
-        ret_val = self.pop_prelude_statements() + ensure_list(visit_val)
-        self.add_var_to_scope_from_nodes(ret_val)
-        return ret_val
-
-    def visit_expr(self, expr: ast.expr):
-        return self.visit_internal(expr)
+    # The stack of functions for calling visitors
 
     def visit(self, node: ast.AST):
         '''Calls visit_NodeType where NodeType is the name of the type of
@@ -323,6 +342,10 @@ class NodeTraverser():
             return self.call_subclass_visitor(node)
 
     def visit_internal(self, node: ast.AST):
+        '''Calls _visit_NodeType where NodeType is the name of the type of
+        the node passed in.  If this function is not present then instead
+        call_subclass_visitor() is called.
+        '''
         visit_function_name = f"_visit_{type(node).__name__}"
         if hasattr(self, visit_function_name):
             visit_function = getattr(self, visit_function_name)
@@ -333,7 +356,7 @@ class NodeTraverser():
     def call_subclass_visitor(self, node: ast.AST):
         '''Calls visit_NodeType where NodeType is the name of the type of
         the node passed in.  If this function is not present then instead
-        call_subclass_visitor() is called.
+        generic_visit() is called.
         '''
         visit_function_name = f"visit_{type(node).__name__}"
         if hasattr(self, visit_function_name):
