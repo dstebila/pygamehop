@@ -4,26 +4,29 @@ from typing import Any, Callable, Dict, List, Optional, Set, Type, Union, TypeVa
 
 T = TypeVar('T')
 def ensure_list(thing: Union[T, List[T]]) -> List[T]:
+    ''' Argument is wrapped in a list() if it is not already a list'''
     if isinstance(thing, list):
         return thing
     else:
         return [ thing ]
 
 def glue_list_and_vals(vals: List[Union[T, List[T], None]]) -> List[T]:
+    ''' Create a single list out of vals.  If a val is a list, then it's
+    contents are added to the list, otherwise the val itself is added.
+    Any None values are removed.'''
     ret_val: List[T] = list()
     for v in vals:
         if isinstance(v, list):
             ret_val.extend(v)
+        elif v is None:
+            continue
         else:
-            if v is None:
-                continue
-            else:
-                ret_val.append(v)
+            ret_val.append(v)
     return ret_val
 
 class NodeTraverser():
-    """Improved AST tree traversal over the ast.NodeTtransformer class:
-
+    """Improved AST tree traversal over the ast.NodeTransformer class.
+    Improved features:
     - the ability to handle List[ast.stmt] using visit_statements()
     - keeping track of variables defined, respecting scopes.  i.e.
         variables defined functionDefs and ClassDefs are removed from the
@@ -57,13 +60,19 @@ class NodeTraverser():
      nodes, so it shouldn't be too bad.
      """
     def __init__(self, counter=0, var_format = '_var_{:d}'):
-        self.prelude_statements: List[ast.stmt] = list()
+        ''' counter sets the starting value for unique_variable_name() calls.
+        var_format gives the string format for unique_variable_name() calls.
+        '''
+        # TODO: does this belong here? or should it be in a separate class?
+        # State for unique_variable_name() calls
         self.unique_string_counter: int = counter
         self.var_format = var_format
 
         # When we encounter these types of nodes we insert any
         # prelude statements before the node.
+        # TODO: do this in visit_stmt instead
         self.prelude_anchor_types = { ast.Assign, ast.Return, ast.FunctionDef, ast.If, ast.Expr }
+        self.prelude_statements: List[ast.stmt] = list()
 
         # Keep track of the variables that are in scope
         # We will push a new set when a new scope (eg function, class def ) is
@@ -80,6 +89,10 @@ class NodeTraverser():
         self.ancestors = list()
 
     def unique_variable_name(self):
+        ''' returns a new string each time.  This works by using a counter
+        that is incremented on each call.  The starting counter value
+        and format of string can be set in __init__()
+        '''
         v = self.var_format.format(self.unique_string_counter)
         self.unique_string_counter += 1
         return v
@@ -109,14 +122,23 @@ class NodeTraverser():
                 self.out_of_scopes[-1].append(var)
 
     def in_scope(self, varname: str) -> bool:
+        ''' Returns True if the given varname is defined in any scope, including
+        outer scopes.'''
         for s in self.scopes[::-1]:
             if varname in s: return True
         return False
 
     def in_local_scope(self, varname: str) -> bool:
+        ''' Returns True if the given varname is defined in the current local scope.
+        Outer scopes are ignored.
+        '''
         return varname in self.scopes[-1]
 
     def var_value(self, varname: str) -> Optional[ast.expr]:
+        ''' Gives the most recent value assigned to varname.  If the value connot
+        be determined (eg. a function argument, or if the varname was assigned
+        in the body/orelse of an if statement) then None is returned.
+        '''
         for s in self.scopes[::-1]:
             if varname in s: return s[varname]
         return None
@@ -130,10 +152,13 @@ class NodeTraverser():
         ''' Process an assign's target (which could be a tuple), figuring out
         the appropriate value from the given assign value'''
 
+        # assign to a single variable
         if isinstance(target, ast.Name):
             self.add_var_to_scope(target.id, value)
 
+        # assign to a tuple
         if isinstance(target, ast.Tuple):
+            # if value is also a tuple then we can match target[j] with value[j]
             if isinstance(value, ast.Tuple):
                 if not len(value.elts) == len(target.elts):
                     raise ValueError(f"Attempt to assign to a tuple from another tuple of different length")
@@ -149,22 +174,32 @@ class NodeTraverser():
 
 
     def add_var_to_scope_from_nodes(self, nodes: Union[ast.AST, List[ast.AST]]) -> None:
+        '''Look at the given node(s), and if they assign to any names, put them in scope.
+        This does not work recursively!  It only looks at the top level.
+        TODO: do this recursively
+        '''
         if isinstance(nodes, ast.AST):
             nodes = [ nodes ]
         for s in nodes:
             if isinstance(s, ast.Assign):
+                # if there are many targets (eg. a = b = 1) we handle each one
                 for v in s.targets:
                     self.add_target_to_scope(v, s.value)
 
     def vars_in_scope(self) -> List[str]:
+        ''' Returns a list of all variables currently in scope, including outer
+        scopes.'''
         return sum([ list(scope.keys()) for scope in self.scopes ], [])
 
     def vars_in_local_scope(self) -> List[str]:
+        ''' Returns a list of variables in the current local scope only.'''
         return list(self.scopes[-1].keys())
 
 
     # Keep track of parent of each node
     def parent(self):
+        ''' Returns the node of which the currently visited node is a child.
+        Returns None if there is no parent (eg. top level statement).'''
         if len(self.ancestors) < 1:
             return None
         return self.ancestors[-1]
@@ -179,6 +214,8 @@ class NodeTraverser():
     # visitor functions
 
     def visit_If(self, node):
+        # TODO: do this in some way not using scopes, because if's don't actually
+        # create a new scope.
         self.push_parent(node)
         # ifs need special attention because a variable may be assigned to
         # in one branch but not the other
@@ -189,14 +226,14 @@ class NodeTraverser():
         # create a new scope for the body so that we don't count them as
         # in scope in the orelse
         self.new_scope()
-        node.body = sum( [ ensure_list(self.visit(child)) for child in node.body ] , [])
+        node.body = glue_list_and_vals( [ self.visit(child) for child in node.body ] )
         ifscope = self.vars_in_local_scope()
         self.pop_scope()
 
         # create a new scope for the orelse so that we don't count them as
         # in scope later when the orelse may not have run
         self.new_scope()
-        node.orelse = sum( [ ensure_list(self.visit(child)) for child in node.orelse ], [])
+        node.orelse = glue_list_and_vals( [ self.visit(child) for child in node.orelse ])
         elsescope = self.vars_in_local_scope()
         self.pop_scope()
 
@@ -206,11 +243,12 @@ class NodeTraverser():
         for v in bothscopes:
             if bothscopes.count(v) == 2:
                 self.add_var_to_scope(v, None)
-            #TODO: if both assign same value, then we can add
+            #TODO: if both assign same value, then we can add that value rather than None
         self.pop_parent()
         return self.pop_prelude_statements() + [ node ]
 
     def _visit_FunctionDef(self, node):
+        # Functions create a new scope
         self.new_scope()
 
         # Function parameters will be in scope
@@ -222,6 +260,7 @@ class NodeTraverser():
         return node
 
     def _visit_ClassDef(self, node):
+        # Classes create a new scope
         self.new_scope()
         node = self.call_subclass_visitor(node)
         self.pop_scope()
@@ -280,6 +319,9 @@ class NodeTraverser():
             return self.generic_visit(node)
 
     def generic_visit(self, node):
+        ''' Visit all children of a current node.  This will not call any
+        visit_NodeType() functions on the current node.
+        '''
         # We need to set this node as parent before we visit its childen
         self.push_parent(node)
         visit_val = self.visit_fields(node)  # this call will only visit children
