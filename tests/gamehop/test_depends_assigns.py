@@ -40,7 +40,7 @@ class TestDependsOn(unittest.TestCase):
 
     def test_IfExp(self):
         s = 'a = b if c else d'
-        self.assertEqual(gamehop.utils.vars_depends_on(ast.parse(s).body[0]), ['b', 'c', 'd'])
+        self.assertEqual(gamehop.utils.vars_depends_on(ast.parse(s).body[0]), ['c', 'b', 'd'])
 
     def test_Name(self):
         s = 'a = b'

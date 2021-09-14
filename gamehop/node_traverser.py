@@ -1,6 +1,6 @@
 import ast
 import types
-from typing import Any, Callable, Dict, List, Optional, Set, Type, Union, TypeVar, Sequence
+from typing import Any, Callable, Dict, List, Optional, Set, Type, Union, TypeVar, Sequence, Generator
 
 T = TypeVar('T')
 def ensure_list(thing: Union[T, List[T]]) -> List[T]:
@@ -24,14 +24,18 @@ def glue_list_and_vals(vals: List[Union[T, List[T], None]]) -> List[T]:
             ret_val.append(v)
     return ret_val
 
+# type checking is difficult for this one.  mypy doesn't understand that
+# we filter on nodetype, which causes problems downstream
 def nodes(node, nodetype = ast.AST):
+    ''' Generate nodes by depth first traversal of an AST or
+    a list of ASTs.  Optionally, filter by node type.'''
     if isinstance(node, list):
         for i in node:
             yield from nodes(i, nodetype)
     else:
-        if isinstance(node, nodetype): yield node        
+        if isinstance(node, nodetype): yield node
         if hasattr(node, '_fields'):
-            for field_name in node._fields:
+            for field_name in getattr(node, '_fields'):
                 if not hasattr(node, field_name): continue
                 field = getattr(node, field_name)
                 yield from nodes(field, nodetype)

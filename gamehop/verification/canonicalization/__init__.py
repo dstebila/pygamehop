@@ -34,9 +34,6 @@ def canonicalize_variable_names(f: ast.FunctionDef, prefix = 'v') -> None:
     f.body = f_2ndpass.body
     ast.fix_missing_locations(f)
 
-def dependent_vars(stmt: ast.Assign) -> List[str]:
-    return [ n.id for n in nt.nodes(stmt.value, nodetype = ast.Name) if isinstance(n.ctx, ast.Load) ]
-
 def contains_name(node: Union[ast.AST, List], name: str) -> bool:
     """Determines whether the given node (or list of nodes) contains a variable with the given name."""
     return any( True for n in nt.nodes(node, nodetype = ast.Name) if n.id == name )

@@ -108,41 +108,27 @@ def stored_vars(node):
     return [ n.id for n in nt.nodes(node, nodetype = ast.Name) if isinstance(n.ctx, ast.Store) ]
 
 def vars_depends_on(node: Optional[ast.AST]) -> List[str]:
-    if isinstance(node, ast.Assign):
-        r = []
-        # we have to go through the targets to find any attributed objects that are assigned to, since this assignment statement depends on them
-        for t in node.targets: r.extend(vars_depends_on(t))
-        r.extend(vars_depends_on(node.value))
-        return r
-    elif isinstance(node, ast.Attribute): return vars_depends_on(node.value)
-    elif isinstance(node, ast.BinOp): return vars_depends_on(node.left) + vars_depends_on(node.right)
-    elif isinstance(node, ast.Call): return vars_depends_on(node.func) + sum([vars_depends_on(arg) for arg in node.args], start=[])
-    elif isinstance(node, ast.Compare): return vars_depends_on(node.left) + sum([vars_depends_on(c) for c in node.comparators], start=[])
-    elif isinstance(node, ast.Constant): return []
-    elif isinstance(node, ast.Expr): return vars_depends_on(node.value)
-    elif isinstance(node, ast.IfExp): return vars_depends_on(node.body) + vars_depends_on(node.test) + vars_depends_on(node.orelse)
-    elif isinstance(node, ast.Name): return [node.id] if isinstance(node.ctx, ast.Load) else []
-    elif isinstance(node, ast.Return): return [] if node.value == None else vars_depends_on(node.value)
-    elif isinstance(node, ast.Tuple): return sum([vars_depends_on(e) for e in node.elts], start=[])
-    elif isinstance(node, ast.arg): return [ node.arg ]
-    else: raise NotImplementedError("Cannot handle AST objects of type {:s}".format(type(node).__name__))
+    if node is None: return list()
+    
+    def node_deps(node):
+        if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Load):
+            return node.id
+        if isinstance(node, ast.arg):
+            return node.arg
+        return None
+
+    return nt.glue_list_and_vals([ node_deps(n) for n in nt.nodes(node) ])
 
 def vars_assigns_to(node: Union[ast.AST, List[ast.stmt]]) -> List[str]:
-    if isinstance(node, list): return sum([vars_assigns_to(stmt) for stmt in node], start=[])
-    elif isinstance(node, ast.Assign): return sum([vars_assigns_to(v) for v in node.targets], start=[])
-    elif isinstance(node, ast.Attribute):
-        if isinstance(node.ctx, ast.Store): return vars_depends_on(node.value)
-        else: return []
-    elif isinstance(node, ast.BinOp): return []
-    elif isinstance(node, ast.Call): return []
-    elif isinstance(node, ast.Compare): return []
-    elif isinstance(node, ast.Constant): return []
-    elif isinstance(node, ast.Expr): return []
-    elif isinstance(node, ast.IfExp): return []
-    elif isinstance(node, ast.Name): return [node.id] if isinstance(node.ctx, ast.Store) else []
-    elif isinstance(node, ast.Return): return []
-    elif isinstance(node, ast.Tuple): return sum([vars_assigns_to(e) for e in node.elts], start=[])
-    else: raise NotImplementedError("Cannot handle AST objects of type {:s} ({:s})".format(type(node).__name__, ast.unparse(node)))
+    def node_assigns(node):
+        if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Store):
+            return node.id
+        if isinstance(node, ast.Attribute):
+            if isinstance(node.ctx, ast.Store):
+                return vars_depends_on(node.value)
+        return None
+
+    return nt.glue_list_and_vals([ node_assigns(n) for n in nt.nodes(node) ])
 
 def remove_indentation(src: str) -> str:
     indentation = 0
