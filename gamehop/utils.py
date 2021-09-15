@@ -28,26 +28,27 @@ class NewNodeVisitor(ast.NodeVisitor):
         else:
             super().visit(node)
 
-class NameRenamer(nt.NodeTraverser):
-    """Replaces ids in Name nodes based on the provided mapping.  Raises a ValueError if the new name is already used in the function."""
-    def __init__(self, mapping: dict, error_if_exists: bool):
-        self.mapping = mapping
-        self.error_if_exists = error_if_exists
-        super().__init__()
+S = TypeVar('S', bound=ast.AST)
+def rename_variables(node: S, mapping: dict, error_if_exists = True) -> S:
+    for n in nt.nodes(node, nodetype = ast.Name):
+        assert(isinstance(n, ast.Name))
+        if error_if_exists and (n.id in mapping.values()):
+            raise ValueError("New name '{:s}' already exists in function".format(n.id))
+        if n.id in mapping:
+            n.id = mapping[n.id]
+    return node
 
-    def visit_Name(self, node: ast.Name) -> ast.Name:
-        if self.error_if_exists and (node.id in self.mapping.values()): raise ValueError("New name '{:s}' already exists in function".format(node.id))
-        if node.id in self.mapping: return ast.Name(id=self.mapping[node.id], ctx=node.ctx)
-        else: return node
+def rename_function_body_variables(f: ast.FunctionDef, mapping: dict, error_if_exists = True) -> ast.FunctionDef:
+    """Modifies, in place, all the variables in the given function definition renamed based on the provided mapping.  Raises a ValueError if the new name is already used in the function."""
+    f = rename_variables(f, mapping, error_if_exists)
 
-def rename_variables(f: Union[Callable, str, ast.FunctionDef], mapping: dict, error_if_exists = True) -> ast.FunctionDef:
-    """Returns a copy of the function with all the variables in the given function definition renamed based on the provided mapping.  Raises a ValueError if the new name is already used in the function."""
-    retvalue = NameRenamer(mapping, error_if_exists).visit(get_function_def(f))
-    # rename any relevant variables in the function arguments
-    for arg in retvalue.args.args:
-        if error_if_exists and (arg.arg in mapping.values()): raise ValueError("New name '{:s}' already exists in function".format(arg.arg))
-        if arg.arg in mapping: arg.arg = mapping[arg.arg]
-    return retvalue
+    # rename any relevant function parameters
+    for arg in f.args.args:
+        if error_if_exists and (arg.arg in mapping.values()):
+            raise ValueError("New name '{:s}' already exists in function".format(arg.arg))
+        if arg.arg in mapping:
+            arg.arg = mapping[arg.arg]
+    return f
 
 class NamePrefixer(nt.NodeTraverser):
     def __init__(self, prefix: str):
@@ -105,11 +106,14 @@ class AttributeNodeReplacer(nt.NodeTraverser):
         return ast.Attribute(value=self.visit(node.value), attr=node.attr, ctx=node.ctx)
 
 def stored_vars(node):
+    # TODO: this is probably not what we want if there are inner scopes.
     return [ n.id for n in nt.nodes(node, nodetype = ast.Name) if isinstance(n.ctx, ast.Store) ]
 
 def vars_depends_on(node: Optional[ast.AST]) -> List[str]:
+    # TODO: this is not correct if there are any inner scopes where the names
+    # are redefined
     if node is None: return list()
-    
+
     def node_deps(node):
         if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Load):
             return node.id
@@ -120,6 +124,8 @@ def vars_depends_on(node: Optional[ast.AST]) -> List[str]:
     return nt.glue_list_and_vals([ node_deps(n) for n in nt.nodes(node) ])
 
 def vars_assigns_to(node: Union[ast.AST, List[ast.stmt]]) -> List[str]:
+    # TODO: this is not correct if assign happens in an inner scope
+    # TODO: when fixing above, think about global and nonlocal keywords
     def node_assigns(node):
         if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Store):
             return node.id
