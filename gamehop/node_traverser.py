@@ -125,6 +125,11 @@ class NodeTraverser():
     - What to do about scopes when a node changes?  Currently we only look at stores
         at level of the node(s), not recursively.
 
+    - do block level scopes in addition to normal scopes.  This would allow things like
+        nicer handling of the scopes for if body/orelse rather than messing with the real
+        scopes.  Also, would make it easy to figure out what variables a block depends on
+        and assigns to, which is probably required to handle reordering statements in bodies.
+
     - Get this functionality into the NodeVisitor somehow.  Nothing here changes any
      nodes, so it shouldn't be too bad.
      """
@@ -152,6 +157,9 @@ class NodeTraverser():
         ''' returns a new string each time.  This works by using a counter
         that is incremented on each call.  The starting counter value
         and format of string can be set in __init__()
+        TODO: do we want a set of formats with a separate counter for each?
+        this would make it possible/easy to have more specific formats,
+        eg. one for return values, one for if tests, etc.
         '''
         v = self.var_format.format(self.unique_string_counter)
         self.unique_string_counter += 1
@@ -255,12 +263,12 @@ class NodeTraverser():
                     self.add_target_to_scope(v, s.value)
 
     def vars_in_scope(self) -> List[str]:
-        ''' Returns a list of all variables currently in scope, including outer
+        ''' Returns a list of all variables and parameters currently in scope, including outer
         scopes.'''
         return sum(( s.names_in_scope() for s in self.scopes ), [])
 
     def vars_in_local_scope(self) -> List[str]:
-        ''' Returns a list of variables in the current local scope only.'''
+        ''' Returns a list of variables and parameters in the current local scope only.'''
         return self.local_scope().names_in_scope()
 
 

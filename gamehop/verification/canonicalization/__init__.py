@@ -27,6 +27,7 @@ def canonicalize_variable_names(f: ast.FunctionDef, prefix = 'v') -> None:
         mappings_1stpass[vars[i]] = '{:s}{:d}'.format(tmpname, i)
         mappings_2ndpass[mappings_1stpass[vars[i]]] = '{:s}{:d}'.format(prefix, i)
     # rename to temporary names, then output names
+    # TODO temp variables no longer necessary, things are done in place
     f_1stpass = utils.rename_function_body_variables(f, mappings_1stpass)
     f_2ndpass = utils.rename_function_body_variables(f_1stpass, mappings_2ndpass)
     # save results in place
@@ -34,6 +35,7 @@ def canonicalize_variable_names(f: ast.FunctionDef, prefix = 'v') -> None:
     f.body = f_2ndpass.body
     ast.fix_missing_locations(f)
 
+# apparently not used
 def contains_name(node: Union[ast.AST, List], name: str) -> bool:
     """Determines whether the given node (or list of nodes) contains a variable with the given name."""
     return any( True for n in nt.nodes(node, nodetype = ast.Name) if n.id == name )
@@ -60,6 +62,7 @@ def collapse_useless_assigns(f: ast.FunctionDef) -> None:
     VariableCollapser().visit(f)
     ast.fix_missing_locations(f)
 
+# apparently not used
 def assignee_vars(stmt: ast.Assign) -> List[str]:
     if len(stmt.targets) != 1: raise NotImplementedError("Cannot handle assignment statements with multiple targets")
     if isinstance(stmt.targets[0], ast.Name): return [stmt.targets[0].id]
