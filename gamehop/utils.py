@@ -105,11 +105,14 @@ class AttributeNodeReplacer(nt.NodeTraverser):
         return ast.Attribute(value=self.visit(node.value), attr=node.attr, ctx=node.ctx)
 
 def stored_vars(node):
+    # TODO: this is probably not what we want if there are inner scopes.
     return [ n.id for n in nt.nodes(node, nodetype = ast.Name) if isinstance(n.ctx, ast.Store) ]
 
 def vars_depends_on(node: Optional[ast.AST]) -> List[str]:
+    # TODO: this is not correct if there are any inner scopes where the names
+    # are redefined
     if node is None: return list()
-    
+
     def node_deps(node):
         if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Load):
             return node.id
@@ -120,6 +123,8 @@ def vars_depends_on(node: Optional[ast.AST]) -> List[str]:
     return nt.glue_list_and_vals([ node_deps(n) for n in nt.nodes(node) ])
 
 def vars_assigns_to(node: Union[ast.AST, List[ast.stmt]]) -> List[str]:
+    # TODO: this is not correct if assign happens in an inner scope
+    # TODO: when fixing above, think about global and nonlocal keywords
     def node_assigns(node):
         if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Store):
             return node.id

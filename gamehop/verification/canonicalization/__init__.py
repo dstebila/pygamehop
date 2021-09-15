@@ -148,60 +148,18 @@ def show_call_graph(f: ast.FunctionDef) -> None:
     networkx.draw(G, pos=pos, with_labels=True)
     matplotlib.pyplot.show()
 
-
 class ArgumentReorderer(nt.NodeTraverser):
-    def __init__(self):
-        self.function_arguments: List[Dict[str]] = list()
-        self.function_new_arguments: List[List[str]] = list()
-        self.name_assigns: List[List[str]] = list()
-        super().__init__(self)
-
     def visit_FunctionDef(self, node):
-        # get all the arguments for this function along with their type annotations
-        self.function_arguments.append( { some_arg.arg: some_arg.annotation for some_arg in node.args.args } )
-
-        # here we will keep track of the order in which we find the arguments in the function body
-        self.function_new_arguments.append(list())
-
-        # here we keep track of assignments to names in the body of the function because they will thereafter not refer to arguments
-        self.name_assigns.append(list())
-
-        # visit the body.  visit_Name will collect the arguments in the order they appear
-        return_val = self.generic_visit(node)
-
-        # rebuild the ast structure for the arguments
-        node.args.args = [ ast.arg(arg = a, annotation=self.function_arguments[-1][a]) for a in self.function_new_arguments[-1] ]
-
-        # clean up
-        self.function_arguments.pop()
-        self.function_new_arguments.pop()
-        self.name_assigns.pop()
-        return return_val
-
-    def visit_Name(self, node):
+        # visit the body to get the scope set up
         node = self.generic_visit(node)
-        if not len(self.function_arguments) > 0:
-            # we are not in a function definition, do nothing
-            return node
-
-        if type(node.ctx) == ast.Store:
-            self.name_assigns[-1].append(node.id)
-            return node
-        assert(type(node.ctx) == ast.Load)
-
-        var_name = node.id
-        # look for the innermost function definition that has this name for an argument
-        for i in range(len(self.function_arguments) - 1, -1, -1):
-            if var_name in self.name_assigns[i]: break               # assign overwrote the argument
-            if var_name in self.function_arguments[i]:
-                if var_name in self.function_new_arguments[i]: break     # already found and assigned order
-                self.function_new_arguments[i].append(var_name)
-                break
+        s = self.local_scope()
+        node.args.args = [ ast.arg(arg = a, annotation = s.var_annotations[a]) for a in s.parameters_loaded ]
         return node
 
 def canonicalize_argument_order(f: ast.FunctionDef) -> None:
     """Modify (in place) the given function definition to canonicalize the order of the arguments
-    based on the order in which the variables appear.  Arguments that are not referred to are removed."""
+    based on the order in which the variables appear.  Arguments that are not referred to are removed.
+    Note that this also applies to any inner functions."""
 
     ArgumentReorderer().visit(f)
     ast.fix_missing_locations(f)

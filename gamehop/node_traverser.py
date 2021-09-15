@@ -57,14 +57,17 @@ class Scope():
         self.external_vars = list()         # variables loaded that were not previously stored and are not parameters
         self.parameters_loaded = list()     # parameters that have been read by a load, in order by first load
         self.var_values = dict()            # most recent value assigned to variable
+        self.var_annotations = dict()       # most recent type annotation for a variable
 
-    def add_parameter(self, par_name):
+    def add_parameter(self, par_name, annotation = None):
         self.parameters.append(par_name)
         self.var_values[par_name] = None    # parameters will not have a value until the function is called
+        self.var_annotations[par_name] = annotation
 
-    def add_var_store(self, varname, value = None):
+    def add_var_store(self, varname, value = None, annotation = None):
         append_if_unique(self.vars_stored, varname)
         self.var_values[varname] = value
+        self.var_annotations[varname] = annotation
 
     def add_var_load(self, varname):
         ''' Adds the given variable name to the scope, treat as a load.  If this name is
@@ -239,7 +242,9 @@ class NodeTraverser():
     def add_var_to_scope_from_nodes(self, nodes: Union[ast.AST, Sequence[ast.AST]]) -> None:
         '''Look at the given node(s), and if they assign to any names, put them in scope.
         This does not work recursively!  It only looks at the top level.  This is correct because
-        we only want to add vars that are assigned in this scope, not any inner scopes.
+        we only want to add vars that are assigned in this scope, not any inner scopes. Note
+        that this is not correct for variable loads or out of scope variables.
+        TODO: What about object attributes?
         '''
         if isinstance(nodes, ast.AST):
             nodes = [ nodes ]
@@ -305,6 +310,8 @@ class NodeTraverser():
         for v in bothscopes:
             if bothscopes.count(v) == 2:
                 self.add_var_store(v, None)
+            #TODO: need to keep track of variable loads and out of scope variables as well
+            #TODO: FIXME: this will add any parameters in scope as variables!
             #TODO: if both assign same value, then we can add that value rather than None
         self.pop_parent()
         return node
@@ -317,7 +324,7 @@ class NodeTraverser():
 
         # Function parameters will be in scope
         for arg in node.args.args:
-            self.local_scope().add_parameter(arg.arg)
+            self.local_scope().add_parameter(arg.arg, arg.annotation)
 
         node = self.call_subclass_visitor(node)
         self.pop_scope()
@@ -335,7 +342,7 @@ class NodeTraverser():
 
         # this might have changed to a different type of node
         if not isinstance(node, ast.Name): return node
-        if isinstance(node.ctx, ast.Load) and not self.in_local_scope(node.id):
+        if isinstance(node.ctx, ast.Load):
             self.add_var_load(node.id)
         return node
 
