@@ -47,12 +47,12 @@ def inline_argument_into_function(argname: str, val: Union[bool, float, int, str
 
 def helper_make_lines_of_inlined_function(fdef_to_be_inlined: ast.FunctionDef, params: List[ast.expr], prefix: str) -> List[ast.stmt]:
     """Helper function for InlineFunctionCallIntoStatements. Takes a function definition and list of parameters (one for each argument of the function definition) and returns a copy of the body of the function in which (a) all local variables have been prefixed with prefix and (b) all instances of arguments have been replaced with the corresponding parameter."""
-    working_copy = fdef_to_be_inlined
+    working_copy = copy.deepcopy(fdef_to_be_inlined)
     # prefix all local variables
     local_variables = utils.vars_assigns_to(fdef_to_be_inlined.body)
     mappings = dict()
     for var in local_variables: mappings[var] = f"{prefix}ⴰ{var}"
-    working_copy = utils.rename_variables(working_copy, mappings)
+    working_copy = utils.rename_function_body_variables(working_copy, mappings)
     # map the parameters onto the arguments
     assert len(params) == len(working_copy.args.args)
     replacements = {arg.arg: params[argnum] for argnum, arg in enumerate(working_copy.args.args)}
@@ -290,7 +290,7 @@ def inline_reduction_into_game(R: Type[Crypto.Reduction], GameForR: Type[Crypto.
             # bind self.Scheme to the given Scheme
             newinit = utils.get_function_def(inline_argument_into_function('Scheme', TargetScheme, fdef))
             # change the type of the adversary to match the target game
-            newinit = utils.NameRenamer({f"{GameForR.__name__}_Adversary": f"{TargetGame.__name__}_Adversary"}, False).visit(newinit)
+            newinit = utils.rename_function_body_variables(newinit, {f"{GameForR.__name__}_Adversary": f"{TargetGame.__name__}_Adversary"}, False)
             OutputGame.body.append(newinit)
         elif fdef.name == "main" or fdef.name.startswith("o_"):
             if fdef.args.args[0].arg != "self":
@@ -299,7 +299,7 @@ def inline_reduction_into_game(R: Type[Crypto.Reduction], GameForR: Type[Crypto.
             fdef = utils.AttributeNodeReplacer(['self', 'adversary'], R.__name__).visit(fdef)
             fdef = utils.get_function_def(inline_all_nonstatic_method_calls(R.__name__, R, cast(ast.FunctionDef, fdef)))
             # rename any of R's member variables to self
-            fdef = utils.rename_variables(fdef, {R.__name__: 'self'}, False)
+            fdef = utils.rename_function_body_variables(fdef, {R.__name__: 'self'}, False)
             # replace references to self.Scheme with the scheme that R was using
             fdef = utils.AttributeNodeReplacer(['self', 'Scheme'], SchemeForR.__name__).visit(fdef)
             # replace R's calls to its inner adversary with calls to the outer game's self.adversary

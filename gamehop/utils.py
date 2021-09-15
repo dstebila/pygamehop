@@ -28,38 +28,27 @@ class NewNodeVisitor(ast.NodeVisitor):
         else:
             super().visit(node)
 
-class VariableFinder(NewNodeVisitor):
-    def __init__(self):
-        self.stored_vars = list()
-        self.loaded_vars = list()
-        super().__init__()
+S = TypeVar('S', bound=ast.AST)
+def rename_variables(node: S, mapping: dict, error_if_exists = True) -> S:
+    for n in nt.nodes(node, nodetype = ast.Name):
+        assert(isinstance(n, ast.Name))
+        if error_if_exists and (n.id in mapping.values()):
+            raise ValueError("New name '{:s}' already exists in function".format(n.id))
+        if n.id in mapping:
+            n.id = mapping[n.id]
+    return node
 
-    def visit_Name(self, node:ast.Name) -> None:
-        if isinstance(node.ctx, ast.Load):
-            if node.id not in self.loaded_vars: self.loaded_vars.append(node.id)
-        if isinstance(node.ctx, ast.Store):
-            if node.id not in self.stored_vars: self.stored_vars.append(node.id)
+def rename_function_body_variables(f: ast.FunctionDef, mapping: dict, error_if_exists = True) -> ast.FunctionDef:
+    """Modifies, in place, all the variables in the given function definition renamed based on the provided mapping.  Raises a ValueError if the new name is already used in the function."""
+    f = rename_variables(f, mapping, error_if_exists)
 
-class NameRenamer(nt.NodeTraverser):
-    """Replaces ids in Name nodes based on the provided mapping.  Raises a ValueError if the new name is already used in the function."""
-    def __init__(self, mapping: dict, error_if_exists: bool):
-        self.mapping = mapping
-        self.error_if_exists = error_if_exists
-        super().__init__()
-
-    def visit_Name(self, node: ast.Name) -> ast.Name:
-        if self.error_if_exists and (node.id in self.mapping.values()): raise ValueError("New name '{:s}' already exists in function".format(node.id))
-        if node.id in self.mapping: return ast.Name(id=self.mapping[node.id], ctx=node.ctx)
-        else: return node
-
-def rename_variables(f: Union[Callable, str, ast.FunctionDef], mapping: dict, error_if_exists = True) -> ast.FunctionDef:
-    """Returns a copy of the function with all the variables in the given function definition renamed based on the provided mapping.  Raises a ValueError if the new name is already used in the function."""
-    retvalue = NameRenamer(mapping, error_if_exists).visit(get_function_def(f))
-    # rename any relevant variables in the function arguments
-    for arg in retvalue.args.args:
-        if error_if_exists and (arg.arg in mapping.values()): raise ValueError("New name '{:s}' already exists in function".format(arg.arg))
-        if arg.arg in mapping: arg.arg = mapping[arg.arg]
-    return retvalue
+    # rename any relevant function parameters
+    for arg in f.args.args:
+        if error_if_exists and (arg.arg in mapping.values()):
+            raise ValueError("New name '{:s}' already exists in function".format(arg.arg))
+        if arg.arg in mapping:
+            arg.arg = mapping[arg.arg]
+    return f
 
 class NamePrefixer(nt.NodeTraverser):
     def __init__(self, prefix: str):
@@ -117,46 +106,35 @@ class AttributeNodeReplacer(nt.NodeTraverser):
         return ast.Attribute(value=self.visit(node.value), attr=node.attr, ctx=node.ctx)
 
 def stored_vars(node):
-    varfinder = VariableFinder()
-    varfinder.visit(node)
-    return varfinder.stored_vars
+    # TODO: this is probably not what we want if there are inner scopes.
+    return [ n.id for n in nt.nodes(node, nodetype = ast.Name) if isinstance(n.ctx, ast.Store) ]
 
 def vars_depends_on(node: Optional[ast.AST]) -> List[str]:
-    if isinstance(node, ast.Assign):
-        r = []
-        # we have to go through the targets to find any attributed objects that are assigned to, since this assignment statement depends on them
-        for t in node.targets: r.extend(vars_depends_on(t))
-        r.extend(vars_depends_on(node.value))
-        return r
-    elif isinstance(node, ast.Attribute): return vars_depends_on(node.value)
-    elif isinstance(node, ast.BinOp): return vars_depends_on(node.left) + vars_depends_on(node.right)
-    elif isinstance(node, ast.Call): return vars_depends_on(node.func) + sum([vars_depends_on(arg) for arg in node.args], start=[])
-    elif isinstance(node, ast.Compare): return vars_depends_on(node.left) + sum([vars_depends_on(c) for c in node.comparators], start=[])
-    elif isinstance(node, ast.Constant): return []
-    elif isinstance(node, ast.Expr): return vars_depends_on(node.value)
-    elif isinstance(node, ast.IfExp): return vars_depends_on(node.body) + vars_depends_on(node.test) + vars_depends_on(node.orelse)
-    elif isinstance(node, ast.Name): return [node.id] if isinstance(node.ctx, ast.Load) else []
-    elif isinstance(node, ast.Return): return [] if node.value == None else vars_depends_on(node.value)
-    elif isinstance(node, ast.Tuple): return sum([vars_depends_on(e) for e in node.elts], start=[])
-    elif isinstance(node, ast.arg): return [ node.arg ]
-    else: raise NotImplementedError("Cannot handle AST objects of type {:s}".format(type(node).__name__))
+    # TODO: this is not correct if there are any inner scopes where the names
+    # are redefined
+    if node is None: return list()
+
+    def node_deps(node):
+        if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Load):
+            return node.id
+        if isinstance(node, ast.arg):
+            return node.arg
+        return None
+
+    return nt.glue_list_and_vals([ node_deps(n) for n in nt.nodes(node) ])
 
 def vars_assigns_to(node: Union[ast.AST, List[ast.stmt]]) -> List[str]:
-    if isinstance(node, list): return sum([vars_assigns_to(stmt) for stmt in node], start=[])
-    elif isinstance(node, ast.Assign): return sum([vars_assigns_to(v) for v in node.targets], start=[])
-    elif isinstance(node, ast.Attribute):
-        if isinstance(node.ctx, ast.Store): return vars_depends_on(node.value)
-        else: return []
-    elif isinstance(node, ast.BinOp): return []
-    elif isinstance(node, ast.Call): return []
-    elif isinstance(node, ast.Compare): return []
-    elif isinstance(node, ast.Constant): return []
-    elif isinstance(node, ast.Expr): return []
-    elif isinstance(node, ast.IfExp): return []
-    elif isinstance(node, ast.Name): return [node.id] if isinstance(node.ctx, ast.Store) else []
-    elif isinstance(node, ast.Return): return []
-    elif isinstance(node, ast.Tuple): return sum([vars_assigns_to(e) for e in node.elts], start=[])
-    else: raise NotImplementedError("Cannot handle AST objects of type {:s} ({:s})".format(type(node).__name__, ast.unparse(node)))
+    # TODO: this is not correct if assign happens in an inner scope
+    # TODO: when fixing above, think about global and nonlocal keywords
+    def node_assigns(node):
+        if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Store):
+            return node.id
+        if isinstance(node, ast.Attribute):
+            if isinstance(node.ctx, ast.Store):
+                return vars_depends_on(node.value)
+        return None
+
+    return nt.glue_list_and_vals([ node_assigns(n) for n in nt.nodes(node) ])
 
 def remove_indentation(src: str) -> str:
     indentation = 0
