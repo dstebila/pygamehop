@@ -24,6 +24,10 @@ def glue_list_and_vals(vals: List[Union[T, List[T], None]]) -> List[T]:
             ret_val.append(v)
     return ret_val
 
+def append_if_unique(list, val):
+    if not val in list:
+        list.append(val)
+
 # type checking is difficult for this one.  mypy doesn't understand that
 # we filter on nodetype, which causes problems downstream
 def nodes(node, nodetype = ast.AST):
@@ -39,6 +43,58 @@ def nodes(node, nodetype = ast.AST):
                 if not hasattr(node, field_name): continue
                 field = getattr(node, field_name)
                 yield from nodes(field, nodetype)
+
+class Scope():
+    ''' Scope is used by the NodeTraverser to keep track of all variables and function
+    parameters currently in scope, plus additional information such as the most
+    recently assigned value, and any variables that were referenced that were
+    not in this scope at the time.
+    '''
+    def __init__(self):
+        self.parameters = list()            # function parameters defined in this scope
+        self.vars_stored = list()           # variables that have been stored, in order by first store
+        self.vars_loaded = list()           # variables that have been loaded, in order by first load
+        self.external_vars = list()         # variables loaded that were not previously stored and are not parameters
+        self.parameters_loaded = list()     # parameters that have been read by a load, in order by first load
+        self.var_values = dict()            # most recent value assigned to variable
+
+    def add_parameter(self, par_name):
+        self.parameters.append(par_name)
+        self.var_values[par_name] = None    # parameters will not have a value until the function is called
+
+    def add_var_store(self, varname, value = None):
+        append_if_unique(self.vars_stored, varname)
+        self.var_values[varname] = value
+
+    def add_var_load(self, varname):
+        ''' Adds the given variable name to the scope, treat as a load.  If this name is
+        already known as a parameter or variable in this scope, then records this reference
+        and returns True. If the name is not in this scope then returns False
+        '''
+        # variables stored will always assigned after the start of the function, so if this
+        # has happened then a Load refers to the stored variable, not a parameter
+        if varname in self.vars_stored:
+            append_if_unique(self.vars_loaded, varname)
+            return True
+        elif varname in self.parameters:
+            append_if_unique(self.parameters_loaded, varname)
+            return True
+        else:
+            # the variable is not in scope
+            append_if_unique(self.external_vars, varname)
+            return False
+
+    def var_value(self, varname):
+        return self.var_values[varname]
+
+    def in_scope(self, varname):
+        return varname in self.parameters or varname in self.vars_stored
+
+    def names_in_scope(self):
+        return self.parameters + self.vars_stored
+
+
+
 
 class NodeTraverser():
     """Improved AST tree traversal over the ast.NodeTransformer class.
@@ -63,14 +119,8 @@ class NodeTraverser():
         the local variables set up correctly
 
     TODO:
-
-    - refactor this, with a Scope object.  Keep track of (separately):
-        - loads in scope
-        - stores in scope
-        - arguments in scope
-        - loads that hit arguments, in order
-        - loads that hit stores, in order
-        - loads that weren't in the local scope
+    - What to do about scopes when a node changes?  Currently we only look at stores
+        at level of the node(s), not recursively.
 
     - Get this functionality into the NodeVisitor somehow.  Nothing here changes any
      nodes, so it shouldn't be too bad.
@@ -89,16 +139,8 @@ class NodeTraverser():
         # for before it than within its body
         self.prelude_statements: List[List[ast.stmt]] = [list()]
 
-        # Keep track of the variables that are in scope
-        # We will push a new set when a new scope (eg function, class def ) is
-        # created
-        self.scopes: List[Dict[str, Optional[ast.expr]]] = list()
-        self.scopes.append(dict())
-
-        # keep track of whenever we load a Name that is not in scope.  Do this
-        # per scope
-        self.out_of_scopes: List[List[str]] = list()
-        self.out_of_scopes.append(list())
+        # start off with a gloabal scope
+        self.scopes = [ Scope() ]
 
         # Keep track of the parent of the node being transformed
         self.ancestors = list()
@@ -126,28 +168,25 @@ class NodeTraverser():
     # scopes
 
     def new_scope(self) -> None:
-        self.scopes.append(dict())
-        self.out_of_scopes.append(list())
+        self.scopes.append(Scope())
 
     def pop_scope(self) -> None:
         self.scopes.pop()
-        out_of_local_scope_vars = self.out_of_scopes.pop()
-        for var in out_of_local_scope_vars:
-            if not self.in_local_scope(var):
-                self.out_of_scopes[-1].append(var)
+
+    def local_scope(self):
+        return self.scopes[-1]
 
     def in_scope(self, varname: str) -> bool:
         ''' Returns True if the given varname is defined in any scope, including
-        outer scopes.'''
-        for s in self.scopes[::-1]:
-            if varname in s: return True
-        return False
+        outer scopes.
+        '''
+        return any(s.in_scope(varname) for s in self.scopes)
 
     def in_local_scope(self, varname: str) -> bool:
         ''' Returns True if the given varname is defined in the current local scope.
         Outer scopes are ignored.
         '''
-        return varname in self.scopes[-1]
+        return self.local_scope().in_scope(varname)
 
     def var_value(self, varname: str) -> Optional[ast.expr]:
         ''' Gives the most recent value assigned to varname.  If the value connot
@@ -155,13 +194,22 @@ class NodeTraverser():
         in the body/orelse of an if statement) then None is returned.
         '''
         for s in self.scopes[::-1]:
-            if varname in s: return s[varname]
+            if s.in_scope(varname): return s.var_value(varname)
         return None
 
+    def add_var_load(self, varname):
+        ''' Add the variable name to the current scope as a load.  If it is not
+        in scope, then continue adding the outer scopes until either the
+        variable is found in a scope, or we reach the outermost scope.
+        '''
+        for s in reversed(self.scopes):
+            if s.add_var_load(varname):
+                break
 
-    def add_var_to_scope(self, varname: str, value: Optional[ast.expr]) -> None:
-        ''' Add a variable name to scope, storing the associated value expression'''
-        self.scopes[-1][varname] = value
+    def add_var_store(self, varname: str, value: Optional[ast.expr]) -> None:
+        ''' Add a variable name to scope, storing the associated value expression
+        '''
+        self.local_scope().add_var_store(varname, value)
 
     def add_target_to_scope(self, target, value: ast.expr):
         ''' Process an assign's target (which could be a tuple), figuring out
@@ -169,7 +217,7 @@ class NodeTraverser():
 
         # assign to a single variable
         if isinstance(target, ast.Name):
-            self.add_var_to_scope(target.id, value)
+            self.add_var_store(target.id, value)
 
         # assign to a tuple
         if isinstance(target, ast.Tuple):
@@ -180,18 +228,18 @@ class NodeTraverser():
                 for i, v in enumerate(value.elts):
                     var_Name = target.elts[i]
                     assert(isinstance(var_Name, ast.Name))
-                    self.add_var_to_scope(var_Name.id, v)
+                    self.add_var_store(var_Name.id, v)
             else:
                 for t in target.elts:
                     # We can't pull apart a non-tuple (eg. function call), so we can't determine the value
                     assert(isinstance(t, ast.Name))
-                    self.add_var_to_scope(t.id, None)
+                    self.add_var_store(t.id, None)
 
 
     def add_var_to_scope_from_nodes(self, nodes: Union[ast.AST, Sequence[ast.AST]]) -> None:
         '''Look at the given node(s), and if they assign to any names, put them in scope.
-        This does not work recursively!  It only looks at the top level.
-        TODO: do this recursively
+        This does not work recursively!  It only looks at the top level.  This is correct because
+        we only want to add vars that are assigned in this scope, not any inner scopes.
         '''
         if isinstance(nodes, ast.AST):
             nodes = [ nodes ]
@@ -204,11 +252,11 @@ class NodeTraverser():
     def vars_in_scope(self) -> List[str]:
         ''' Returns a list of all variables currently in scope, including outer
         scopes.'''
-        return sum([ list(scope.keys()) for scope in self.scopes ], [])
+        return sum(( s.names_in_scope() for s in self.scopes ), [])
 
     def vars_in_local_scope(self) -> List[str]:
         ''' Returns a list of variables in the current local scope only.'''
-        return list(self.scopes[-1].keys())
+        return self.local_scope().names_in_scope()
 
 
     # Keep track of parent of each node
@@ -256,7 +304,7 @@ class NodeTraverser():
         bothscopes = ifscope + elsescope
         for v in bothscopes:
             if bothscopes.count(v) == 2:
-                self.add_var_to_scope(v, None)
+                self.add_var_store(v, None)
             #TODO: if both assign same value, then we can add that value rather than None
         self.pop_parent()
         return node
@@ -269,7 +317,7 @@ class NodeTraverser():
 
         # Function parameters will be in scope
         for arg in node.args.args:
-            self.add_var_to_scope(arg.arg, None)
+            self.local_scope().add_parameter(arg.arg)
 
         node = self.call_subclass_visitor(node)
         self.pop_scope()
@@ -283,13 +331,13 @@ class NodeTraverser():
         return node
 
     def _visit_Name(self, node):
-        if not isinstance(node.ctx, ast.Load):
-            return self.call_subclass_visitor(node)
+        node = self.call_subclass_visitor(node)
 
-        if not self.in_local_scope(node.id):
-            self.out_of_scopes[-1].append(node.id)
-
-        return self.call_subclass_visitor(node)
+        # this might have changed to a different type of node
+        if not isinstance(node, ast.Name): return node
+        if isinstance(node.ctx, ast.Load) and not self.in_local_scope(node.id):
+            self.add_var_load(node.id)
+        return node
 
     # parent class visitors
 

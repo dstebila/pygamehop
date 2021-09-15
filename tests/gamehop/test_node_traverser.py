@@ -82,7 +82,7 @@ class TestNodeTraverser(unittest.TestCase):
         self.assertEqual(nnt.thescope, [ 'a', 'b' ])
         self.assertEqual(nnt.a_in_scope, True)
         self.assertEqual(nnt.z_in_scope, False)
-        self.assertEqual(nnt.scopes, [dict()])
+        self.assertEqual(nnt.vars_in_scope(), [ ])
         self.assertEqual(nnt.in_scope('a'), False)
 
     def test_scopes_values(self):
