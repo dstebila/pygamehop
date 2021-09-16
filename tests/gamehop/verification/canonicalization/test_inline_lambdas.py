@@ -17,6 +17,7 @@ class TestCanonicalizeInlineLambda(unittest.TestCase):
             r = g(y)
             return r
         def f_basic_expected_result(x, y):
+            g = lambda z: z + 7 + x
             r = y + 7 + x
             return r
 
