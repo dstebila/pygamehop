@@ -1,10 +1,4 @@
 import ast
-import copy
-from .. import utils
-
-from typing import Dict, List
-
-from ...inlining import internal
 from ... import node_traverser as nt
 
 class ExpandNonCompactExpressions(nt.NodeTraverser):
@@ -26,11 +20,11 @@ class ExpandNonCompactExpressions(nt.NodeTraverser):
         # return a new Name node that refers to the value
         return ast.Name(id = newvar, ctx = ast.Load())
 
-    def generic_visit(self, node):
-        newval = super().generic_visit(node) # fix up children first
+    def visit_expr(self, node):
+        newval = self.generic_visit(node) # fix up children first
 
         # Keep  statements and compact values intact
-        if isinstance(newval, ast.Constant) or isinstance(newval, ast.Name) or not isinstance(newval, ast.expr):
+        if isinstance(newval, ast.Constant) or isinstance(newval, ast.Name):
             return newval
         # At this point node must be an expression so newval will be too
 

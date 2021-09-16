@@ -1,5 +1,4 @@
 import ast
-import inspect
 import unittest
 import gamehop.utils as utils
 import gamehop.node_traverser as nt
@@ -77,7 +76,7 @@ class TestNodeTraverser(unittest.TestCase):
 
         f_ast = ast.parse(utils.get_function_def(f))
         nnt = NewNodeTester()
-        f_new_ast = nnt.visit(f_ast)
+        nnt.visit(f_ast)
 
         self.assertEqual(nnt.thescope, [ 'a', 'b' ])
         self.assertEqual(nnt.a_in_scope, True)
@@ -118,13 +117,13 @@ class TestNodeTraverser(unittest.TestCase):
 
         f_ast = ast.parse(utils.get_function_def(f))
         nnt = NewNodeTester()
-        f_new_ast = nnt.visit(f_ast)
+        nnt.visit(f_ast)
 
         self.assertEqual(nnt.inscope_c_val, '1')
-        self.assertEqual(nnt.outscope_c_val, None)
+        self.assertTrue(isinstance(nnt.outscope_c_val, nt.NoValue))
         self.assertEqual(nnt.end_a_val, '1')
-        self.assertEqual(nnt.end_b_val, None)
-        self.assertEqual(nnt.bogus_val, None)
+        self.assertTrue(isinstance(nnt.end_b_val, nt.NoValue))
+        self.assertTrue(isinstance(nnt.bogus_val, nt.NoValue))
 
 
     def test_scopes_if(self):
@@ -213,7 +212,7 @@ class TestNodeTraverser(unittest.TestCase):
 
         f_ast = ast.parse(utils.get_function_def(f))
         nnt = NewNodeTester()
-        f_new_ast = nnt.visit(f_ast)
+        nnt.visit(f_ast)
 
         self.assertEqual(nnt.a, 1)
         self.assertEqual(nnt.b, 1)

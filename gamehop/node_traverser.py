@@ -1,6 +1,5 @@
 import ast
-import types
-from typing import Any, Callable, Dict, List, Optional, Set, Type, Union, TypeVar, Sequence, Generator
+from typing import List, Optional, Union, TypeVar, Sequence
 
 T = TypeVar('T')
 def ensure_list(thing: Union[T, List[T]]) -> List[T]:
@@ -44,6 +43,9 @@ def nodes(node, nodetype = ast.AST):
                 field = getattr(node, field_name)
                 yield from nodes(field, nodetype)
 
+class NoValue():
+    '''Used in Scope() objects to indicate that a variable has no value assigned'''
+
 class Scope():
     ''' Scope is used by the NodeTraverser to keep track of all variables and function
     parameters currently in scope, plus additional information such as the most
@@ -59,12 +61,12 @@ class Scope():
         self.var_values = dict()            # most recent value assigned to variable
         self.var_annotations = dict()       # most recent type annotation for a variable
 
-    def add_parameter(self, par_name, annotation = None):
+    def add_parameter(self, par_name, annotation = NoValue()):
         self.parameters.append(par_name)
-        self.var_values[par_name] = None    # parameters will not have a value until the function is called
+        self.var_values[par_name] = NoValue()    # parameters will not have a value until the function is called
         self.var_annotations[par_name] = annotation
 
-    def add_var_store(self, varname, value = None, annotation = None):
+    def add_var_store(self, varname, value = NoValue(), annotation = None):
         append_if_unique(self.vars_stored, varname)
         self.var_values[varname] = value
         self.var_annotations[varname] = annotation
@@ -199,14 +201,14 @@ class NodeTraverser():
         '''
         return self.local_scope().in_scope(varname)
 
-    def var_value(self, varname: str) -> Optional[ast.expr]:
+    def var_value(self, varname: str) -> Union[ast.expr, NoValue]:
         ''' Gives the most recent value assigned to varname.  If the value connot
         be determined (eg. a function argument, or if the varname was assigned
-        in the body/orelse of an if statement) then None is returned.
+        in the body/orelse of an if statement) then a NoValue object is returned.
         '''
         for s in self.scopes[::-1]:
             if s.in_scope(varname): return s.var_value(varname)
-        return None
+        return NoValue()
 
     def add_var_load(self, varname):
         ''' Add the variable name to the current scope as a load.  If it is not
@@ -217,7 +219,7 @@ class NodeTraverser():
             if s.add_var_load(varname):
                 break
 
-    def add_var_store(self, varname: str, value: Optional[ast.expr]) -> None:
+    def add_var_store(self, varname: str, value: Union[ast.expr, NoValue]) -> None:
         ''' Add a variable name to scope, storing the associated value expression
         '''
         self.local_scope().add_var_store(varname, value)
@@ -235,7 +237,7 @@ class NodeTraverser():
             # if value is also a tuple then we can match target[j] with value[j]
             if isinstance(value, ast.Tuple):
                 if not len(value.elts) == len(target.elts):
-                    raise ValueError(f"Attempt to assign to a tuple from another tuple of different length")
+                    raise ValueError("Attempt to assign to a tuple from another tuple of different length")
                 for i, v in enumerate(value.elts):
                     var_Name = target.elts[i]
                     assert(isinstance(var_Name, ast.Name))
@@ -244,7 +246,7 @@ class NodeTraverser():
                 for t in target.elts:
                     # We can't pull apart a non-tuple (eg. function call), so we can't determine the value
                     assert(isinstance(t, ast.Name))
-                    self.add_var_store(t.id, None)
+                    self.add_var_store(t.id, NoValue())
 
 
     def add_var_to_scope_from_nodes(self, nodes: Union[ast.AST, Sequence[ast.AST]]) -> None:
@@ -317,10 +319,10 @@ class NodeTraverser():
         bothscopes = ifscope + elsescope
         for v in bothscopes:
             if bothscopes.count(v) == 2:
-                self.add_var_store(v, None)
+                self.add_var_store(v, NoValue())
             #TODO: need to keep track of variable loads and out of scope variables as well
             #TODO: FIXME: this will add any parameters in scope as variables!
-            #TODO: if both assign same value, then we can add that value rather than None
+            #TODO: if both assign same value, then we can add that value rather than NoValue
         self.pop_parent()
         return node
 

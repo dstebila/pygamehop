@@ -26,13 +26,8 @@ def canonicalize_variable_names(f: ast.FunctionDef, prefix = 'v') -> None:
     for i in range(len(vars)):
         mappings_1stpass[vars[i]] = '{:s}{:d}'.format(tmpname, i)
         mappings_2ndpass[mappings_1stpass[vars[i]]] = '{:s}{:d}'.format(prefix, i)
-    # rename to temporary names, then output names
-    # TODO temp variables no longer necessary, things are done in place
-    f_1stpass = utils.rename_function_body_variables(f, mappings_1stpass)
-    f_2ndpass = utils.rename_function_body_variables(f_1stpass, mappings_2ndpass)
-    # save results in place
-    f.args = f_2ndpass.args
-    f.body = f_2ndpass.body
+    utils.rename_function_body_variables(f, mappings_1stpass)
+    utils.rename_function_body_variables(f, mappings_2ndpass)
     ast.fix_missing_locations(f)
 
 # apparently not used
@@ -168,17 +163,6 @@ def canonicalize_argument_order(f: ast.FunctionDef) -> None:
     ast.fix_missing_locations(f)
 
 class LambdaReplacer(nt.NodeTraverser):
-    def visit_Assign(self, node) -> None:
-        node = self.generic_visit(node)
-        if isinstance(node.value, ast.Lambda):
-            # we need to manually add this to the scope because
-            # it will not be added when we return None.
-            # This lambda will disappear when the curret scope ends
-            self.add_var_to_scope_from_nodes(node)
-            return None  # we will inline this lambda, so remove the assign
-        else:
-            return node
-
     def visit_Call(self, node):
         node = self.generic_visit(node)
         if not isinstance(node.func, ast.Name): return node
