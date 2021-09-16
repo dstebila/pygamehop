@@ -2,15 +2,61 @@ import node_traverser as nt
 import ast
 from typing import Dict, List
 
-class Vertex():
-    def __init__(self, node: ast.AST):
-        self.node = node
+
+class Graph():
+    def __init__(self):
+        self.vertices: List[ast.AST] = list()
+
         # An edge goes from a Name load to a Name store or expression value.
         # The string __retval__ is used as the name for expression values 
         # eg. value returned by a function Call
 
-        # These dictionaries keep track of which variables are referenced
-        # and by which other vertices
-        self.in_edges: Dict[str, List[ast.AST]] = dict() # key = variable name, value = list of nodes that reference it
-        self.out_edges: Dict[str, ast.AST] = dict() # key = variable name, value = the node that provides this value
+        # These dictionaries keep track in and out edges for each vertex
+        self.in_edges: Dict[Dict[str, List[ast.AST]]] = dict() # first key = vertex, second key = variable name, value = list of vertices that reference that variable 
+        self.out_edges: Dict[Dict[str, ast.AST]] = dict() # first key = vertex, second key = variable name, value = the node that provides this value
+
+
+        # This dictionary holds graphs corresponding to bodies of nodes
+        # each value is a dictionar mapping node field names (eg. body, orelse) to inner graphs
+        self.inner_graphs: Dict[ast.AST, Dict[str, Graph]] = dict()
+
+    @staticmethod
+    def from_stmts(stmts: List[ast.stmt]):
+        G = Graph()
+        return G
+
+    def induced_subgraph(self, newvertices: List[ast.AST]):
+        G = Graph()
+        for v in newvertices:
+            G.vertices.append(v)
+            G.in_edges[v] = { var: [ u for u in neighbours if u in newvertices ]  for var, neighbours in self.in_edges[v] }
+            G.out_edges[v] = { var: neighbour for var, neighbour in self.out_edges[v] if neighbour in newvertices }
+            G.inner_graphs[v] = self.inner_graphs[v]
+        return G
+
+    def in_neighbours(self, v):
+        return sum( [ v for k,v in self.in_edges[v]], [])
+
+    def out_neighbours(self, v):
+        return [ u for k, u in self.out_edges[v]]
+
+    def depth_first_traverse(self, v):
+        yield self
+        for n in self.out_neighbours(v):
+            yield from n.depth_first_traverse(n)
+
+    def topological_traverse(self):
+        max_vertices = [ v for v in self.vertices if len(self.out_edges[v]) == 0 ]
+        for v in max_vertices:
+            yield v
+
+        vertices_remaining = [ v for v in self.vertices if v not in max_vertices ]
+        yield from self.induced_subgraph(vertices_remaining).topological_traverse()
+
+    def topological_sort(self):
+        new_vertices = reversed(self.topological_traverse())
+        self.vertices = new_vertices
+        for v in self.vertices:
+            for field, inner_graph in self.inner_graphs[v]:
+                inner_graph.topological_sort()
 
