@@ -1,10 +1,9 @@
 import ast
-import collections
 import copy
 import difflib
 import inspect
 import types
-from typing import Any, Callable, Dict, List, Optional, Set, Type, Union, TypeVar
+from typing import Any, Callable, Dict, List, Optional, Type, Union, TypeVar
 from . import node_traverser as nt
 
 def stringDiff(a,b):
