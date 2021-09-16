@@ -26,13 +26,8 @@ def canonicalize_variable_names(f: ast.FunctionDef, prefix = 'v') -> None:
     for i in range(len(vars)):
         mappings_1stpass[vars[i]] = '{:s}{:d}'.format(tmpname, i)
         mappings_2ndpass[mappings_1stpass[vars[i]]] = '{:s}{:d}'.format(prefix, i)
-    # rename to temporary names, then output names
-    # TODO temp variables no longer necessary, things are done in place
-    f_1stpass = utils.rename_function_body_variables(f, mappings_1stpass)
-    f_2ndpass = utils.rename_function_body_variables(f_1stpass, mappings_2ndpass)
-    # save results in place
-    f.args = f_2ndpass.args
-    f.body = f_2ndpass.body
+    utils.rename_function_body_variables(f, mappings_1stpass)
+    utils.rename_function_body_variables(f, mappings_2ndpass)
     ast.fix_missing_locations(f)
 
 # apparently not used
