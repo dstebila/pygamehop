@@ -25,10 +25,11 @@ jobs:
       with:
         path: ./.venv/
         key: ${{ runner.os }}-venv-0-${{ hashFiles('requirements.txt') }}
-        restore-keys: ${{ runner.os }}-venv-0-
+        restore-keys: ${{ runner.os }}-venv-1-
     - name: Build virtual environment with dependencies
       if: steps.cache-venv.outputs.cache-hit != 'true'
       run: |
+        mkdir -p ./.venv
         python -m venv ./.venv
         . ./.venv/bin/activate
         python -m pip install --upgrade pip
