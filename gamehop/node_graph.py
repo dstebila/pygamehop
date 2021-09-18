@@ -1,4 +1,4 @@
-import node_traverser as nt
+#import node_traverser as nt
 import ast
 from typing import Dict, List
 
@@ -43,24 +43,52 @@ class Graph():
     def out_neighbours(self, v):
         return [ u for k, u in self.out_edges[v]]
 
-    def depth_first_traverse(self, v):
-        yield self
-        for n in self.out_neighbours(v):
-            yield from n.depth_first_traverse(n)
+    def depth_first_traverse(self, start_points, visited = list()):
+        for v in start_points:    
+            if v not in visited:
+                visited.append(v)
+                yield v
+                for n in self.out_neighbours(v):
+                    yield from self.depth_first_traverse([n], visited)
 
-    def topological_traverse(self):
+    def cannical_order_traverse(self):
         '''Returns the vertices in a topological ordering, starting from vertices that are not dependent on any variables'''
-        max_vertices = [ v for v in self.vertices if len(self.out_edges[v]) == 0 ]
-        for v in max_vertices:
-            yield v
-
+        max_vertices = [ v for v in self.vertices if not self.out_edges[v] ] 
+        yield from max_vertices
         vertices_remaining = [ v for v in self.vertices if v not in max_vertices ]
         yield from self.induced_subgraph(vertices_remaining).topological_traverse()
 
-    def topological_sort(self):
-        '''Sort the vertices in place according to a topological ordering.  Do this recursively on any inner graphs.'''
-        vertices_in_order = self.topological_traverse()
+    def canonical_sort(self):
+        '''Sort the vertices in place according to a canonical ordering based on relationship between values stored and values loaded.
+        Do this recursively on any inner graphs.'''
+        # We reorder in two steps.
+        # 
+        # Step 1: Reorder by DFS from the whose values are not referenced (eg. return statement) 
+        # DFS spits out the vertices in this order: the return statement, the statement storing the first value
+        # referenced by the return statement, the first value referenced by that one, etc. then 
+        # the statement which stored the second value referenced in the return statement etc.
+        # If there is a return statement then this creates a deterministic ordering based on the 
+        # relationship between values stored and referenced.  But it is not topological ordering.  
+        # 
+        # Step 2: Reorder vertices by Khan's algorithm
+        # Khan's algorithm will not give a single possible ordering.  Where there are multiple possible orders, this code 
+        # will preserve the previous ordering from the DFS.  
+        #
+        # Between the DFS and Khan's algorithm we get a canonical ordering based only on the order that values are referenced
+        # within a statement, and the relationship between statements that reference each other's values
+
+        # Initial order by DFS, starting from the vertices that are not referenced.  If this is a function with a
+        # single return statement, and we have pruned unneeded vertices, then this will be the return statement.
+        # this step will not remove any vertices since any vertices that are not referenced will be in final_vertices
+        final_vertices = [ v for v in self.vertices if not self.out_edges[v] ]
+        vertices_dfs = [ v for v in self.depth_first_traverse(final_vertices) ]
+        self.ertices = vertices_dfs
+
+        # Sort by Khan's algorithm
+        vertices_in_order = [ v for v in self.topological_traverse() ]
         self.vertices = vertices_in_order
+
+        # recurse to any vertices that have inner graphs (eg. if body)
         for v in self.vertices:
             for field, inner_graph in self.inner_graphs[v]:
                 inner_graph.topological_sort()
