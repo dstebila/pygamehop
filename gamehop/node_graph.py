@@ -1,4 +1,4 @@
-#import node_traverser as nt
+import node_traverser as nt
 import utils
 import ast
 from typing import Dict, List
@@ -24,7 +24,8 @@ class Graph():
     @staticmethod
     def from_stmts(stmts: List[ast.stmt]):
         '''Create a node graph from a list of statements.  Creates edges based on the relationship
-        between nodes that store variables and those that load them'''
+        between nodes that store variables and those that load them.  Recurses to create inner
+        graphs on any statements that have bodies (eg. if body).  For now, does not do anything with function or class bodies.'''
         G = Graph()
         # TODO finish this.  Need to make a NodeTraverser 
         return G
@@ -128,3 +129,7 @@ class Graph():
 
                 inner_graph.canonical_sort()
 
+
+class GraphMaker(nt.NodeTraverse):
+    def visit_stmts(self, stmts):
+        pass
