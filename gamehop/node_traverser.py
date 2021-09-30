@@ -152,6 +152,11 @@ class NodeTraverser():
         # start off with a gloabal scope
         self.scopes = [ Scope() ]
 
+        # Block level scopes are used to keep track of variables that are stored/loaded within a 
+        # block of code, eg. if body
+        # Currently this only keeps track of variable stores
+        self.block_scopes = [ Scope() ]
+
         # Keep track of the parent of the node being transformed
         self.ancestors = list()
 
@@ -183,11 +188,17 @@ class NodeTraverser():
     def new_scope(self) -> None:
         self.scopes.append(Scope())
 
-    def pop_scope(self) -> None:
-        self.scopes.pop()
+    def pop_scope(self) -> Scope:
+        return self.scopes.pop()
 
     def local_scope(self):
         return self.scopes[-1]
+
+    def new_block_scope(self) -> None:
+        self.block_scopes.append(Scope())
+
+    def pop_block_scope(self) -> Scope:
+        return self.block_scopes.pop()
 
     def in_scope(self, varname: str) -> bool:
         ''' Returns True if the given varname is defined in any scope, including
@@ -223,6 +234,8 @@ class NodeTraverser():
         ''' Add a variable name to scope, storing the associated value expression
         '''
         self.local_scope().add_var_store(varname, value)
+        self.block_scopes[-1].add_var_store(varname, value)
+
 
     def add_target_to_scope(self, target, value: ast.expr):
         ''' Process an assign's target (which could be a tuple), figuring out
@@ -291,38 +304,49 @@ class NodeTraverser():
     # visitor functions
 
     def visit_If(self, node):
-        # TODO: do this in some way not using scopes, because if's don't actually
-        # create a new scope.
         self.push_parent(node)
-        # ifs need special attention because a variable may be assigned to
-        # in one branch but not the other
 
-        # test is in common
+        # ifs need special attention when dealing with scopes because a variable may be assigned to
+        # in one branch but not the other, or the values may be different in different branches.
+
+        # no problem with scopes for the test!
         node.test = self.visit(node.test)
 
-        # create a new scope for the body so that we don't count them as
-        # in scope in the orelse
-        self.new_scope()
-        node.body = self.visit_stmts(node.body)
-        ifscope = self.vars_in_local_scope()
-        self.pop_scope()
+        # remember variables and values currently in the local scope to help fix things up later
+        old_scope_stores = self.scopes[-1].vars_stored[:]
+        old_scope_values = dict(self.scopes[-1].var_values)
 
-        # create a new scope for the orelse so that we don't count them as
-        # in scope later when the orelse may not have run
-        self.new_scope()
+        # create a new block level scope for the body to keep track of its loads and stores
+        self.new_block_scope()
+        node.body = self.visit_stmts(node.body)
+        ifscope = self.pop_block_scope()
+
+        # restore the saved scope so that changes in the body are not reflected in the orelse
+        # remember to copy, otherwise the orelse will overwrite our saved info
+        self.scopes[-1].vars_stored = old_scope_stores[:]      
+        self.scopes[-1].var_values = dict(old_scope_values)
+
+        # create a new block level scope for the orelse to keep track of its loads and stores
+        self.new_block_scope()
         node.orelse = self.visit_stmts(node.orelse)
-        elsescope = self.vars_in_local_scope()
-        self.pop_scope()
+        elsescope = self.pop_block_scope()
+
+        # restore the saved scope to reset it back to before the bodies
+        self.scopes[-1].vars_stored = old_scope_stores
+        self.scopes[-1].var_values = old_scope_values
 
         # we only want to keep variables that were assigned to
-        # in _both_ branches, otherwise they may not be defined
-        bothscopes = ifscope + elsescope
-        for v in bothscopes:
-            if bothscopes.count(v) == 2:
+        # in _both_ branches, otherwise they may not be defined.
+        # If a variable was already in scope, update to have NoValue() since we don't
+        # know what the value will be
+        vars_in_scopes = ifscope.names_in_scope() + elsescope.names_in_scope()  # all variables assigned in the bodies, with multiplicity
+        for v in vars_in_scopes:
+            if vars_in_scopes.count(v) == 2 or self.in_local_scope(v):
                 self.add_var_store(v, NoValue())
-            #TODO: need to keep track of variable loads and out of scope variables as well
-            #TODO: FIXME: this will add any parameters in scope as variables!
             #TODO: if both assign same value, then we can add that value rather than NoValue
+
+        # all done fixing the scopes
+
         self.pop_parent()
         return node
 
@@ -478,7 +502,9 @@ class NodeTraverser():
                 if type(child) == list:
                     if len(child) == 0: continue
                     if isinstance(child[0], ast.stmt):
+                        self.new_block_scope()
                         child[:] = self.visit_stmts(child)
+                        self.pop_block_scope()
                     elif isinstance(child[0], ast.expr):
                         child[:] = self.visit_exprs(child)
                     else:

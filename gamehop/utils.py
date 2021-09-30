@@ -173,3 +173,11 @@ def ensure_list(thing: Union[T, List[T]]) -> List[T]:
         return thing
     else:
         return [ thing ]
+
+def remove_duplicates(l):
+    '''Returns a list, where any duplicate element have been removed.  Only the first occurance of an element is kept.'''
+    new_list = list()
+    for i in l:
+        if i not in new_list:
+            new_list.append(i)
+    return new_list
