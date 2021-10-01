@@ -30,6 +30,11 @@ class Graph():
         # TODO finish this.  Need to make a NodeTraverser 
         return G
 
+    def add_vertex(self, a: ast.stmt):
+        self.vertices.append(a)
+
+    def add_edge(self, s:ast.stmt, d: ast.stmt, var: str):
+        pass
     def induced_subgraph(self, newvertices: List[ast.AST]):
         '''Return a new graph which has newvertices as its vertices.  Edges are kept that go 
         between vertices in newvertices'''
@@ -131,5 +136,9 @@ class Graph():
 
 
 class GraphMaker(nt.NodeTraverse):
+    def __init__(self):
+        self.G = Graph()
+
     def visit_stmts(self, stmts):
-        pass
+        for stmt in stmts:
+            pass

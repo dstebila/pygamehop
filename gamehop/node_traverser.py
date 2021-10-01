@@ -229,6 +229,10 @@ class NodeTraverser():
         for s in reversed(self.scopes):
             if s.add_var_load(varname):
                 break
+        for s in reversed(self.block_scopes):
+            if s.add_var_load(varname):
+                break
+
 
     def add_var_store(self, varname: str, value: Union[ast.expr, NoValue]) -> None:
         ''' Add a variable name to scope, storing the associated value expression
