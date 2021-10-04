@@ -1,5 +1,10 @@
+from __future__ import annotations
+# The above is used to allow references to a class within a class definition, so
+# that we can return an instance of a class, eg. from a constructor
+
 import ast
 from typing import List, Optional, Union, TypeVar, Sequence
+
 
 T = TypeVar('T')
 def ensure_list(thing: Union[T, List[T]]) -> List[T]:
@@ -58,7 +63,8 @@ class Scope():
         self.vars_loaded = list()           # variables that have been loaded, in order by first load
         self.external_vars = list()         # variables loaded that were not previously stored and are not parameters
         self.parameters_loaded = list()     # parameters that have been read by a load, in order by first load
-        self.var_values = dict()            # most recent value assigned to variable
+        self.var_values = dict()            # most recent value assigned to variable.  key = variable name, value = assigned value
+        self.var_value_assigner = dict()    # most recent statement node to assign to a variable.  key = variable name, value = statement
         self.var_annotations = dict()       # most recent type annotation for a variable
 
     def add_parameter(self, par_name, annotation = NoValue()):
@@ -66,10 +72,11 @@ class Scope():
         self.var_values[par_name] = NoValue()    # parameters will not have a value until the function is called
         self.var_annotations[par_name] = annotation
 
-    def add_var_store(self, varname, value = NoValue(), annotation = None):
+    def add_var_store(self, varname, value, s: ast.stmt, annotation = None):
         append_if_unique(self.vars_stored, varname)
         self.var_values[varname] = value
         self.var_annotations[varname] = annotation
+        self.var_value_assigner[varname] = s
 
     def add_var_load(self, varname):
         ''' Adds the given variable name to the scope, treat as a load.  If this name is
@@ -98,8 +105,31 @@ class Scope():
     def names_in_scope(self):
         return self.parameters + self.vars_stored
 
+    def copy(self) -> Scope:
+        ret = Scope()
+        ret.parameters = self.parameters[:]
+        ret.vars_stored = self.vars_stored[:]
+        ret.vars_loaded = self.vars_loaded[:]
+        ret.external_vars = self.external_vars[:]
+        ret.parameters_loaded = self.parameters_loaded[:]
+        ret.var_values = dict(self.var_values)
+        ret.var_value_assigner = dict(self.var_value_assigner)
+        ret.var_annotations = dict(self.var_annotations)
+        return ret
 
-
+    def diff(self, other: Scope) -> Scope:
+        '''Return a Scope object whose various lists are those of the
+        current object with elements from the other object's lists removed'''
+        ret = Scope()
+        ret.parameters = [ p for p in self.parameters if p not in other.parameters ]
+        ret.vars_stored = [ p for p in self.vars_stored if p not in other.vars_stored ]
+        ret.vars_loaded = [ p for p in self.vars_loaded if p not in other.vars_loaded ]
+        ret.external_vars = [ p for p in self.external_vars if p not in other.external_vars ]
+        ret.parameters_loaded = [ p for p in self.parameters_loaded if p not in other.parameters_loaded ]
+        ret.var_values = { k: v for k,v in enumerate(self.var_values) if k not in other.var_values }
+        ret.var_value_assigner = { k: v for k,v in enumerate(self.var_value_assigner) if k not in other.var_value_assigner }
+        ret.var_annotations = { k: v for k,v in enumerate(self.var_annotations) if k not in other.var_annotations }
+        return ret
 
 class NodeTraverser():
     """Improved AST tree traversal over the ast.NodeTransformer class.
@@ -152,7 +182,7 @@ class NodeTraverser():
         # start off with a gloabal scope
         self.scopes = [ Scope() ]
 
-        # Block level scopes are used to keep track of variables that are stored/loaded within a 
+        # Block level scopes are used to keep track of variables that are stored/loaded within a
         # block of code, eg. if body
         # Currently this only keeps track of variable stores
         self.block_scopes = [ Scope() ]
@@ -234,20 +264,20 @@ class NodeTraverser():
                 break
 
 
-    def add_var_store(self, varname: str, value: Union[ast.expr, NoValue]) -> None:
+    def add_var_store(self, varname: str, value: Union[ast.expr, NoValue], s: ast.stmt) -> None:
         ''' Add a variable name to scope, storing the associated value expression
         '''
-        self.local_scope().add_var_store(varname, value)
-        self.block_scopes[-1].add_var_store(varname, value)
+        self.local_scope().add_var_store(varname, value, s)
+        self.block_scopes[-1].add_var_store(varname, value, s)
 
 
-    def add_target_to_scope(self, target, value: ast.expr):
+    def add_target_to_scope(self, target, value: ast.expr, s: ast.stmt):
         ''' Process an assign's target (which could be a tuple), figuring out
         the appropriate value from the given assign value'''
 
         # assign to a single variable
-        if isinstance(target, ast.Name):
-            self.add_var_store(target.id, value)
+        if isinstance(target, ast.Name,):
+            self.add_var_store(target.id, value, s)
 
         # assign to a tuple
         if isinstance(target, ast.Tuple):
@@ -258,12 +288,12 @@ class NodeTraverser():
                 for i, v in enumerate(value.elts):
                     var_Name = target.elts[i]
                     assert(isinstance(var_Name, ast.Name))
-                    self.add_var_store(var_Name.id, v)
+                    self.add_var_store(var_Name.id, v, s)
             else:
                 for t in target.elts:
                     # We can't pull apart a non-tuple (eg. function call), so we can't determine the value
                     assert(isinstance(t, ast.Name))
-                    self.add_var_store(t.id, NoValue())
+                    self.add_var_store(t.id, NoValue(), s)
 
 
     def add_var_to_scope_from_nodes(self, nodes: Union[ast.AST, Sequence[ast.AST]]) -> None:
@@ -279,7 +309,7 @@ class NodeTraverser():
             if isinstance(s, ast.Assign):
                 # if there are many targets (eg. a = b = 1) we handle each one
                 for v in s.targets:
-                    self.add_target_to_scope(v, s.value)
+                    self.add_target_to_scope(v, s.value, s)
 
     def vars_in_scope(self) -> List[str]:
         ''' Returns a list of all variables and parameters currently in scope, including outer
@@ -299,6 +329,15 @@ class NodeTraverser():
             return None
         return self.ancestors[-1]
 
+    def parent_statement(self) -> Optional[ast.stmt]:
+        ''' Returns the most recent ancestor which is a statement.  If no such ancestor
+        exists then returns None'''
+        for a in reversed(self.ancestors):
+            if isinstance(a, ast.stmt):
+                return a
+
+        return None
+
     def push_parent(self, node):
         self.ancestors.append(node)
 
@@ -307,6 +346,17 @@ class NodeTraverser():
 
     # visitor functions
 
+    # These are here so that we can easily override them to hook into If visiting without
+    # having to reproduce all the scope stuff
+    def visit_If_test(self, test):
+        return self.visit(test)
+
+    def visit_If_body(self, body):
+        return self.visit_stmts(body)
+
+    def visit_If_orelse(self, body):
+        return self.visit_stmts(body)
+
     def visit_If(self, node):
         self.push_parent(node)
 
@@ -314,30 +364,27 @@ class NodeTraverser():
         # in one branch but not the other, or the values may be different in different branches.
 
         # no problem with scopes for the test!
-        node.test = self.visit(node.test)
+        node.test = self.visit_If_test(node.test)
 
         # remember variables and values currently in the local scope to help fix things up later
-        old_scope_stores = self.scopes[-1].vars_stored[:]
-        old_scope_values = dict(self.scopes[-1].var_values)
+        old_scope = self.local_scope().copy()
 
         # create a new block level scope for the body to keep track of its loads and stores
         self.new_block_scope()
-        node.body = self.visit_stmts(node.body)
+        node.body = self.visit_If_body(node.body)
         ifscope = self.pop_block_scope()
 
         # restore the saved scope so that changes in the body are not reflected in the orelse
         # remember to copy, otherwise the orelse will overwrite our saved info
-        self.scopes[-1].vars_stored = old_scope_stores[:]      
-        self.scopes[-1].var_values = dict(old_scope_values)
+        self.scopes[-1] = old_scope.copy()
 
         # create a new block level scope for the orelse to keep track of its loads and stores
         self.new_block_scope()
-        node.orelse = self.visit_stmts(node.orelse)
+        node.orelse = self.visit_If_orelse(node.orelse)
         elsescope = self.pop_block_scope()
 
         # restore the saved scope to reset it back to before the bodies
-        self.scopes[-1].vars_stored = old_scope_stores
-        self.scopes[-1].var_values = old_scope_values
+        self.scopes[-1] = old_scope
 
         # we only want to keep variables that were assigned to
         # in _both_ branches, otherwise they may not be defined.
@@ -346,7 +393,7 @@ class NodeTraverser():
         vars_in_scopes = ifscope.names_in_scope() + elsescope.names_in_scope()  # all variables assigned in the bodies, with multiplicity
         for v in vars_in_scopes:
             if vars_in_scopes.count(v) == 2 or self.in_local_scope(v):
-                self.add_var_store(v, NoValue())
+                self.add_var_store(v, NoValue(), node)
             #TODO: if both assign same value, then we can add that value rather than NoValue
 
         # all done fixing the scopes
@@ -387,6 +434,7 @@ class NodeTraverser():
     # parent class visitors
 
     def visit_stmt(self, stmt: ast.stmt):
+        # First, visit with any more specific visit function
         visit_val = self.visit_internal(stmt)
 
         # If there are no prelude statements to add here, then just
@@ -412,7 +460,7 @@ class NodeTraverser():
         # push a new context for prelude statements so that we only
         # process preludes from this block of statements
         self.prelude_statements.append(list())
-        ret_val = glue_list_and_vals([ self.visit_stmt(stmt) for stmt in stmts])
+        ret_val = glue_list_and_vals([ self.visit(stmt) for stmt in stmts])
 
         # we should have processed all preludes by now.  End of block
         # so pop off the current prelude context
@@ -442,6 +490,32 @@ class NodeTraverser():
         visit_expr) may be called, after which the internal function
         _visit_NodeType() may be called.  These functions are internal to
         NodeTraverser to take care of NodeTraverser base class functionality.
+
+        Order functions are called and duties:
+        - visit(): dispatch to parent class visitor or visit_subclass_visitor()
+            Current parent class visitors are for ast.stmt and ast.expr:
+            - visit_stmt(): call visit_internal, prepend preludes, add variables to scope
+            - visit_expr(): call visit_internal
+        - visit_internal(): dispatch to internal visitor or visit_subclass_visitor()
+            Current internal visitors:
+            - _visit_FunctionDef():  push/pop function scope, add function parameters to scope, call visit_subclass_visitor()
+            - _visit_ClassDef(): push/pop function scope, call visit_subclass_visitor()
+            - _visit_Name(): call visit_subclass_visitor(), if load, add variable to scope
+        - call_subclass_visitor(): calls visit_NodeType() if it exits, otherwise calls generic_visit()
+            - visit_If(): push/pop parent, fix up scope based on the two branches
+                - visit_If_test(): call visit() on the test
+                - visit_If_body(): call visit_stmts() on the body
+                - visit_If_orelse(): call visit_stmts() on the orelse
+        - generic_visit(): push/pop parent, call visit_fields()
+        - visit_fields(): call visitor for fields in a node, push/pop block scope for statement blocks
+            - for lists:
+                - visit_stmts(): push/pop prelude list for this block, call visit() on each stmt in the block
+                - visit_exprs(): call visit() on each expr in the list
+                - visit_child_list(): call visit() on each node in the list
+            - for ast.AST's:
+                - visit()
+
+
         '''
         if isinstance(node, ast.stmt):
             return self.visit_stmt(node)
