@@ -46,23 +46,28 @@ class Graph():
         self.in_edges[d][var].append(s)
         self.out_edges[s][var] = d
 
-    def induced_subgraph(self, newvertices: List[ast.AST]):
+    def induced_subgraph(self, newvertices: List[ast.stmt]):
         '''Return a new graph which has newvertices as its vertices.  Edges are kept that go
         between vertices in newvertices'''
         G = Graph()
+
         for v in newvertices:
-            G.vertices.append(v)
-            G.in_edges[v] = { var: [ u for u in neighbours if u in newvertices ]  for var, neighbours in self.in_edges[v] }
-            G.out_edges[v] = { var: neighbour for var, neighbour in self.out_edges[v] if neighbour in newvertices }
-            # TODO: the above should always be the original out_edges for v unless v depends on some variable that is not assigned in newvertices, probably indicating a bug
-            G.inner_graphs[v] = self.inner_graphs[v]
+            G.add_vertex(v)
+            if v in G.inner_graphs:
+                G.inner_graphs[v] = self.inner_graphs[v]
+
+        for v in newvertices:
+            for var, neighbours in self.in_edges[v].items():
+                for n in neighbours:
+                    if n in newvertices:
+                        G.add_edge(n, v, var)
         return G
 
     def in_neighbours(self, v):
-        return sum( [ v for k,v in self.in_edges[v]], [])
+        return sum( [ v for k,v in self.in_edges[v].items() ], [])
 
     def out_neighbours(self, v):
-        return [ u for k, u in self.out_edges[v]]
+        return [ u for u in self.out_edges[v].values() ]
 
     def var_refs(self, start = None):
         '''Returns variable names in order referenced by vertices, starting from a particular vertex (if supplied).  Note that
@@ -81,12 +86,16 @@ class Graph():
                 for n in self.out_neighbours(v):
                     yield from self.depth_first_traverse([n], visited)
 
-    def cannical_order_traverse(self):
-        '''Returns the vertices in a topological ordering, starting from vertices that are not dependent on any variables'''
-        max_vertices = [ v for v in self.vertices if not self.out_edges[v] ]
-        yield from max_vertices
-        vertices_remaining = [ v for v in self.vertices if v not in max_vertices ]
-        yield from self.induced_subgraph(vertices_remaining).topological_traverse()
+    def topological_order_traverse(self):
+        '''Returns the vertices in a topological ordering, starting from vertices that have no in-edges, i.e. they do not provide
+        any values loaded by other statements'''
+        max_vertices = [ v for v in self.vertices if not self.in_edges[v] ]
+        print(max_vertices)
+        if max_vertices:
+            yield from max_vertices
+            vertices_remaining = [ v for v in self.vertices if v not in max_vertices ]
+            print(vertices_remaining)
+            yield from self.induced_subgraph(vertices_remaining).topological_order_traverse()
 
     def canonical_sort(self):
         '''Sort the vertices in place according to a canonical ordering based on relationship between values stored and values loaded.
@@ -102,8 +111,9 @@ class Graph():
         # relationship between values stored and referenced.  But it is not topological ordering.
 
         # vertices whose values are not in this graph (eg. return statement), reversed.  Reverse so that most recent assignment to a variable comes first
-        top_vertices = [ v for v in self.vertices if not self.out_edges[v] ].reverse()
-
+        top_vertices = [ v for v in self.vertices if not self.in_edges[v] ]
+        top_vertices.reverse()
+        print(top_vertices)
         # put them in the order that they are referenced in the outer graph, reversed
         dfs_start_vertices = list()
         for var in reversed(self.values_loaded):
@@ -111,20 +121,20 @@ class Graph():
                 if var in self.in_edges[v]:
                     dfs_start_vertices.append(v)
                     break
-
+        print(dfs_start_vertices)
         # we don't want to lose vertices if their variables were never referenced
         for v in top_vertices:
             if v not in dfs_start_vertices:
                 dfs_start_vertices.append(v)
-
+        print(dfs_start_vertices)
         vertices_dfs = [ v for v in self.depth_first_traverse(dfs_start_vertices) ]
         self.vertices = vertices_dfs
-
+        print(self.vertices)
 
         # Step 2: Reorder vertices by Khan's algorithm
         # Khan's algorithm will not give a single possible ordering.  Where there are multiple possible orders, this code
         # will preserve the previous ordering from the DFS.
-        vertices_in_order = [ v for v in self.topological_traverse() ]
+        vertices_in_order = [ v for v in self.topological_order_traverse() ]
 
         # we reorder based on the out edges.  Out edges point towards where a value was assigned, i.e. backwards up the list of statements.
         # here we put them in forwards order
@@ -135,7 +145,7 @@ class Graph():
         # within a statement, and the relationship between statements that reference each other's values
 
         # recurse to any vertices that have inner graphs (eg. if body)
-        for v in self.vertices:
+        for v in self.inner_graphs:
             for field, inner_graph in self.inner_graphs[v]:
 
                 # Outer graph statements are in order, so now update the inner graph's values_loaded
@@ -156,12 +166,11 @@ class GraphMaker(nt.NodeTraverser):
         # Visit children, and keep track of changes to the scope to see what
         # variables are loaded
         self.graphs[-1].add_vertex(stmt)
-        old_scope = self.local_scope().copy()
         ret = super().visit_stmt(stmt)
-        diff_scope = self.local_scope().diff(old_scope)
 
         # Create edges from this statement for every variable it loaded
-        for var in diff_scope.vars_loaded:
+        stmt_scope = self.stmt_scopes[-1]
+        for var in stmt_scope.external_vars:
             assigning_stmt = self.local_scope().var_value_assigner[var]
             self.graphs[-1].add_edge(stmt, assigning_stmt, var)
 

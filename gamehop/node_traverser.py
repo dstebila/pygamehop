@@ -126,9 +126,9 @@ class Scope():
         ret.vars_loaded = [ p for p in self.vars_loaded if p not in other.vars_loaded ]
         ret.external_vars = [ p for p in self.external_vars if p not in other.external_vars ]
         ret.parameters_loaded = [ p for p in self.parameters_loaded if p not in other.parameters_loaded ]
-        ret.var_values = { k: v for k,v in enumerate(self.var_values) if k not in other.var_values }
-        ret.var_value_assigner = { k: v for k,v in enumerate(self.var_value_assigner) if k not in other.var_value_assigner }
-        ret.var_annotations = { k: v for k,v in enumerate(self.var_annotations) if k not in other.var_annotations }
+        ret.var_values = { k: v for k,v in self.var_values.items() if k not in other.var_values }
+        ret.var_value_assigner = { k: v for k,v in self.var_value_assigner.items() if k not in other.var_value_assigner }
+        ret.var_annotations = { k: v for k,v in self.var_annotations.items() if k not in other.var_annotations }
         return ret
 
 class NodeTraverser():
@@ -187,6 +187,10 @@ class NodeTraverser():
         # Currently this only keeps track of variable stores
         self.block_scopes = [ Scope() ]
 
+        # Statement level scopes are used to keep track of variables that are stored/loaded within
+        # a single statement and its children
+        self.stmt_scopes = [ Scope() ]
+
         # Keep track of the parent of the node being transformed
         self.ancestors = list()
 
@@ -223,6 +227,9 @@ class NodeTraverser():
 
     def local_scope(self):
         return self.scopes[-1]
+
+    def local_stmt_scope(self):
+        return self.stmt_scopes[-1]
 
     def new_block_scope(self) -> None:
         self.block_scopes.append(Scope())
@@ -262,6 +269,9 @@ class NodeTraverser():
         for s in reversed(self.block_scopes):
             if s.add_var_load(varname):
                 break
+        for s in reversed(self.stmt_scopes):
+            if s.add_var_load(varname):
+                break
 
 
     def add_var_store(self, varname: str, value: Union[ast.expr, NoValue], s: ast.stmt) -> None:
@@ -269,6 +279,7 @@ class NodeTraverser():
         '''
         self.local_scope().add_var_store(varname, value, s)
         self.block_scopes[-1].add_var_store(varname, value, s)
+        self.stmt_scopes[-1].add_var_store(varname, value, s)
 
 
     def add_target_to_scope(self, target, value: ast.expr, s: ast.stmt):
@@ -518,7 +529,11 @@ class NodeTraverser():
 
         '''
         if isinstance(node, ast.stmt):
-            return self.visit_stmt(node)
+            self.stmt_scopes.append(Scope())
+            ret = self.visit_stmt(node)
+            self.stmt_scopes.pop()
+            return ret
+
         elif isinstance(node, ast.expr):
             return self.visit_expr(node)
         else:
