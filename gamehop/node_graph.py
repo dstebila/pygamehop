@@ -57,10 +57,9 @@ class Graph():
                 G.inner_graphs[v] = self.inner_graphs[v]
 
         for v in newvertices:
-            for var, neighbours in self.in_edges[v].items():
-                for n in neighbours:
-                    if n in newvertices:
-                        G.add_edge(n, v, var)
+            for var, n in self.out_edges[v].items():
+                if n in newvertices:
+                    G.add_edge(v, n, var)
         return G
 
     def in_neighbours(self, v):
@@ -90,11 +89,9 @@ class Graph():
         '''Returns the vertices in a topological ordering, starting from vertices that have no in-edges, i.e. they do not provide
         any values loaded by other statements'''
         max_vertices = [ v for v in self.vertices if not self.in_edges[v] ]
-        print(max_vertices)
         if max_vertices:
             yield from max_vertices
             vertices_remaining = [ v for v in self.vertices if v not in max_vertices ]
-            print(vertices_remaining)
             yield from self.induced_subgraph(vertices_remaining).topological_order_traverse()
 
     def canonical_sort(self):
@@ -113,7 +110,7 @@ class Graph():
         # vertices whose values are not in this graph (eg. return statement), reversed.  Reverse so that most recent assignment to a variable comes first
         top_vertices = [ v for v in self.vertices if not self.in_edges[v] ]
         top_vertices.reverse()
-        print(top_vertices)
+
         # put them in the order that they are referenced in the outer graph, reversed
         dfs_start_vertices = list()
         for var in reversed(self.values_loaded):
@@ -121,15 +118,14 @@ class Graph():
                 if var in self.in_edges[v]:
                     dfs_start_vertices.append(v)
                     break
-        print(dfs_start_vertices)
+
         # we don't want to lose vertices if their variables were never referenced
         for v in top_vertices:
             if v not in dfs_start_vertices:
                 dfs_start_vertices.append(v)
-        print(dfs_start_vertices)
+
         vertices_dfs = [ v for v in self.depth_first_traverse(dfs_start_vertices) ]
         self.vertices = vertices_dfs
-        print(self.vertices)
 
         # Step 2: Reorder vertices by Khan's algorithm
         # Khan's algorithm will not give a single possible ordering.  Where there are multiple possible orders, this code
@@ -145,8 +141,8 @@ class Graph():
         # within a statement, and the relationship between statements that reference each other's values
 
         # recurse to any vertices that have inner graphs (eg. if body)
-        for v in self.inner_graphs:
-            for field, inner_graph in self.inner_graphs[v]:
+        for v, in_graph in self.inner_graphs.items():
+            for field, inner_graph in in_graph.items():
 
                 # Outer graph statements are in order, so now update the inner graph's values_loaded
                 # so that they are in order loaded
@@ -154,6 +150,14 @@ class Graph():
                 inner_graph.values_loaded = utils.remove_duplicates(values_in_order)
 
                 inner_graph.canonical_sort()
+
+    def print(self):
+        vertex_number = { v: i for i, v in enumerate(self.vertices) }
+        print(vertex_number)
+        for v in self.vertices:
+            for var, n in self.out_edges[v].items():
+                print(f'{vertex_number[v]}, {var}: { vertex_number[n]}')
+
 
 
 class GraphMaker(nt.NodeTraverser):
@@ -186,6 +190,9 @@ class GraphMaker(nt.NodeTraverser):
 
         # Pop the body's inner graph and assign as inner graph for the if
         body_graph = self.graphs.pop()
+        if self.parent() not in self.graphs[-1].inner_graphs:
+            self.graphs[-1].inner_graphs[self.parent()] = dict()
+
         self.graphs[-1].inner_graphs[self.parent()]['body'] = body_graph
 
         return new_body
@@ -199,6 +206,9 @@ class GraphMaker(nt.NodeTraverser):
 
         # Pop the orelse's inner graph and assign as inner graph for the if
         orelse_graph = self.graphs.pop()
+
+        if self.parent() not in self.graphs[-1].inner_graphs:
+            self.graphs[-1].inner_graphs[self.parent()] = dict()
         self.graphs[-1].inner_graphs[self.parent()]['orelse'] = orelse_graph
 
         return new_body
