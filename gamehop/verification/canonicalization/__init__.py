@@ -47,7 +47,7 @@ class VariableCollapser(nt.NodeTraverser):
         value = self.var_value(node.id)
 
         if isinstance(value, ast.Constant) or isinstance(value, ast.Name) or isinstance(value, ast.Tuple):
-            return value
+            return copy.deepcopy(value)
 
         return node
 
