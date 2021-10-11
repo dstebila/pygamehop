@@ -221,7 +221,33 @@ class TestNodeTraverser(unittest.TestCase):
         self.assertEqual(nnt.e, 3)
         self.assertEqual(nnt.f, 4)
 
+    def test_scopes_attributes(self):
+        class NewNodeTester(nt.NodeTraverser):
+            def visit_Call(self, node):
+                if node.func.id == 'g':
+                    assert('a' in self.vars_in_scope())
+                if node.func.id == 'h':
+                    assert('a.b' in self.local_scope().vars_stored)
+                    assert(self.local_scope().var_values['a.b'].value == 1)
+                if node.func.id == 'i':
+                    assert('a.b' in self.local_scope().vars_loaded)
+                return self.generic_visit(node)
 
+        class thing:
+            def __init__(self):
+                pass
+
+        def f():
+            a = object()
+            g()
+            a.b = 1
+            h()
+            c = a.b
+            i()
+
+        f_ast = ast.parse(utils.get_function_def(f))
+        nnt = NewNodeTester()
+        nnt.visit(f_ast)
 
 
     def test_parents(self):

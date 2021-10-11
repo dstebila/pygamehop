@@ -3,7 +3,7 @@ from __future__ import annotations
 # that we can return an instance of a class, eg. from a constructor
 
 import ast
-from typing import List, Optional, Union, TypeVar, Sequence
+from typing import List, Optional, Union, TypeVar
 
 
 T = TypeVar('T')
@@ -152,15 +152,15 @@ class NodeTraverser():
         - visit_If
     - if you define __init__ then you must call super().__init__() to get
         the local variables set up correctly
+    - scope is only updated when relevant nodes are visited.  If you change a node you may want
+        to visit it afterwards to get the scope correct.  To avoid making further changes when 
+        doing so, possibly use an attribute self.readonly or similar to signal when visiting should
+        not change anything (but you have to check this yourself!)
+    - Assign, Name and Attribute nodes have their scopes fixed up after first calling any subclass
+        visitors, so if you only change these nodes, but don't add any new nodes, then there is 
+        no need to visit them again to fix up the scope.
 
     TODO:
-    - What to do about scopes when a node changes?  Currently we only look at stores
-        at level of the node(s), not recursively.
-
-    - do block level scopes in addition to normal scopes.  This would allow things like
-        nicer handling of the scopes for if body/orelse rather than messing with the real
-        scopes.  Also, would make it easy to figure out what variables a block depends on
-        and assigns to, which is probably required to handle reordering statements in bodies.
 
     - Get this functionality into the NodeVisitor somehow.  Nothing here changes any
      nodes, so it shouldn't be too bad.
@@ -287,11 +287,45 @@ class NodeTraverser():
         the appropriate value from the given assign value'''
 
         # assign to a single variable
-        if isinstance(target, ast.Name,):
+        if isinstance(target, ast.Name):
             self.add_var_store(target.id, value, s)
 
+        # assign to object attribute, eg. blah.thing
+        elif isinstance(target, ast.Attribute):
+            if isinstance(target.value, ast.Name):
+                varname = target.value.id 
+                attr = target.attr
+                
+                # handle attributes of attributes, eg. blah.thing.gadget
+                while isinstance(attr, ast.Attribute):
+                    assert(isinstance(attr.value, ast.Name))
+                    varname = varname + '.' + attr.value.id
+                    attr = attr.attr
+                assert(isinstance(attr, str))
+                varname = varname + '.' + attr
+
+                self.add_var_store(varname, value, s)
+
+            elif isinstance(target.value, ast.arg):
+                # Not sure if this is the correct way to handle assigning to an argument!
+                varname = target.value.arg 
+                attr = target.attr
+
+                # handle attributes of attributes, eg. blah.thing.gadget
+                while isinstance(attr, ast.Attribute):
+                    assert(isinstance(attr.value, ast.Name))
+                    varname = varname + '.' + attr.value.id
+                    attr = attr.attr
+                assert(isinstance(attr, str))
+                varname = varname + '.' + attr
+
+                self.add_var_store(varname, value, s)
+            else:
+                # Not sure if this will ever come up!
+                assert(False)
+
         # assign to a tuple
-        if isinstance(target, ast.Tuple):
+        elif isinstance(target, ast.Tuple):
             # if value is also a tuple then we can match target[j] with value[j]
             if isinstance(value, ast.Tuple):
                 if not len(value.elts) == len(target.elts):
@@ -305,22 +339,6 @@ class NodeTraverser():
                     # We can't pull apart a non-tuple (eg. function call), so we can't determine the value
                     assert(isinstance(t, ast.Name))
                     self.add_var_store(t.id, NoValue(), s)
-
-
-    def add_var_to_scope_from_nodes(self, nodes: Union[ast.AST, Sequence[ast.AST]]) -> None:
-        '''Look at the given node(s), and if they assign to any names, put them in scope.
-        This does not work recursively!  It only looks at the top level.  This is correct because
-        we only want to add vars that are assigned in this scope, not any inner scopes. Note
-        that this is not correct for variable loads or out of scope variables.
-        TODO: What about object attributes?
-        '''
-        if isinstance(nodes, ast.AST):
-            nodes = [ nodes ]
-        for s in nodes:
-            if isinstance(s, ast.Assign):
-                # if there are many targets (eg. a = b = 1) we handle each one
-                for v in s.targets:
-                    self.add_target_to_scope(v, s.value, s)
 
     def vars_in_scope(self) -> List[str]:
         ''' Returns a list of all variables and parameters currently in scope, including outer
@@ -413,6 +431,41 @@ class NodeTraverser():
         return node
 
     # Internal visitors
+    def _visit_Assign(self, node):
+        # if there are many targets (eg. a = b = 1) we handle each one
+
+        node = self.call_subclass_visitor(node)
+
+        # this might not be an Assign after above call.
+        if isinstance(node, ast.Assign):
+            print(ast.dump(node, indent=4)) 
+            for v in node.targets:
+                self.add_target_to_scope(v, node.value, node)
+
+        return node
+
+    def _visit_Attribute(self, node):
+        node = self.call_subclass_visitor(node)
+
+        if isinstance(node, ast.Attribute):
+            # In this case, _visit_Name() will not do anything.  We fix up everything here.
+            if not isinstance(node.value, ast.Name):
+                # Referencing an object attribute when that object is not stored to a variable.
+                # Doesn't refer to or change any variables in scope.
+                return node
+            if not isinstance(node.ctx, ast.Load):
+                # Stores are handled by _visit_Assign() 
+                return node
+
+            if isinstance(self.parent(), ast.Call) and node == self.parent().func:
+                # special case for method calls, eg. blah.func() TODO: is this what we want? or load?
+                self.add_var_store(node.value.id, NoValue, self.parent_statement())
+            else:
+                varname = node.value.id + '.' + node.attr
+                self.add_var_load(varname)
+
+        return node
+
 
     def _visit_FunctionDef(self, node):
         # Functions create a new scope
@@ -438,6 +491,10 @@ class NodeTraverser():
 
         # this might have changed to a different type of node
         if not isinstance(node, ast.Name): return node
+
+        # Attributes will be handled elsewhere
+        if isinstance(self.parent(), ast.Attribute): return node
+
         if isinstance(node.ctx, ast.Load):
             self.add_var_load(node.id)
         return node
@@ -448,18 +505,12 @@ class NodeTraverser():
         # First, visit with any more specific visit function
         visit_val = self.visit_internal(stmt)
 
-        # If there are no prelude statements to add here, then just
-        # return the value.  But first fix up the scope!
         if len(self.prelude_statements[-1]) == 0:
-            if visit_val is not None:
-                self.add_var_to_scope_from_nodes(visit_val)
             return visit_val
 
         # all statements are eligible to have preludes in front of them
         ret_val = self.pop_prelude_statements() + ensure_list(visit_val)
 
-        # update the scope based on the up-to-date statements
-        self.add_var_to_scope_from_nodes(ret_val)
         return ret_val
 
     def visit_expr(self, expr: ast.expr):
