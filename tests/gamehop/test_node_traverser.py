@@ -224,13 +224,23 @@ class TestNodeTraverser(unittest.TestCase):
     def test_scopes_attributes(self):
         class NewNodeTester(nt.NodeTraverser):
             def visit_Call(self, node):
-                if node.func.id == 'g':
+                if isinstance(node.func, ast.Attribute):
+                    pass
+                elif node.func.id == 'g':
                     assert('a' in self.vars_in_scope())
-                if node.func.id == 'h':
+                elif node.func.id == 'h':
                     assert('a.b' in self.local_scope().vars_stored)
                     assert(self.local_scope().var_values['a.b'].value == 1)
-                if node.func.id == 'i':
+                elif node.func.id == 'i':
                     assert('a.b' in self.local_scope().vars_loaded)
+                elif node.func.id == 'j':
+                    assert('a.b.c' in self.local_scope().vars_stored)
+                elif node.func.id == 'k':
+                    assert('a.b.c' in self.local_scope().vars_loaded)
+                elif node.func.id == 'l':
+                    assert('a.blarg' not in self.local_scope().vars_loaded)
+                    assert('a.blarg' not in self.local_scope().vars_stored)
+
                 return self.generic_visit(node)
 
         class thing:
@@ -244,6 +254,13 @@ class TestNodeTraverser(unittest.TestCase):
             h()
             c = a.b
             i()
+            a.b.c = 1
+            j()
+            q = a.b.c
+            k()
+            a.blarg()
+            l()
+
 
         f_ast = ast.parse(utils.get_function_def(f))
         nnt = NewNodeTester()

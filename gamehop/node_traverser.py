@@ -32,6 +32,33 @@ def append_if_unique(list, val):
     if not val in list:
         list.append(val)
 
+def attribute_fqn(node: ast.Attribute) -> List[str]:
+    '''From an attribute node, determine the full name, given as a list of strings.  Handles
+    attributes of attributes etc. recursively.
+    Note that the outer Attribute represents the rightmost name in a full name of an attribute, i.e.
+    for a.b.c, the outer Attribute node represents 'c' and the innermost node is a Name with id 'a'.
+
+    '''
+    # We build the name from back to front.  varname starts off as the attribute name
+    fqn = [ node.attr ]
+    val = node.value
+
+    # Keep on adding prefixes (object names) to the varname until we are at the outer Attribute
+    while isinstance(val, ast.Attribute):
+        fqn.insert(0, val.attr)
+        val = val.value
+
+    # At the outer attribute
+    if isinstance(val, ast.Name):
+        fqn.insert(0, val.id)
+    elif isinstance(val, ast.arg):
+        fqn.insert(0, val.arg)
+    else:
+        # Not sure what else will come up!
+        assert(False)
+    
+    return fqn
+
 # type checking is difficult for this one.  mypy doesn't understand that
 # we filter on nodetype, which causes problems downstream
 def nodes(node, nodetype = ast.AST):
@@ -286,43 +313,21 @@ class NodeTraverser():
         ''' Process an assign's target (which could be a tuple), figuring out
         the appropriate value from the given assign value'''
 
+        # assign to object attribute, eg. blah.thing, handling multiple levels like blah.thing.gadget
+        if isinstance(target, ast.Attribute):
+            fqn = attribute_fqn(target)
+            
+            # We add as though each object in the chain is stored/changed, i.e. for a.b.c we
+            # add a store for a, a.b, and a.b.c
+            varname = ''
+            for n in fqn:
+                varname = varname + n
+                self.add_var_store(varname, value, s)
+                varname = varname + '.'
+
         # assign to a single variable
-        if isinstance(target, ast.Name):
+        elif isinstance(target, ast.Name):
             self.add_var_store(target.id, value, s)
-
-        # assign to object attribute, eg. blah.thing
-        elif isinstance(target, ast.Attribute):
-            if isinstance(target.value, ast.Name):
-                varname = target.value.id 
-                attr = target.attr
-                
-                # handle attributes of attributes, eg. blah.thing.gadget
-                while isinstance(attr, ast.Attribute):
-                    assert(isinstance(attr.value, ast.Name))
-                    varname = varname + '.' + attr.value.id
-                    attr = attr.attr
-                assert(isinstance(attr, str))
-                varname = varname + '.' + attr
-
-                self.add_var_store(varname, value, s)
-
-            elif isinstance(target.value, ast.arg):
-                # Not sure if this is the correct way to handle assigning to an argument!
-                varname = target.value.arg 
-                attr = target.attr
-
-                # handle attributes of attributes, eg. blah.thing.gadget
-                while isinstance(attr, ast.Attribute):
-                    assert(isinstance(attr.value, ast.Name))
-                    varname = varname + '.' + attr.value.id
-                    attr = attr.attr
-                assert(isinstance(attr, str))
-                varname = varname + '.' + attr
-
-                self.add_var_store(varname, value, s)
-            else:
-                # Not sure if this will ever come up!
-                assert(False)
 
         # assign to a tuple
         elif isinstance(target, ast.Tuple):
@@ -438,7 +443,6 @@ class NodeTraverser():
 
         # this might not be an Assign after above call.
         if isinstance(node, ast.Assign):
-            print(ast.dump(node, indent=4)) 
             for v in node.targets:
                 self.add_target_to_scope(v, node.value, node)
 
@@ -447,22 +451,23 @@ class NodeTraverser():
     def _visit_Attribute(self, node):
         node = self.call_subclass_visitor(node)
 
+        # We need to add variable node for all objects in an attribute, eg. for a.b.c
+        # we add loads for a, a.b, and a.b.c.  Note that since this function
+        # will be called for every Attribute node, we only need to record one load
+        # for the object/attr represented by this Attribute node.  Inner object/attrs
+        # will be handled by other calls to _visit_Attribute
         if isinstance(node, ast.Attribute):
-            # In this case, _visit_Name() will not do anything.  We fix up everything here.
-            if not isinstance(node.value, ast.Name):
-                # Referencing an object attribute when that object is not stored to a variable.
-                # Doesn't refer to or change any variables in scope.
-                return node
+            # _visit_Name or _visit_Arg will handle the innermost load.  TODO: if the innermost object is an arg, do we want to add these as arg load, or variable load?
             if not isinstance(node.ctx, ast.Load):
                 # Stores are handled by _visit_Assign() 
                 return node
 
-            if isinstance(self.parent(), ast.Call) and node == self.parent().func:
-                # special case for method calls, eg. blah.func() TODO: is this what we want? or load?
-                self.add_var_store(node.value.id, NoValue, self.parent_statement())
-            else:
-                varname = node.value.id + '.' + node.attr
-                self.add_var_load(varname)
+            # if this is a method call, like a.blarg() then don't record it as anything.  Note that the object a will still have a load!
+            if isinstance(self.parent(), ast.Call):
+                return node
+
+            varname = ".".join(attribute_fqn(node))
+            self.add_var_load(varname)
 
         return node
 
@@ -491,9 +496,6 @@ class NodeTraverser():
 
         # this might have changed to a different type of node
         if not isinstance(node, ast.Name): return node
-
-        # Attributes will be handled elsewhere
-        if isinstance(self.parent(), ast.Attribute): return node
 
         if isinstance(node.ctx, ast.Load):
             self.add_var_load(node.id)
