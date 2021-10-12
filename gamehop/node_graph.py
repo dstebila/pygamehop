@@ -180,7 +180,7 @@ class GraphMaker(nt.NodeTraverser):
         stmt_scope = self.stmt_scopes[-1]
         for var in stmt_scope.external_vars:
             # TODO: if referencing a variable that was never defined, this next line will fail, exception instead?
-            assigning_stmt = self.local_scope().var_value_assigner[var]
+            assigning_stmt = self.var_value_assigner(var)
 
             # if this is an inner graph, then the assigning variable may not
             # be in this graph
@@ -225,3 +225,19 @@ class GraphMaker(nt.NodeTraverser):
         self.graphs[-1].inner_graphs[self.parent()]['orelse'] = orelse_graph
 
         return new_body
+
+    def visit_FunctionDef(self, node):
+         # Push a new graph for the orelse
+        self.graphs.append(Graph())
+
+        # Visit the orelse
+        self.visit_stmts(node.body)
+
+        # Pop the orelse's inner graph and assign as inner graph for the if
+        orelse_graph = self.graphs.pop()
+
+        if self.parent() not in self.graphs[-1].inner_graphs:
+            self.graphs[-1].inner_graphs[self.parent()] = dict()
+        self.graphs[-1].inner_graphs[self.parent()]['body'] = orelse_graph
+
+        return node # not bothering to change the body since we should never change anything is this class

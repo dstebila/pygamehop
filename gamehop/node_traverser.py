@@ -285,6 +285,17 @@ class NodeTraverser():
             if s.in_scope(varname): return s.var_value(varname)
         return NoValue()
 
+    def var_value_assigner(self, varname: str) -> Optional[ast.stmt]:
+        '''Gives the most recent statement which assigned to varname, or None if
+        not found.
+        '''
+        for s in reversed(self.scopes):
+            if varname in s.var_value_assigner:
+                return s.var_value_assigner[varname]
+
+        return None
+
+
     def add_var_load(self, varname):
         ''' Add the variable name to the current scope as a load.  If it is not
         in scope, then continue adding the outer scopes until either the

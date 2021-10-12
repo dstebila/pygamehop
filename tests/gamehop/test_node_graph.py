@@ -201,6 +201,41 @@ class TestNodeGraph(unittest.TestCase):
         self.assertEqual(len(orelse_graph.vertices), 1)
 
 
+    def test_graph_function_def(self):
+        def f():
+            x = 1
+            def g(y):
+                z = x + y
+                return z
+
+            return g(1)
+
+        fdef = utils.get_function_def(f)
+        f_node = ast.parse(fdef)
+        G = ng.Graph.from_stmts(f_node.body)
+        G.print()
+        # TODO do some tests
+        # assert(False)
+
+    def test_graph_function_def_reassign_variable(self):
+        def f():
+            x = 1
+            def g(y):
+                x = 3
+                z = x + y
+                return z
+
+            return g(1) + x
+
+
+        fdef = utils.get_function_def(f)
+        f_node = ast.parse(fdef)
+        G = ng.Graph.from_stmts(f_node.body)
+        G.print()
+        # TODO do some tests
+        # assert(False)
+
+
     def test_graph_if_canonical_order(self):
         def f():
             x = 1
