@@ -157,7 +157,11 @@ class Graph():
         for v in self.vertices:
             for var, n in self.out_edges[v].items():
                 print(f'{vertex_number[v]}, {var}: { vertex_number[n]}')
-
+        for v, bodies in self.inner_graphs.items():
+            print(v)
+            for bodyname, bodygraph in bodies.items():
+                print(bodyname)
+                bodygraph.print()
 
 
 class GraphMaker(nt.NodeTraverser):
@@ -174,9 +178,19 @@ class GraphMaker(nt.NodeTraverser):
 
         # Create edges from this statement for every variable it loaded
         stmt_scope = self.stmt_scopes[-1]
+        print(len(self.graphs),stmt_scope.external_vars)
         for var in stmt_scope.external_vars:
+            # TODO: if referencing a variable that was never defined, this next line will fail, exception instead?
             assigning_stmt = self.local_scope().var_value_assigner[var]
-            self.graphs[-1].add_edge(stmt, assigning_stmt, var)
+
+            # if this is an inner graph, then the assigning variable may not
+            # be in this graph
+            if assigning_stmt in self.graphs[-1].vertices:
+                self.graphs[-1].add_edge(stmt, assigning_stmt, var)
+            else:
+                # Variable wasn't assigned in this block, so add this
+                # as an external variable to the parent statement
+                self.stmt_scopes[-2].add_var_load(var)
 
         return ret
 

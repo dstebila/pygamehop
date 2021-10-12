@@ -204,14 +204,16 @@ class TestNodeGraph(unittest.TestCase):
     def test_graph_if_canonical_order(self):
         def f():
             x = 1
+            r = 1
+            s = 1
             if x == 1:
                 y = 1
                 z = 2
-                w = y + z
+                w = r + y + z
             else:
                 y = 1
                 z = 2
-                w = z + y
+                w = s + z + y
             q = 3
             return q + x + z + y
 
@@ -220,10 +222,43 @@ class TestNodeGraph(unittest.TestCase):
         f_node = ast.parse(fdef)
         G = ng.Graph.from_stmts(f_node.body)
         G.print()
-        self.assertEqual(len(G.vertices), 4)
+        self.assertEqual(len(G.vertices), 6)
         v0 = G.vertices[0]
         v1 = G.vertices[1]
         v2 = G.vertices[2]
         v3 = G.vertices[3]
+        v4 = G.vertices[4]
+        v5 = G.vertices[5]
+        v6 = G.inner_graphs[v3]['body'].vertices[0]
+        v7 = G.inner_graphs[v3]['body'].vertices[1]
+        v8 = G.inner_graphs[v3]['body'].vertices[2]
+        v9 = G.inner_graphs[v3]['orelse'].vertices[0]
+        v10 = G.inner_graphs[v3]['orelse'].vertices[1]
+        v11 = G.inner_graphs[v3]['orelse'].vertices[2]
+
+        # outer graph edges
+        # not testing for extra edges because that is tested elsewhere
+        self.assertEqual(G.out_edges[v3]['x'], v0)
+        self.assertEqual(G.out_edges[v3]['r'], v1)
+        self.assertEqual(G.out_edges[v3]['s'], v2)
+        self.assertEqual(G.out_edges[v5]['q'], v4)
+        self.assertEqual(G.out_edges[v5]['x'], v0)
+        self.assertEqual(G.out_edges[v5]['z'], v3)
+        self.assertEqual(G.out_edges[v5]['y'], v3)
+
+        Gb = G.inner_graphs[v3]['body']
+        self.assertEqual(Gb.out_edges[v8]['y'], v6)
+        self.assertEqual(Gb.out_edges[v8]['z'], v7)
+
+
+        Go = G.inner_graphs[v3]['orelse']
+        self.assertEqual(Go.out_edges[v11]['y'], v9)
+        self.assertEqual(Go.out_edges[v11]['z'], v10)
+
         G.canonical_sort()
+
         G.print()
+        self.assertEqual(G.vertices, [v2, v1, v0, v3, v4, v5])
+        self.assertEqual(Gb.vertices, [v7, v6, v8])
+        self.assertEqual(Go.vertices, [v9, v10, v11])
+
