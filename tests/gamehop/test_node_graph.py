@@ -221,7 +221,7 @@ class TestNodeGraph(unittest.TestCase):
         fdef = utils.get_function_def(f)
         f_node = ast.parse(fdef)
         G = ng.Graph.from_stmts(f_node.body)
-        G.print()
+
         self.assertEqual(len(G.vertices), 6)
         v0 = G.vertices[0]
         v1 = G.vertices[1]
@@ -250,14 +250,12 @@ class TestNodeGraph(unittest.TestCase):
         self.assertEqual(Gb.out_edges[v8]['y'], v6)
         self.assertEqual(Gb.out_edges[v8]['z'], v7)
 
-
         Go = G.inner_graphs[v3]['orelse']
         self.assertEqual(Go.out_edges[v11]['y'], v9)
         self.assertEqual(Go.out_edges[v11]['z'], v10)
 
         G.canonical_sort()
 
-        G.print()
         self.assertEqual(G.vertices, [v2, v1, v0, v3, v4, v5])
         self.assertEqual(Gb.vertices, [v7, v6, v8])
         self.assertEqual(Go.vertices, [v9, v10, v11])

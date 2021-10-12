@@ -178,7 +178,6 @@ class GraphMaker(nt.NodeTraverser):
 
         # Create edges from this statement for every variable it loaded
         stmt_scope = self.stmt_scopes[-1]
-        print(len(self.graphs),stmt_scope.external_vars)
         for var in stmt_scope.external_vars:
             # TODO: if referencing a variable that was never defined, this next line will fail, exception instead?
             assigning_stmt = self.local_scope().var_value_assigner[var]
