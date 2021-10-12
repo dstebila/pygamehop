@@ -240,6 +240,9 @@ class TestNodeTraverser(unittest.TestCase):
                 elif node.func.id == 'l':
                     assert('a.blarg' not in self.local_scope().vars_loaded)
                     assert('a.blarg' not in self.local_scope().vars_stored)
+                elif node.func.id == 'j':
+                    assert('a.d' in self.local_scope().vars_stored)
+                    assert('a.e' in self.local_scope().vars_stored)
 
                 return self.generic_visit(node)
 
@@ -260,6 +263,8 @@ class TestNodeTraverser(unittest.TestCase):
             k()
             a.blarg()
             l()
+            (a.d, a.e) = (True, False)
+            j()
 
 
         f_ast = ast.parse(utils.get_function_def(f))
