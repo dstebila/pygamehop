@@ -320,14 +320,9 @@ class NodeTraverser():
         self.stmt_scopes[-1].add_var_store(varname, value, s)
 
 
-    def add_target_to_scope(self, target, value: ast.expr, s: ast.stmt):
-        ''' Process an assign's target (which could be a tuple), figuring out
-        the appropriate value from the given assign value'''
+    def add_attribute_store_to_scope(self, attribute:ast.Attribute, value: Union[ast.expr, NoValue], s: ast.stmt):
+            fqn = attribute_fqn(attribute)
 
-        # assign to object attribute, eg. blah.thing, handling multiple levels like blah.thing.gadget
-        if isinstance(target, ast.Attribute):
-            fqn = attribute_fqn(target)
-            
             # We add as though each object in the chain is stored/changed, i.e. for a.b.c we
             # add a store for a, a.b, and a.b.c
             varname = ''
@@ -335,6 +330,14 @@ class NodeTraverser():
                 varname = varname + n
                 self.add_var_store(varname, value, s)
                 varname = varname + '.'
+
+    def add_target_to_scope(self, target, value: ast.expr, s: ast.stmt):
+        ''' Process an assign's target (which could be a tuple), figuring out
+        the appropriate value from the given assign value'''
+
+        # assign to object attribute, eg. blah.thing, handling multiple levels like blah.thing.gadget
+        if isinstance(target, ast.Attribute):
+            self.add_attribute_store_to_scope(target, value, s)
 
         # assign to a single variable
         elif isinstance(target, ast.Name):
@@ -347,14 +350,23 @@ class NodeTraverser():
                 if not len(value.elts) == len(target.elts):
                     raise ValueError("Attempt to assign to a tuple from another tuple of different length")
                 for i, v in enumerate(value.elts):
-                    var_Name = target.elts[i]
-                    assert(isinstance(var_Name, ast.Name))
-                    self.add_var_store(var_Name.id, v, s)
+                    assigned_node = target.elts[i]
+                    if isinstance(assigned_node, ast.Name):
+                        self.add_var_store(assigned_node.id, v, s)
+                    elif isinstance(assigned_node, ast.Attribute):
+                        self.add_attribute_store_to_scope(assigned_node, v, s)
+                    else:
+                        # Don't know how to assign to things that aren't names or attributes.
+                        assert(False)
             else:
                 for t in target.elts:
-                    # We can't pull apart a non-tuple (eg. function call), so we can't determine the value
-                    assert(isinstance(t, ast.Name))
-                    self.add_var_store(t.id, NoValue(), s)
+                    if isinstance(t, ast.Name):
+                        self.add_var_store(t.id, NoValue(), s)
+                    elif isinstance(t, ast.Attribute):
+                        self.add_attribute_store_to_scope(t, NoValue(), s)
+                    else:
+                        # Don't know how to assign to things that aren't names or attributes.
+                        assert(False)
 
     def vars_in_scope(self) -> List[str]:
         ''' Returns a list of all variables and parameters currently in scope, including outer
