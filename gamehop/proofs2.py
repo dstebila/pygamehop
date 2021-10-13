@@ -1,4 +1,4 @@
-from typing import Type
+from typing import List, Type
 
 from .primitives import Crypto
 from . import inlining
@@ -21,7 +21,7 @@ class Proof():
     def __init__(self, scheme: Type[Crypto.Scheme], experiment: Crypto.Experiment):
         self.scheme = scheme
         self.experiment = experiment
-        self.proof_steps = list()
+        self.proof_steps: List[ProofStep] = list()
 
     def addDistinguishingProofStep(self, reduction: Crypto.Reduction, experiment: Crypto.DistinguishingExperiment, scheme: Crypto.Scheme, reverse_direction = False) -> None:
         """Add a distinguishing proof step for a reduction 'reduction' against the distinguishing security experiment 'experiment' for a scheme 'scheme'.
@@ -37,7 +37,7 @@ class Proof():
             elif isinstance(self.experiment, Crypto.DistinguishingExperimentHiddenBit):
                 raise NotImplementedError("Not yet implemented")
             elif isinstance(self.experiment, Crypto.WinLoseExperiment):
-                return inlining.inline_scheme_into_game(self.scheme, self.game)
+                return inlining.inline_scheme_into_game(self.scheme, self.experiment.game)
         elif (gamenum == -1 or gamenum == len(self.proof_steps) - 1) and not(before): # use the final experiment
             if isinstance(self.experiment, Crypto.DistinguishingExperimentLeftOrRight):
                 return inlining.inline_scheme_into_game(self.scheme, self.experiment.right)
@@ -51,3 +51,4 @@ class Proof():
             step = self.proof_steps[gamenum]
             if isinstance(step, DistinguishingProofStep): pass
                 # TODO left off here
+        return ""
