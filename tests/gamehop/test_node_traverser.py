@@ -81,7 +81,7 @@ class TestNodeTraverser(unittest.TestCase):
         self.assertEqual(nnt.thescope, [ 'a', 'b' ])
         self.assertEqual(nnt.a_in_scope, True)
         self.assertEqual(nnt.z_in_scope, False)
-        self.assertEqual(nnt.vars_in_scope(), [ ])
+        self.assertEqual(nnt.vars_in_scope(), ['f'])
         self.assertEqual(nnt.in_scope('a'), False)
 
     def test_scopes_values(self):
@@ -125,6 +125,31 @@ class TestNodeTraverser(unittest.TestCase):
         self.assertTrue(isinstance(nnt.end_b_val, nt.NoValue))
         self.assertTrue(isinstance(nnt.bogus_val, nt.NoValue))
 
+
+    def test_scopes_function(self):
+        class NewNodeTester(nt.NodeTraverser):
+            def visit_Call(self, node):
+                if node.func.id == "j":
+                    self.outer_scope_end = self.local_scope()
+
+                return self.generic_visit(node)
+
+        def j(): pass
+
+        def f():
+            x = 1
+            def g(y):
+                z = x + 1
+                return z
+
+            z = g(1)
+            j()
+            return z
+
+        f_ast = ast.parse(utils.get_function_def(f))
+        nnt = NewNodeTester()
+        f_new_ast = nnt.visit(f_ast)
+        self.assertEqual(nnt.outer_scope_end.vars_stored, ['x', 'g', 'z'])
 
     def test_scopes_if(self):
         class NewNodeTester(nt.NodeTraverser):

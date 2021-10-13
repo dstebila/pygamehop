@@ -1,5 +1,4 @@
 import ast
-import inspect
 import unittest
 import gamehop.utils as utils
 import gamehop.node_graph as ng
@@ -213,9 +212,17 @@ class TestNodeGraph(unittest.TestCase):
         fdef = utils.get_function_def(f)
         f_node = ast.parse(fdef)
         G = ng.Graph.from_stmts(f_node.body)
-        G.print()
-        # TODO do some tests
-        # assert(False)
+        v0 = G.vertices[0]
+        v1 = G.vertices[1]
+        v2 = G.vertices[2]
+        Gb = G.inner_graphs[v1]['body']
+        v3 = Gb.vertices[0]
+        v4 = Gb.vertices[1]
+
+        self.assertEqual(G.out_edges[v1]['x'], v0)
+        self.assertEqual(G.out_edges[v2]['g'], v1)
+
+        self.assertEqual(Gb.out_edges[v4]['z'], v3)
 
     def test_graph_function_def_reassign_variable(self):
         def f():
@@ -231,10 +238,19 @@ class TestNodeGraph(unittest.TestCase):
         fdef = utils.get_function_def(f)
         f_node = ast.parse(fdef)
         G = ng.Graph.from_stmts(f_node.body)
-        G.print()
-        # TODO do some tests
-        # assert(False)
+        v0 = G.vertices[0]
+        v1 = G.vertices[1]
+        v2 = G.vertices[2]
+        Gb = G.inner_graphs[v1]['body']
+        v3 = Gb.vertices[0]
+        v4 = Gb.vertices[1]
+        v5 = Gb.vertices[2]
 
+        self.assertEqual(G.out_edges[v2]['x'], v0)
+        self.assertEqual(G.out_edges[v2]['g'], v1)
+
+        self.assertEqual(Gb.out_edges[v4]['x'], v3)
+        self.assertEqual(Gb.out_edges[v5]['z'], v4)
 
     def test_graph_if_canonical_order(self):
         def f():

@@ -234,10 +234,10 @@ class GraphMaker(nt.NodeTraverser):
         self.visit_stmts(node.body)
 
         # Pop the orelse's inner graph and assign as inner graph for the if
-        orelse_graph = self.graphs.pop()
+        body_graph = self.graphs.pop()
 
-        if self.parent() not in self.graphs[-1].inner_graphs:
-            self.graphs[-1].inner_graphs[self.parent()] = dict()
-        self.graphs[-1].inner_graphs[self.parent()]['body'] = orelse_graph
+        if node not in self.graphs[-1].inner_graphs:
+            self.graphs[-1].inner_graphs[node] = dict()
+        self.graphs[-1].inner_graphs[node]['body'] = body_graph
 
         return node # not bothering to change the body since we should never change anything is this class

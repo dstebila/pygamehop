@@ -59,6 +59,15 @@ def attribute_fqn(node: ast.Attribute) -> List[str]:
     
     return fqn
 
+def called_function_name(node: ast.Call):
+    if isinstance(node.func, ast.Name):
+        return node.func.id
+    if isinstance(node.func, ast.Attribute):
+        return ".".join(attribute_fqn(node.func))
+    # Don't know what else might come up!
+    assert(False)
+
+
 # type checking is difficult for this one.  mypy doesn't understand that
 # we filter on nodetype, which causes problems downstream
 def nodes(node, nodetype = ast.AST):
@@ -93,6 +102,7 @@ class Scope():
         self.var_values = dict()            # most recent value assigned to variable.  key = variable name, value = assigned value
         self.var_value_assigner = dict()    # most recent statement node to assign to a variable.  key = variable name, value = statement
         self.var_annotations = dict()       # most recent type annotation for a variable
+
 
     def add_parameter(self, par_name, annotation = NoValue()):
         self.parameters.append(par_name)
@@ -377,7 +387,6 @@ class NodeTraverser():
         ''' Returns a list of variables and parameters in the current local scope only.'''
         return self.local_scope().names_in_scope()
 
-
     # Keep track of parent of each node
     def parent(self):
         ''' Returns the node of which the currently visited node is a child.
@@ -500,11 +509,34 @@ class NodeTraverser():
         self.new_scope()
 
         # Function parameters will be in scope
+        # TODO this is probelematic: we need parameters to be in scope so that
+        # they are set up when visiting the body (as part of call_subclass_visitor below)
+        # but if the node is changed to something other than a FunctionDef then those
+        # parameters should not be in scope any more.
         for arg in node.args.args:
             self.local_scope().add_parameter(arg.arg, arg.annotation)
 
+
         node = self.call_subclass_visitor(node)
+        
+        # We must pop the scope before adding the functionDef to scope, because the current
+        # scope is for the body of the function.  The functionDef must be added to the scope
+        # in which it sits
         self.pop_scope()
+
+        # make sure this is still a FunctionDef, since the subclass may have changed it
+        if isinstance(node, ast.FunctionDef):
+            self.add_var_store(node.name, node, node)
+
+        return node
+
+    def _visit_Call(self, node):
+        node = self.call_subclass_visitor(node)
+        if not isinstance(node, ast.Call):
+            return node
+
+        self.add_var_load(called_function_name(node))
+
         return node
 
     def _visit_ClassDef(self, node):
