@@ -55,8 +55,7 @@ class TestCanonicalizeReturn(unittest.TestCase):
         def f_attribute(x, y):
             return x.a
         def f_attribute_expected_result(x, y):
-            φ0 = x.a
-            return φ0
+            return x.a
         f = gamehop.utils.get_function_def(f_attribute)
         gamehop.verification.expand.expand_non_compact_expressions(f)
         self.assertEqual(

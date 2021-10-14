@@ -77,13 +77,16 @@ class Graph():
             for varname in reversed(self.out_edges[v]):
                 yield varname
 
-    def depth_first_traverse(self, start_points, visited = list()):
+    def depth_first_traverse(self, start_points):
+        yield from self.depth_first_traverse_R(start_points, list())
+
+    def depth_first_traverse_R(self, start_points, visited) :
         for v in start_points:
             if v not in visited:
                 visited.append(v)
                 yield v
                 for n in self.out_neighbours(v):
-                    yield from self.depth_first_traverse([n], visited)
+                    yield from self.depth_first_traverse_R([n], visited)
 
     def topological_order_traverse(self):
         '''Returns the vertices in a topological ordering, starting from vertices that have no in-edges, i.e. they do not provide
@@ -110,7 +113,6 @@ class Graph():
         # vertices whose values are not in this graph (eg. return statement), reversed.  Reverse so that most recent assignment to a variable comes first
         top_vertices = [ v for v in self.vertices if not self.in_edges[v] ]
         top_vertices.reverse()
-
         # put them in the order that they are referenced in the outer graph, reversed
         dfs_start_vertices = list()
         for var in reversed(self.values_loaded):
@@ -125,6 +127,7 @@ class Graph():
                 dfs_start_vertices.append(v)
 
         vertices_dfs = [ v for v in self.depth_first_traverse(dfs_start_vertices) ]
+        assert(len(self.vertices) == len(vertices_dfs))
         self.vertices = vertices_dfs
 
         # Step 2: Reorder vertices by Khan's algorithm

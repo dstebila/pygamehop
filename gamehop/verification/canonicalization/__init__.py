@@ -8,6 +8,7 @@ import networkx
 from ...inlining import internal
 from ... import utils
 from ... import node_traverser as nt
+from ... import node_graph as ng
 
 def canonicalize_function_name(f: ast.FunctionDef, name = 'f') -> None:
     """Modify (in place) the given function definition to have a canonical name."""
@@ -70,6 +71,19 @@ def assignee_vars(stmt: ast.Assign) -> List[str]:
     else: raise NotImplementedError("Cannot handle assignments with left sides of the type " + str(type(stmt.targets[0]).__name__))
 
 
+
+def canonicalize_line_order_new(f: ast.FunctionDef) -> None:
+    """Modify (in place) the given function definition to canonicalize the order of lines
+    based on the order in which the returned variable depends on previous lines. Lines
+    that do not affect the return variable are removed.  Assumes that the return statement
+    is the last statement in the function body"""
+    G = ng.Graph.from_stmts(f.body)
+    assert isinstance(f.body[-1], ast.Return)
+    return_stmt = f.body[-1]
+    relevant_nodes = reversed([ v for v in G.depth_first_traverse([return_stmt]) ])
+    G = G.induced_subgraph(relevant_nodes)
+    G.canonical_sort()
+    f.body = G.vertices
 
 # generate a graph of the lines of the function
 def function_to_graph(t: ast.FunctionDef):
