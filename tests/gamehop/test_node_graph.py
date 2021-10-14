@@ -311,3 +311,17 @@ class TestNodeGraph(unittest.TestCase):
         self.assertEqual(Gb.vertices, [v7, v6, v8])
         self.assertEqual(Go.vertices, [v9, v10, v11])
 
+    # def test_canonical_sort_multiple_assigns(self):
+        # def f():
+            # a = 1
+            # b = a
+            # a = 2
+            # return a + b
+
+        # fdef = utils.get_function_def(f)
+        # f_node = ast.parse(fdef)
+        # G = ng.Graph.from_stmts(f_node.body)
+        # G.canonical_sort()
+
+
+
