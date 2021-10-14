@@ -181,3 +181,15 @@ def remove_duplicates(l):
         if i not in new_list:
             new_list.append(i)
     return new_list
+
+def fqn(o) -> str:
+    if inspect.isclass(o):
+        if o.__module__ == '__main__': return "" + o.__name__.replace('Scheme', '')
+        else: 
+            module = o.__module__.replace('gamehop.primitives.', '')
+            name = o.__name__.replace('Scheme', '')
+            if module == name: return module
+            else: return f"{module}.{name}"
+    else: return type(o).__name__
+
+def parentfqn(o) -> str: return fqn(inspect.getmro(o)[1])

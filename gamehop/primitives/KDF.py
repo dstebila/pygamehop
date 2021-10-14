@@ -35,4 +35,4 @@ class ROR_Random(Crypto.Game):
             self.query_list = lists.set_item(self.query_list, (label, length), Crypto.BitString.uniformly_random(length))
         return self.query_list.get_item((label, length))
 
-ROR = Crypto.DistinguishingExperimentRealOrRandom(ROR_Real, ROR_Random, ROR_Adversary)
+ROR = Crypto.DistinguishingExperimentRealOrRandom("KDF.ROR", ROR_Real, ROR_Random, ROR_Adversary)

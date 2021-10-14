@@ -37,4 +37,4 @@ class IND_Right(Crypto.Game):
         ret = r if len(m0) == len(m1) else Crypto.Bit(0)
         return ret
 
-IND = Crypto.DistinguishingExperimentLeftOrRight(IND_Left, IND_Right, IND_Adversary)
+IND = Crypto.DistinguishingExperimentLeftOrRight("OTP.IND", IND_Left, IND_Right, IND_Adversary)

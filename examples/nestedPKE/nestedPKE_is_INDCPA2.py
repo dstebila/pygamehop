@@ -29,14 +29,7 @@ class R1(PKE.INDCPA_Adversary, Crypto.Reduction): # this is a INDCPA adversary f
         ctprime = cast(NestedPKE.Ciphertext, ct2)
         return self.inner_adversary.guess(ctprime)
 
-proof1.addDistinguishingProofStep(R1, PKE.INDCPA, PKE1)
+proof1.add_distinguishing_proof_step(R1, PKE.INDCPA, PKE1)
 
-g0 = gamehop.inlining.inline_scheme_into_game(NestedPKE, PKE.INDCPA.left)
-print(g0)
-print(gamehop.verification.canonicalize_game(g0))
-g1 = gamehop.inlining.inline_reduction_into_game(R1, PKE.INDCPA.left, PKE1, PKE.INDCPA.left, NestedPKE)
-print(g1)
-print(gamehop.verification.canonicalize_game(g1))
-gamehop.utils.stringDiff(gamehop.verification.canonicalize_game(g0), gamehop.verification.canonicalize_game(g1))
-
-# proof1.addDistinguishingProofStep(PKE.INDCPA, 'pke1', R1)
+assert proof1.check(print_hops=False, print_canonicalizations=False)
+print(proof1.advantage_bound())
