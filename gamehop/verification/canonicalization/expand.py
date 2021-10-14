@@ -24,7 +24,9 @@ class ExpandNonCompactExpressions(nt.NodeTraverser):
         newval = self.generic_visit(node) # fix up children first
 
         # Keep  statements and compact values intact
-        if isinstance(newval, ast.Constant) or isinstance(newval, ast.Name):
+        if (isinstance(newval, ast.Constant) or 
+                isinstance(newval, ast.Name) or
+                isinstance(newval, ast.Attribute)):
             return newval
         # At this point node must be an expression so newval will be too
 
@@ -37,7 +39,7 @@ class ExpandNonCompactExpressions(nt.NodeTraverser):
 
 def expand_non_compact_expressions(f: ast.FunctionDef) -> None:
     """Modify (in place) the given function definition so that all non-compact
-    (not a constant, not a variable name) expressions appear as assignments or
+    (not a constant, not a variable name, not an attribute) expressions appear as assignments or
     as a statement (in an Expr).  New assignments to intermediate values are
     created if necessary to make this so."""
 
