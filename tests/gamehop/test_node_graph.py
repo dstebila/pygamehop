@@ -311,17 +311,111 @@ class TestNodeGraph(unittest.TestCase):
         self.assertEqual(Gb.vertices, [v7, v6, v8])
         self.assertEqual(Go.vertices, [v9, v10, v11])
 
-    # def test_canonical_sort_multiple_assigns(self):
-        # def f():
-            # a = 1
-            # b = a
-            # a = 2
-            # return a + b
+    def test_canonical_sort_multiple_assigns(self):
+        def f():
+            a = 1
+            b = a
+            a = 2
+            return a + b
 
-        # fdef = utils.get_function_def(f)
-        # f_node = ast.parse(fdef)
-        # G = ng.Graph.from_stmts(f_node.body)
-        # G.canonical_sort()
+        def f_expected_result():
+            a = 1
+            b = a
+            a = 2
+            return a + b
+
+        fdef = utils.get_function_def(f)
+        f_node = ast.parse(fdef)
+        G = ng.Graph.from_stmts(f_node.body)
+        G.canonical_sort()
+        f_node.body = G.vertices
+        self.assertEqual(ast.unparse(f_node), expected_result(f_expected_result))
+
+    def test_canonical_sort_multiple_assigns_2(self):
+        def f():
+            a = 1
+            a = 2
+            b = a
+            return a + b
+
+        def f_expected_result():
+            a = 1
+            a = 2
+            b = a
+            return a + b
+
+        fdef = utils.get_function_def(f)
+        f_node = ast.parse(fdef)
+        G = ng.Graph.from_stmts(f_node.body)
+        G.canonical_sort()
+        f_node.body = G.vertices
+        self.assertEqual(ast.unparse(f_node), expected_result(f_expected_result))
+
+    def test_omit_overwrite_edges_in_dfs(self):
+        def f():
+            a = 1
+            a = 2
+            b = a
+            return a + b
+
+        def f_expected_result():
+            a = 2
+            b = a
+            return a + b
+
+        fdef = utils.get_function_def(f)
+        f_node = ast.parse(fdef)
+        G = ng.Graph.from_stmts(f_node.body)
+        start_vertex = G.vertices[-1]
+        dfs_vertices = [v for v in G.depth_first_traverse([start_vertex], True) ] 
+        G = G.induced_subgraph(dfs_vertices)
+        G.canonical_sort()
+        f_node.body = G.vertices
+        
+        self.assertEqual(ast.unparse(f_node), expected_result(f_expected_result))
 
 
+    def test_reachable_subgraph_ignore_overwrites(self):
+        def f():
+            x = 1
+            a = 1
+            a = 2
+            b = a
+            return a + b
 
+        def f_expected_result():
+            a = 2
+            b = a
+            return a + b
+
+        fdef = utils.get_function_def(f)
+        f_node = ast.parse(fdef)
+        G = ng.Graph.from_stmts(f_node.body)
+        G = G.reachable_subgraph([ G.vertices[-1] ], True)
+        G.canonical_sort()
+        f_node.body = G.vertices
+        
+        self.assertEqual(ast.unparse(f_node), expected_result(f_expected_result))
+
+    def test_reachable_subgraph_no_ignore_overwrites(self):
+        def f():
+            x = 1
+            a = 1
+            a = 2
+            b = a
+            return a + b
+
+        def f_expected_result():
+            a = 1
+            a = 2
+            b = a
+            return a + b
+
+        fdef = utils.get_function_def(f)
+        f_node = ast.parse(fdef)
+        G = ng.Graph.from_stmts(f_node.body)
+        G = G.reachable_subgraph([ G.vertices[-1] ])
+        G.canonical_sort()
+        f_node.body = G.vertices
+        
+        self.assertEqual(ast.unparse(f_node), expected_result(f_expected_result))  

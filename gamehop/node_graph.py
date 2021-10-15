@@ -11,6 +11,8 @@ class Graph():
 
         # An edge goes from a Name load to a Name store
         # These dictionaries keep track in and out edges for each vertex
+        # In the case of a vertex assigned to a variable that already exists, we will have 
+        # an edge with variable name "varname:overwrite" where varname is the variable's name
         self.in_edges: Dict[Dict[str, List[ast.AST]]] = dict() # first key = vertex, second key = variable name, value = list of vertices that reference that variable
         self.out_edges: Dict[Dict[str, ast.AST]] = dict() # first key = vertex, second key = variable name, value = the node that provides this value
 
@@ -65,8 +67,8 @@ class Graph():
     def in_neighbours(self, v):
         return sum( [ v for k,v in self.in_edges[v].items() ], [])
 
-    def out_neighbours(self, v):
-        return [ u for u in self.out_edges[v].values() ]
+    def out_neighbours(self, v, omit_overwrites=False):
+        return [ u for var, u in self.out_edges[v].items() if not (omit_overwrites and var.endswith(':overwrite')) ]
 
     def var_refs(self, start = None):
         '''Returns variable names in order referenced by vertices, starting from a particular vertex (if supplied).  Note that
@@ -77,16 +79,26 @@ class Graph():
             for varname in reversed(self.out_edges[v]):
                 yield varname
 
-    def depth_first_traverse(self, start_points):
-        yield from self.depth_first_traverse_R(start_points, list())
+    def depth_first_traverse(self, start_points, omit_overwrites=False):
+        yield from self.depth_first_traverse_R(start_points, list(), omit_overwrites)
 
-    def depth_first_traverse_R(self, start_points, visited) :
+    def depth_first_traverse_R(self, start_points, visited, omit_overwrites):
         for v in start_points:
             if v not in visited:
                 visited.append(v)
                 yield v
-                for n in self.out_neighbours(v):
-                    yield from self.depth_first_traverse_R([n], visited)
+                for n in self.out_neighbours(v, omit_overwrites):
+                    yield from self.depth_first_traverse_R([n], visited, omit_overwrites)
+
+    def reachable_subgraph(self, start_points, omit_overwrites=False):
+        '''Returns a new graph which is the induced subgraph of the current graph on the set of vertices
+        reachable from vertices in start_points.  If omit_overwrites is set to True then edges
+        resulting from one statement overwriting a variable previously assigned by another statement are
+        ignored.
+        '''
+        new_vertices = [v for v in self.depth_first_traverse(start_points, omit_overwrites) ]
+
+        return self.induced_subgraph(new_vertices)
 
     def topological_order_traverse(self):
         '''Returns the vertices in a topological ordering, starting from vertices that have no in-edges, i.e. they do not provide
@@ -177,6 +189,7 @@ class GraphMaker(nt.NodeTraverser):
         # Visit children, and keep track of changes to the scope to see what
         # variables are loaded
         self.graphs[-1].add_vertex(stmt)
+        old_scope = self.local_scope().copy()
         ret = super().visit_stmt(stmt)
 
         # Create edges from this statement for every variable it loaded
@@ -193,7 +206,19 @@ class GraphMaker(nt.NodeTraverser):
                 # Variable wasn't assigned in this block, so add this
                 # as an external variable to the parent statement
                 self.stmt_scopes[-2].add_var_load(var)
+        
+        # Create edges from this statement for every variable that it stores
+        # which was previously stored.  This is necessary to preserve
+        # order.  Note that this is only necessary for variables
+        # that are in the same scope.  If this is an inner scope, eg
+        # FunctionDef then the overwritten variable reverts back
+        # to the original value once we leave that scope.
 
+        for var in stmt_scope.vars_stored:
+            if old_scope.in_scope(var):
+                old_assigner = old_scope.var_value_assigner[var]
+                var_name = var + ':overwrite'
+                self.graphs[-1].add_edge(stmt, old_assigner, var_name)
         return ret
 
 
