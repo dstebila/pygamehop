@@ -245,9 +245,10 @@ def inline_all_inner_class_init_calls(c_to_be_inlined: Union[Type[Any], str, ast
                     fdef_dest = utils.get_function_def(inline_function_call(method, fdef_dest, f_to_be_inlined_name=n + ".__init__"))
     return ast.unparse(ast.fix_missing_locations(fdef_dest))
 
-def inline_scheme_into_game(Scheme: Type[Crypto.Scheme], Game: Type[Crypto.Game]) -> str:
+def inline_scheme_into_game(Scheme: Type[Crypto.Scheme], Game: Type[Crypto.Game], game_name: Optional[str] = None) -> str:
     """Returns a string representing the provided cryptographic game with all calls to methods of the given cryptographic scheme replaced with the body of those functions, with arguments to the call appropriately bound and with local variables named unambiguously."""
     Game_copy = utils.get_class_def(Game)
+    if game_name: Game_copy.name = game_name
     Game_newbody: List[ast.stmt] = []
     # go through every method of the game (__init__, main, oracles)
     for fdef in Game_copy.body:
@@ -268,7 +269,7 @@ def inline_scheme_into_game(Scheme: Type[Crypto.Scheme], Game: Type[Crypto.Game]
     Game_copy.body = Game_newbody
     return ast.unparse(ast.fix_missing_locations(Game_copy))
 
-def inline_reduction_into_game(R: Type[Crypto.Reduction], GameForR: Type[Crypto.Game], SchemeForR: Type[Crypto.Scheme], TargetGame: Type[Crypto.Game], TargetScheme: Type[Crypto.Scheme]) -> str:
+def inline_reduction_into_game(R: Type[Crypto.Reduction], GameForR: Type[Crypto.Game], SchemeForR: Type[Crypto.Scheme], TargetGame: Type[Crypto.Game], TargetScheme: Type[Crypto.Scheme], TargetAdversaryType: Type[Crypto.Adversary], game_name: Optional[str] = None) -> str:
     """Returns a string representing the inlining of a reduction into a game, to yield another game.  R is the reduction, which an adversary in the game GameForR against scheme SchemeForR.  The result of the inlining is a cryptographic game intended to be of the form TargetGame against scheme TargetScheme."""
     # The high-level idea of this procedure is as follows:
     # 1. The main method of the result should take the main method of the GameForR and inline all calls to R.
@@ -276,6 +277,7 @@ def inline_reduction_into_game(R: Type[Crypto.Reduction], GameForR: Type[Crypto.
     # 3. The body of all the oracles of GameForR will be inlined into the resulting game.
     # 4. Various things are renamed and minor things are changed, for example turning static methods into non-static methods.
     OutputGame = utils.get_class_def(TargetGame)
+    if game_name: OutputGame.name = game_name
     OutputGame.body = []
     # copy the __init__ and main methods of GameForR into OutputGame
     GameForR_copy = utils.get_class_def(GameForR)
@@ -290,7 +292,7 @@ def inline_reduction_into_game(R: Type[Crypto.Reduction], GameForR: Type[Crypto.
             # bind self.Scheme to the given Scheme
             newinit = utils.get_function_def(inline_argument_into_function('Scheme', TargetScheme, fdef))
             # change the type of the adversary to match the target game
-            newinit = utils.rename_function_body_variables(newinit, {f"{GameForR.__name__}_Adversary": f"{TargetGame.__name__}_Adversary"}, False)
+            newinit = utils.rename_function_body_variables(newinit, {f"{GameForR.__name__}_Adversary": f"{TargetAdversaryType.__name__}"}, False)
             OutputGame.body.append(newinit)
         elif fdef.name == "main" or fdef.name.startswith("o_"):
             if fdef.args.args[0].arg != "self":

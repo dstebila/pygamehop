@@ -30,6 +30,8 @@ class GameParameterizedByBit(AbstractGame):
 
 class Experiment():
     def get_name(self) -> str: pass
+    def get_target_game(self) -> Type[Game]: pass
+    def get_adversary(self) -> Type[Adversary]: pass
 
 class DistinguishingExperiment(Experiment):
     def get_adversary(self): return self.adversary
@@ -43,6 +45,7 @@ class DistinguishingExperimentLeftOrRight(DistinguishingExperiment):
         self.right = right
         self.adversary = adversary
     def get_name(self): return self.name
+    def get_target_game(self): return self.left
     def get_left(self): return self.left
     def get_right(self): return self.right
 
@@ -53,6 +56,7 @@ class DistinguishingExperimentRealOrRandom(DistinguishingExperiment):
         self.random = random
         self.adversary = adversary
     def get_name(self): return self.name
+    def get_target_game(self): return self.real
     def get_left(self): return self.real
     def get_right(self): return self.random
 
@@ -62,6 +66,7 @@ class DistinguishingExperimentHiddenBit(DistinguishingExperiment):
         self.game = game
         self.adversary = adversary
     def get_name(self): return self.name
+    def get_target_game(self): return self.game
 
 class WinLoseExperiment(Experiment):
     def __init__(self, name: str, game: Type[Game], adversary: Type[Adversary]):
@@ -69,6 +74,7 @@ class WinLoseExperiment(Experiment):
         self.game = game
         self.adversary = adversary
     def get_name(self): return self.name
+    def get_target_game(self): return self.game
     losing_game = """class LosingGame(Crypto.Game):
     def main(self) -> Crypto.Bit:
         return Crypto.Bit(0)"""
