@@ -34,7 +34,7 @@ class INDCPA_LOR_Game(Crypto.GameParameterizedByBit):
         c = self.Scheme.Encrypt(self.k, m)
         return c
 
-INDCPA_LOR = Crypto.DistinguishingExperimentHiddenBit(INDCPA_LOR_Game, INDCPA_LOR_Adversary)
+INDCPA_LOR = Crypto.DistinguishingExperimentHiddenBit("SymEnc.INDCPA_LOR", INDCPA_LOR_Game, INDCPA_LOR_Adversary)
 
 class INDCCA_LOR_Adversary(Crypto.Adversary):
     def run(self, o_LR: Callable[[SymEncScheme.Message, SymEncScheme.Message], SymEncScheme.Ciphertext], o_Dec: Callable[[SymEncScheme.Ciphertext], Union[SymEncScheme.Message, Crypto.Reject]]) -> Crypto.Bit: pass
@@ -59,7 +59,7 @@ class INDCCA_LOR_Game(Crypto.GameParameterizedByBit):
         else: m = Crypto.Reject()
         return m
 
-INDCCA_LOR = Crypto.DistinguishingExperimentHiddenBit(INDCCA_LOR_Game, INDCCA_LOR_Adversary)
+INDCCA_LOR = Crypto.DistinguishingExperimentHiddenBit("SymEnc.INDCCA_LOR", INDCCA_LOR_Game, INDCCA_LOR_Adversary)
 
 class INT_PTXT_Adversary(Crypto.Adversary):
     def run(self, o_Enc: Callable[[SymEncScheme.Message], SymEncScheme.Ciphertext], o_VF: Callable[[SymEncScheme.Ciphertext], bool]) -> Crypto.Bit: pass
@@ -84,4 +84,4 @@ class INT_PTXT_Game(Crypto.Game):
         ret = not(isinstance(m, Crypto.Reject))
         return ret
 
-INT_PTXT = Crypto.WinLoseExperiment(INT_PTXT_Game, INT_PTXT_Adversary)
+INT_PTXT = Crypto.WinLoseExperiment("SymEnc.INT_PTXT", INT_PTXT_Game, INT_PTXT_Adversary)

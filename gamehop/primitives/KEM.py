@@ -38,7 +38,7 @@ class INDCPA_Random(Crypto.Game):
         r = self.adversary.guess(pk, ct, ss_rand)
         return r
 
-INDCPA = Crypto.DistinguishingExperimentRealOrRandom(INDCPA_Real, INDCPA_Random, INDCPA_Adversary)
+INDCPA = Crypto.DistinguishingExperimentRealOrRandom("KEM.INDCPA", INDCPA_Real, INDCPA_Random, INDCPA_Adversary)
 
 # an alternative formulation of INDCPA using a hidden bit
 # class INDCPA_HiddenBit(Crypto.Game):
