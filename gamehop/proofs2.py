@@ -36,11 +36,11 @@ class DistinguishingProofStep(ProofStep):
 class RewritingStep(ProofStep):
     def __init__(self, rewrite_left: Type[Crypto.Game], rewrite_right: Type[Crypto.Game]):
         self.rewrite_left = rewrite_left
-        self.rewrite_Right = rewrite_right
+        self.rewrite_right = rewrite_right
     def get_left_game(self): return self.rewrite_left
-    def get_left_src(self): return ast.unparse(utils.get_function_def(self.rewrite_left))
+    def get_left_src(self): return ast.unparse(utils.get_class_def(self.rewrite_left))
     def get_right_game(self): return self.rewrite_right
-    def get_right_src(self): return ast.unparse(utils.get_function_def(self.rewrite_right))
+    def get_right_src(self): return ast.unparse(utils.get_class_def(self.rewrite_right))
     def advantage(self): return "0 (Rewriting step)"
 
 class Proof():
@@ -85,19 +85,21 @@ class Proof():
             if isinstance(step, DistinguishingProofStep):
                 return f"reduction {utils.fqn(step.reduction)} inlined into game {utils.fqn(step.get_left_game())} for {utils.parentfqn(step.scheme)} scheme {utils.fqn(step.scheme)}"
             elif isinstance(step, RewritingStep):
-                return "rewriting step after rewriting"
+                return "rewriting step before rewriting"
         elif 0 < gamenum <= len(self.proof_steps) and before_hop: # use the reduction inlined into the right side of its experiment
             step = self.proof_steps[gamenum - 1]
             if isinstance(step, DistinguishingProofStep):
                 return f"reduction {utils.fqn(step.reduction)} inlined into game {utils.fqn(step.get_right_game())} for {utils.parentfqn(step.scheme)} scheme {utils.fqn(step.scheme)}"
             elif isinstance(step, RewritingStep):
-                return "rewriting step before rewriting"
+                return "rewriting step after rewriting"
         elif (gamenum == -1 or gamenum == len(self.proof_steps)) and not(before_hop): # use the final experiment
             if isinstance(self.experiment, Crypto.DistinguishingExperiment):
                 return f"game {utils.fqn(self.experiment.get_right())} with {utils.parentfqn(self.scheme)} scheme {utils.fqn(self.scheme)} inlined"
         raise NotImplementedError()
 
-    def check(self, print_hops=False, print_canonicalizations=False, show_call_graphs=False) -> bool:
+    def check(self, print_hops=False, print_canonicalizations=False, print_diffs=True, show_call_graphs=False, abort_on_failure=True) -> bool:
+        result = True
+        self.proof_checked = "valid"
         def print_hop(game_src, game_src_canonicalized):
             if print_hops:
                 print(game_src)
@@ -120,14 +122,14 @@ class Proof():
             print_hop(right_game_src, right_game_src_canonicalized)
             if left_game_src_canonicalized != right_game_src_canonicalized:
                 print("❌ canoncalizations are NOT equal")
-                utils.stringDiff(left_game_src_canonicalized, right_game_src_canonicalized)
+                if print_diffs: utils.stringDiff(left_game_src_canonicalized, right_game_src_canonicalized)
                 self.proof_checked = "invalid"
-                return False
+                result = False
+                if abort_on_failure: return result
             else:
                 print("✅ canoncalizations are equal")
 
-        self.proof_checked = "valid"
-        return True
+        return result
 
     def advantage_bound(self) -> str:
         if self.proof_checked == "unchecked":
@@ -141,4 +143,3 @@ class Proof():
             lines.append(step.advantage())
             if stepnum < len(self.proof_steps) - 1: lines.append("+")
         return "\n".join(lines)
-
