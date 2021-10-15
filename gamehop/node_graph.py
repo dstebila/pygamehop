@@ -87,7 +87,11 @@ class Graph():
             if v not in visited:
                 visited.append(v)
                 yield v
-                for n in self.out_neighbours(v, omit_overwrites):
+                # Visit the neighbours in reversed order.  We are visiting the entire graph
+                # somehow backwards (from start_points back to vertices they depend on) and
+                # we want that if we reverse that we would have the first neighbours referenced
+                # to come first
+                for n in reversed(self.out_neighbours(v, omit_overwrites)):
                     yield from self.depth_first_traverse_R([n], visited, omit_overwrites)
 
     def reachable_subgraph(self, start_points, omit_overwrites=False):
@@ -213,12 +217,18 @@ class GraphMaker(nt.NodeTraverser):
         # that are in the same scope.  If this is an inner scope, eg
         # FunctionDef then the overwritten variable reverts back
         # to the original value once we leave that scope.
-
         for var in stmt_scope.vars_stored:
             if old_scope.in_scope(var):
                 old_assigner = old_scope.var_value_assigner[var]
                 var_name = var + ':overwrite'
                 self.graphs[-1].add_edge(stmt, old_assigner, var_name)
+
+                # we also need to add edges to any statement that previously
+                # loaded this variable since they need to come before this
+                # statement in order to have the correct value
+                if var in self.graphs[-1].in_edges[old_assigner]:
+                   for u in self.graphs[-1].in_edges[old_assigner][var]:
+                       self.graphs[-1].add_edge(stmt, u, var_name)
         return ret
 
 

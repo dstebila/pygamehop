@@ -109,7 +109,7 @@ class TestNodeGraph(unittest.TestCase):
 
         new_body_stmts = [ s for s in G.depth_first_traverse([v4]) ]
 
-        self.assertEqual(new_body_stmts, [ v4, v3, v1, v0, v2 ])
+        self.assertEqual(new_body_stmts, [ v4, v1, v0, v2, v3 ])
 
     def test_graph_topological_order_traverse(self):
         def f():
@@ -307,9 +307,9 @@ class TestNodeGraph(unittest.TestCase):
 
         G.canonical_sort()
 
-        self.assertEqual(G.vertices, [v2, v1, v0, v3, v4, v5])
-        self.assertEqual(Gb.vertices, [v7, v6, v8])
-        self.assertEqual(Go.vertices, [v9, v10, v11])
+        self.assertEqual(G.vertices, [v0, v1, v2, v4, v3, v5])
+        self.assertEqual(Gb.vertices, [v6, v7, v8])
+        self.assertEqual(Go.vertices, [v10, v9, v11])
 
     def test_canonical_sort_multiple_assigns(self):
         def f():
@@ -327,7 +327,9 @@ class TestNodeGraph(unittest.TestCase):
         fdef = utils.get_function_def(f)
         f_node = ast.parse(fdef)
         G = ng.Graph.from_stmts(f_node.body)
+        G.print()
         G.canonical_sort()
+        G.print()
         f_node.body = G.vertices
         self.assertEqual(ast.unparse(f_node), expected_result(f_expected_result))
 

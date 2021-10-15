@@ -1,7 +1,7 @@
 import ast
 import copy
 import secrets
-from typing import cast, Dict, List, Optional, Union
+from typing import Dict, List, Union
 import matplotlib.pyplot
 import networkx
 
@@ -80,8 +80,7 @@ def canonicalize_line_order_new(f: ast.FunctionDef) -> None:
     G = ng.Graph.from_stmts(f.body)
     assert isinstance(f.body[-1], ast.Return)
     return_stmt = f.body[-1]
-    relevant_nodes = reversed([ v for v in G.depth_first_traverse([return_stmt]) ])
-    G = G.induced_subgraph(relevant_nodes)
+    G = G.reachable_subgraph([ return_stmt ], True)
     G.canonical_sort()
     f.body = G.vertices
 
