@@ -1,3 +1,4 @@
+import os
 from typing import cast, Tuple, Type
 
 import gamehop.inlining
@@ -49,8 +50,11 @@ class R1(PKE.INDCPA_Adversary, Crypto.Reduction): # This is an INDCPA adversary 
 
 proof1.add_distinguishing_proof_step(R1, PKE.INDCPA, PKE1)
 
-# assert proof1.check(print_hops=False, print_canonicalizations=False)
-# print(proof1.advantage_bound())
+assert proof1.check(print_hops=False, print_canonicalizations=False)
+print(proof1.advantage_bound())
+
+with open(os.path.join('examples', 'nestedPKE', 'nestedPKE_is_INDCPA_proof1.tex'), 'w') as fh:
+    fh.write(proof1.tikz_figure())
 
 # Second proof: If PKE2 is IND-CPA-secure, then NestedPKE[PKE1, PKE2] is IND-CPA-secure.
 # This is the statement we're trying to prove: NestedPKE is IND-CPA-secure.
@@ -156,3 +160,6 @@ proof2.add_distinguishing_proof_step(R2, PKE.INDCPA, PKE2)
 
 assert proof2.check(print_hops=False, print_canonicalizations=False, print_diffs=False, abort_on_failure=False)
 print(proof2.advantage_bound())
+
+with open(os.path.join('examples', 'nestedPKE', 'nestedPKE_is_INDCPA_proof2.tex'), 'w') as fh:
+    fh.write(proof2.tikz_figure())

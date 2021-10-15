@@ -188,7 +188,7 @@ def fqn(o) -> str:
         else: 
             module = o.__module__.replace('gamehop.primitives.', '')
             name = o.__name__.replace('Scheme', '')
-            if module == name: return module
+            if module.lower() == name.lower(): return name
             else: return f"{module}.{name}"
     else: return type(o).__name__
 

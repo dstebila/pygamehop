@@ -1,4 +1,5 @@
 import ast
+import jinja2
 from typing import List, Type
 
 from .primitives import Crypto
@@ -143,3 +144,19 @@ class Proof():
             lines.append(step.advantage())
             if stepnum < len(self.proof_steps) - 1: lines.append("+")
         return "\n".join(lines)
+
+    def tikz_figure(self):
+        env = jinja2.Environment(
+            loader=jinja2.PackageLoader("gamehop"),
+            trim_blocks=True, # https://stackoverflow.com/questions/33775085/is-it-possible-to-change-the-default-double-curly-braces-delimiter-in-polymer
+            block_start_string='≤%',
+            block_end_string='%≥',
+            variable_start_string='≤≤',
+            variable_end_string='≥≥'
+        )
+        env.filters['classname'] = lambda value: utils.fqn(value)
+        env.filters['type'] = lambda value: type(value).__name__
+        env.filters['isinstance'] = lambda value, type_to_test: isinstance(value, eval(type_to_test))
+        env.filters['texify'] = lambda value: value.replace('_', '\_')
+        template = env.get_template("tikz_figure.tex")
+        return template.render(proof=self)
