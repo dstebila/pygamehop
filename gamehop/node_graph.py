@@ -173,9 +173,20 @@ class Graph():
     def print(self):
         vertex_number = { v: i for i, v in enumerate(self.vertices) }
         print(vertex_number)
-        for v in self.vertices:
-            for var, n in self.out_edges[v].items():
+
+        print('Out edges')
+        print('-----------')
+        for v, inner_dict in self.out_edges.items():
+            for var, n in inner_dict.items():
                 print(f'{vertex_number[v]}, {var}: { vertex_number[n]}')
+
+        print('In edges')
+        print('------------')
+        for v, inner_dict in self.in_edges.items():
+            for var, neighbours in inner_dict.items():
+                n_str = repr([ vertex_number[u] for u in neighbours])
+                print(f'{vertex_number[v]}, {var}: {n_str}')
+
         for v, bodies in self.inner_graphs.items():
             print(v)
             for bodyname, bodygraph in bodies.items():
@@ -200,7 +211,14 @@ class GraphMaker(nt.NodeTraverser):
         stmt_scope = self.stmt_scopes[-1]
         for var in stmt_scope.external_vars:
             # TODO: if referencing a variable that was never defined, this next line will fail, exception instead?
-            assigning_stmt = self.var_value_assigner(var)
+            # At this point, if this statement both loads and assigns to the same variable then the var_assigner points to this statement!  
+            # Need to look at the scope previous to this statement to get the proper assigner.
+            assigning_stmt = old_scope.var_assigner(var) 
+            if not assigning_stmt:
+                for s in reversed(self.scopes[:-1]):
+                    assigning_stmt = s.var_assigner(var)
+                    if assigning_stmt: break
+
 
             # if this is an inner graph, then the assigning variable may not
             # be in this graph
@@ -217,9 +235,10 @@ class GraphMaker(nt.NodeTraverser):
         # that are in the same scope.  If this is an inner scope, eg
         # FunctionDef then the overwritten variable reverts back
         # to the original value once we leave that scope.
-        for var in stmt_scope.vars_stored:
-            if old_scope.in_scope(var):
-                old_assigner = old_scope.var_value_assigner[var]
+        for var in stmt_scope.unique_vars_in_scope():
+            store = self.local_scope().var_store(var)
+            if store.store_type == 'overwrite':
+                old_assigner = store.previous_assigner
                 var_name = var + ':overwrite'
                 self.graphs[-1].add_edge(stmt, old_assigner, var_name)
 

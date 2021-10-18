@@ -149,7 +149,8 @@ class TestNodeTraverser(unittest.TestCase):
         f_ast = ast.parse(utils.get_function_def(f))
         nnt = NewNodeTester()
         f_new_ast = nnt.visit(f_ast)
-        self.assertEqual(nnt.outer_scope_end.vars_stored, ['x', 'g', 'z'])
+        self.assertEqual(nnt.outer_scope_end.names_in_scope(), ['x', 'g', 'z'])
+        self.assertEqual(nnt.outer_scope_end.vars_in_scope(), ['x', 'g', 'z'])
 
     def test_scopes_if(self):
         class NewNodeTester(nt.NodeTraverser):
@@ -207,7 +208,7 @@ class TestNodeTraverser(unittest.TestCase):
         self.assertEqual(f_transformed, expected_result(f_expected_result))
         self.assertEqual(nnt.if_scope, [ 'a', 'b', 'c' ])
         self.assertEqual(nnt.orelse_scope, [ 'a', 'b', 'd' ])
-        self.assertEqual(nnt.end_scope, [ 'a', 'b' ])
+        self.assertEqual(nnt.end_scope, [ 'a', 'b'  ])
 
 
     def test_scopes_tuple_values(self):
@@ -254,20 +255,20 @@ class TestNodeTraverser(unittest.TestCase):
                 elif node.func.id == 'g':
                     assert('a' in self.vars_in_scope())
                 elif node.func.id == 'h':
-                    assert('a.b' in self.local_scope().vars_stored)
-                    assert(self.local_scope().var_values['a.b'].value == 1)
+                    assert('a.b' in self.local_scope().vars_in_scope())
+                    assert(self.local_scope().var_value('a.b').value == 1)
                 elif node.func.id == 'i':
                     assert('a.b' in self.local_scope().vars_loaded)
                 elif node.func.id == 'j':
-                    assert('a.b.c' in self.local_scope().vars_stored)
+                    assert('a.b.c' in self.local_scope().vars_in_scope())
                 elif node.func.id == 'k':
                     assert('a.b.c' in self.local_scope().vars_loaded)
                 elif node.func.id == 'l':
                     assert('a.blarg' not in self.local_scope().vars_loaded)
-                    assert('a.blarg' not in self.local_scope().vars_stored)
+                    assert('a.blarg' not in self.local_scope().vars_in_scope())
                 elif node.func.id == 'j':
-                    assert('a.d' in self.local_scope().vars_stored)
-                    assert('a.e' in self.local_scope().vars_stored)
+                    assert('a.d' in self.local_scope().vars_in_scope())
+                    assert('a.e' in self.local_scope().vars_in_scope())
 
                 return self.generic_visit(node)
 

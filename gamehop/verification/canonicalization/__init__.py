@@ -72,7 +72,7 @@ def assignee_vars(stmt: ast.Assign) -> List[str]:
 
 
 
-def canonicalize_line_order_new(f: ast.FunctionDef) -> None:
+def canonicalize_line_order(f: ast.FunctionDef) -> None:
     """Modify (in place) the given function definition to canonicalize the order of lines
     based on the order in which the returned variable depends on previous lines. Lines
     that do not affect the return variable are removed.  Assumes that the return statement
@@ -112,7 +112,7 @@ def remove_irrelvant_nodes(G, f):
     # remove all nodes that don't contribute to the return statement
     return G.subgraph(relevant_nodes).copy()
 
-def canonicalize_line_order(f: ast.FunctionDef) -> None:
+def canonicalize_line_order_old(f: ast.FunctionDef) -> None:
     """Modify (in place) the given function definition to canonicalize the order of lines
     based on the order in which the returned variable depends on previous lines. Lines
     that do not affect the return variable are removed.  Assumes that the return statement
@@ -164,7 +164,7 @@ class ArgumentReorderer(nt.NodeTraverser):
         # visit the body to get the scope set up
         node = self.generic_visit(node)
         s = self.local_scope()
-        node.args.args = [ ast.arg(arg = a, annotation = s.var_annotations[a]) for a in s.parameters_loaded ]
+        node.args.args = [ ast.arg(arg = a, annotation = s.parameter_annotations[a]) for a in s.parameters_loaded ]
         return node
 
 def canonicalize_argument_order(f: ast.FunctionDef) -> None:

@@ -140,21 +140,3 @@ class TestCanonicalize(unittest.TestCase):
             expected_result(f_expected_result)
         )
 
-    def test_weird(self):
-        def f():
-            (a, b) = A()
-            c = C()
-            c.x = a
-            c.y = b
-            return c
-        def f_expected_result():
-            (v0, v1) = A()
-            v2 = C()
-            v2.x = v0
-            v2.y = v1
-            return v2
-        fdef = gamehop.utils.get_function_def(f)
-        self.assertEqual(
-            gamehop.verification.canonicalize_function(fdef),
-            expected_result(f_expected_result)
-        )
