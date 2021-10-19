@@ -35,8 +35,8 @@ class R1(PKE.INDCPA_Adversary, Crypto.Reduction): # This is an INDCPA adversary 
         # Use the NestedPKE adversary to generate the two challenge messages.
         # To construct the NestedPKE public key, we use the PKE1 public key given 
         # by the INDCPA challenger for PKE1, and generate the PKE2 keypair ourselves.
-        (self.pk2, self.sk2) = PKE2.KeyGen()
-        pk_double = NestedPKE.PublicKey(pk1, self.pk2)
+        (pk2, sk2) = PKE2.KeyGen()
+        pk_double = NestedPKE.PublicKey(pk1, pk2)
         (m0, m1) = self.inner_adversary.challenge(pk_double)
         return (m0, m1)
     def guess(self, ct1: PKE1.Ciphertext) -> Crypto.Bit:
@@ -44,13 +44,13 @@ class R1(PKE.INDCPA_Adversary, Crypto.Reduction): # This is an INDCPA adversary 
         # construct a NestedPKE ciphertext by encrypting it under the PKE2 public key,
         # then pass the NestedPKE ciphertext to the NestedPKE adversary.
         pt2 = cast(PKE2.Message, ct1) # Treat the PKE1 ciphertext as a PKE2 message
-        ct2 = PKE2.Encrypt(self.pk2, pt2)
+        ct2 = PKE2.Encrypt(pk2, pt2)
         ctprime = cast(NestedPKE.Ciphertext, ct2) # Treat the PKE2 ciphertext as a NestedPKE ciphertext
         return self.inner_adversary.guess(ctprime)
 
 proof1.add_distinguishing_proof_step(R1, PKE.INDCPA, PKE1)
 
-assert proof1.check(print_hops=False, print_canonicalizations=False)
+assert proof1.check(print_hops=True, print_canonicalizations=True)
 print(proof1.advantage_bound())
 
 with open(os.path.join('examples', 'nestedPKE', 'nestedPKE_is_INDCPA_proof1.tex'), 'w') as fh:
