@@ -135,6 +135,7 @@ class TestCollapseAssigns(unittest.TestCase):
             ast.unparse(fdef),
             expected_result(f_expected_result)
         )
+
     def test_attributes(self):
         def f():
             (a,b) = A()
@@ -157,5 +158,66 @@ class TestCollapseAssigns(unittest.TestCase):
             expected_result(f_expected_result)
         )
 
+    def test_attribute_collapse(self):
+        def g(): pass
+        def f(z):
+            a = g()
+            a.b = z
+            return a.b
+
+        def f_expected_result(z):
+            a = g()
+            a.b = z
+            return z 
+
+        fdef = gamehop.utils.get_function_def(f)
+        gamehop.verification.canonicalization.collapse_useless_assigns(fdef)
+        self.assertEqual(
+            ast.unparse(fdef),
+            expected_result(f_expected_result)
+        )
+
+    def test_attribute_collapse_2(self):
+        def g(): pass
+        def f(z, x):
+            a = g()
+            a.b = z
+            a.c = x
+            return a.b
+
+        def f_expected_result(z,x):
+            a = g()
+            a.b = z
+            a.c = x
+            return z 
+
+        fdef = gamehop.utils.get_function_def(f)
+        gamehop.verification.canonicalization.collapse_useless_assigns(fdef)
+        self.assertEqual(
+            ast.unparse(fdef),
+            expected_result(f_expected_result)
+        )
+
+
+    def test_attribute_collapse_no(self):
+        def g(): pass
+        def f(z):
+            a = g()
+            a.b = z
+            a = g()
+            return a.b
+
+        def f_expected_result(z):
+            a = g()
+            a.b = z
+            a = g()
+            return a.b 
+
+        fdef = gamehop.utils.get_function_def(f)
+        gamehop.verification.canonicalization.collapse_useless_assigns(fdef)
+        self.assertEqual(
+            ast.unparse(fdef),
+            expected_result(f_expected_result)
+        )
 
 

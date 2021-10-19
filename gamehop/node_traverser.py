@@ -134,6 +134,14 @@ class Scope():
 
         self.stores.append(Store(varname, value, assigner, store_type, old_assigner, annotation))
 
+        # If an object has been overwritten, then we need to invalidate the values of any of its attributes.
+        # For this to work correctly, we depend on the fact that object stores are added before stores of
+        # attributes
+        if store_type != 'attribute':
+            for v in (v for v in self.vars_in_scope() if v.startswith(varname + '.')):
+                old_assigner = self.var_assigner(v)
+                self.stores.append(Store(v, NoValue(), assigner, store_type, old_assigner, None))
+
     def add_var_load(self, varname):
         ''' Adds the given variable name to the scope, treat as a load.  If this name is
         already known as a parameter or variable in this scope, then records this reference
