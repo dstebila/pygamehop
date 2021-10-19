@@ -531,7 +531,6 @@ class NodeTraverser():
                 value = NoValue()
 
             self.add_var_store(v, value, node, None)
-            #TODO: if both assign same value, then we can add that value rather than NoValue
 
         # all done fixing the scopes
 
