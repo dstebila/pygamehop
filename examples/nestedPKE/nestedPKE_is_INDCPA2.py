@@ -38,12 +38,14 @@ class R1(PKE.INDCPA_Adversary, Crypto.Reduction): # This is an INDCPA adversary 
         (pk2, sk2) = PKE2.KeyGen()
         pk_double = NestedPKE.PublicKey(pk1, pk2)
         (m0, m1) = self.inner_adversary.challenge(pk_double)
+        self.pk2 = pk2
         return (m0, m1)
     def guess(self, ct1: PKE1.Ciphertext) -> Crypto.Bit:
         # Given the challenge PKE1 ciphertext from the INDCPA challenger for PKE1,
         # construct a NestedPKE ciphertext by encrypting it under the PKE2 public key,
         # then pass the NestedPKE ciphertext to the NestedPKE adversary.
         pt2 = cast(PKE2.Message, ct1) # Treat the PKE1 ciphertext as a PKE2 message
+        pk2 = self.pk2
         ct2 = PKE2.Encrypt(pk2, pt2)
         ctprime = cast(NestedPKE.Ciphertext, ct2) # Treat the PKE2 ciphertext as a NestedPKE ciphertext
         return self.inner_adversary.guess(ctprime)
