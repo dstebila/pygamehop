@@ -135,3 +135,27 @@ class TestCollapseAssigns(unittest.TestCase):
             ast.unparse(fdef),
             expected_result(f_expected_result)
         )
+    def test_attributes(self):
+        def f():
+            (a,b) = A()
+            (c,d) = B()
+            e = C()
+            e.a = a
+            e.b = c
+
+        def f_expected_result():
+            (a,b) = A()
+            (c,d) = B()
+            e = C()
+            e.a = a
+            e.b = c
+
+        fdef = gamehop.utils.get_function_def(f)
+        gamehop.verification.canonicalization.collapse_useless_assigns(fdef)
+        self.assertEqual(
+            ast.unparse(fdef),
+            expected_result(f_expected_result)
+        )
+
+
+

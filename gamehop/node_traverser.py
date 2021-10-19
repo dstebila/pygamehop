@@ -398,7 +398,7 @@ class NodeTraverser():
             # for a all names up to the last, this overwrites an attribute, not the whole thing
             for n in fqn[:-1]:
                 varname = varname + n
-                self.add_var_store(varname, value, s, 'attribute')
+                self.add_var_store(varname, NoValue(), s, 'attribute')
                 varname = varname + '.'
         
             # The full name is assigned/overwritten
