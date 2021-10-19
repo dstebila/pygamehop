@@ -355,3 +355,27 @@ class TestNodeTraverser(unittest.TestCase):
             node_names,
             [ 'g', 'h', 'g', 'h' ]
        )
+
+    def test_if_same_value(self):
+        class NewNodeTester(nt.NodeTraverser):
+            def visit_Call(self, node):
+                if node.func.id == 'g':
+                    self.a_val = self.var_value('a')
+                return node
+
+
+        def g(): pass
+
+        def f(t,u):
+            if t:
+                a = u
+            else:
+                a = u
+            g(a)
+
+        nnt = NewNodeTester()
+        f_ast = ast.parse(utils.get_function_def(f))
+        nnt.visit(f_ast)
+        self.assertEqual(ast.unparse(nnt.a_val), 'u')
+
+

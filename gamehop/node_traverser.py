@@ -523,7 +523,14 @@ class NodeTraverser():
         vars_in_scopes = ifscope.names_in_scope() + elsescope.names_in_scope()  # all variables assigned in the bodies, with multiplicity
         vars_to_store = unique_elements([ v for v in vars_in_scopes if (vars_in_scopes.count(v) == 2 or self.in_local_scope(v)) ])
         for v in vars_to_store:
-            self.add_var_store(v, NoValue(), node, None)
+            bodyvalue = ifscope.var_value(v)
+            orelsevalue = elsescope.var_value(v)
+            if ast.unparse(bodyvalue) == ast.unparse(orelsevalue):
+                value = bodyvalue
+            else:
+                value = NoValue()
+
+            self.add_var_store(v, value, node, None)
             #TODO: if both assign same value, then we can add that value rather than NoValue
 
         # all done fixing the scopes
