@@ -449,3 +449,25 @@ class TestNodeGraph(unittest.TestCase):
         G.canonical_sort()
         f_node.body = G.vertices
         self.assertEqual(ast.unparse(f_node), expected_result(f_expected_result))  
+
+
+    def test_attribute_assignment_2(self):
+        def A(): pass
+        def C(): pass
+
+        def f(c):
+            a = A()
+            a.b = c
+            return a.e
+
+        def f_expected_result(c):
+            a = A()
+            return a.e
+
+        fdef = utils.get_function_def(f)
+        f_node = ast.parse(fdef)       
+        G = ng.Graph.from_stmts(f_node.body)
+        G = G.reachable_subgraph([ G.vertices[-1] ], True )
+        G.canonical_sort()
+        f_node.body = G.vertices
+        #self.assertEqual(ast.unparse(f_node), expected_result(f_expected_result))  

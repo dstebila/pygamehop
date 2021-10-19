@@ -116,6 +116,7 @@ class Scope():
     def __init__(self):
         self.parameters = list()            # function parameters defined in this scope
         self.vars_loaded = list()           # variables that have been loaded, in order by first load
+        self.load_type = dict()             # type of load (attribute or whatever).  key = var, value = load type
         self.external_vars = list()         # variables loaded that were not previously stored and are not parameters
         self.parameters_loaded = list()     # parameters that have been read by a load, in order by first load
         self.parameter_annotations = dict() # most recent type annotation for a variable
@@ -142,13 +143,14 @@ class Scope():
                 old_assigner = self.var_assigner(v)
                 self.stores.append(Store(v, NoValue(), assigner, store_type, old_assigner, None))
 
-    def add_var_load(self, varname):
+    def add_var_load(self, varname, load_type = None):
         ''' Adds the given variable name to the scope, treat as a load.  If this name is
         already known as a parameter or variable in this scope, then records this reference
         and returns True. If the name is not in this scope then returns False
         '''
         # variables stored will always assigned after the start of the function, so if this
         # has happened then a Load refers to the stored variable, not a parameter
+        self.load_type[varname] = load_type
         if self.in_scope(varname):
             append_if_unique(self.vars_loaded, varname)
             return True
@@ -186,8 +188,16 @@ class Scope():
 
         return None
 
-    def var_assigner(self, var:str) -> Optional[ast.stmt]:
-        store = self.var_store(var)
+    def var_assigner(self, var:str, ignore_attribute_assigns = False) -> Optional[ast.stmt]:
+        if ignore_attribute_assigns:
+            stores = [ s for s in self.stores if s.var == var and s.store_type != 'attribute' ]
+            if len(stores) > 0:
+                store = stores[-1]
+            else:
+                store = None
+        else:
+            store = self.var_store(var)
+
         if store:
             return store.assigner
 
@@ -204,6 +214,12 @@ class Scope():
         store = self.var_store(var)
         if store:
             return store.store_type
+
+        return None
+    def var_load_type(self, var:str) -> Optional[str]:
+        print(var, self.load_type)
+        if var in self.load_type:
+            return self.load_type[var]
 
         return None
 
@@ -372,21 +388,21 @@ class NodeTraverser():
 
         return None
 
-    def add_var_load(self, varname):
+    def add_var_load(self, varname, load_type = None):
         ''' Add the variable name to the current scope as a load.  If it is not
         in scope, then continue adding the outer scopes until either the
         variable is found in a scope, or we reach the outermost scope.
         '''
         for s in reversed(self.scopes):
-            if s.add_var_load(varname):
+            if s.add_var_load(varname, load_type):
                 break
         for s in reversed(self.block_scopes):
-            if s.add_var_load(varname):
+            if s.add_var_load(varname, load_type):
                 break
 
         # For statement we don't want to search up the stack of scopes since
         # these will not capture all variable assigns
-        self.local_stmt_scope().add_var_load(varname)
+        self.local_stmt_scope().add_var_load(varname, load_type)
 
     def add_var_store(self, varname: str, value: Union[ast.expr, NoValue], s: ast.stmt, store_type: Optional[str]) -> None:
         ''' Add a variable name to scope, storing the associated value expression
@@ -542,8 +558,65 @@ class NodeTraverser():
 
         # all done fixing the scopes
 
+        # TODO: What about variable loads?  We got rid of them by reverting to old_scope
         self.pop_parent()
         return node
+
+    def visit_While_test(self, t):
+        return self.visit(t)
+
+    def visit_While_body(self, body):
+        return self.visit_stmts(body)
+   
+    def visit_While_orelse(self, body):
+        return self.visit_stmts(body)
+
+    def visit_While(self, node):
+        self.push_parent(node)
+
+        # Whiles need special attention when dealing with scopes because a variable may be assigned to
+        # in the body or the orelse.  Also, we can't really know what the values of any variables are
+        # because they can change on each iteration of the loop, and we won't know if a break
+        # causes the orelse to be skipped
+
+        # no problem with scopes for the test!
+        node.test = self.visit_While_test(node.test)
+
+        # remember variables and values currently in the local scope to help fix things up later
+        old_scope = self.local_scope().copy()
+
+        # TODO: any values for variables in scope might be invalid because they are overwritten in 
+        # the loop, and hence wrong for subsequent iterations.  But we don't know until after
+        # we process the loop!
+
+        # create a new block level scope for the body to keep track of its loads and stores
+        self.new_block_scope()
+        node.body = self.visit_While_body(node.body)
+        bodyscope = self.pop_block_scope()
+
+        # For variables stored by the body, we can't be sure about what the value is since
+        # in can change every iteration, or there can be no iterations. Overwrite those 
+        # stores with NoValue and the While node as the assigner.
+        for v in bodyscope.vars_in_scope():
+            self.add_var_store(v, NoValue(), node, None)
+
+        # create a new block level scope for the orelse to keep track of its loads and stores
+        self.new_block_scope()
+        node.orelse = self.visit_While_orelse(node.orelse)
+        elsescope = self.pop_block_scope()
+
+        # If the else body stored a variable, then we add a new store with NoValue as the value
+        # and the While node as the assigner indicating that the While statement may have stored 
+        # the variable but we can't be sure what its value is
+        for v in elsescope.vars_in_scope():
+            self.add_var_store(v, NoValue(), node, None)
+
+        # all done fixing the scopes
+
+        self.pop_parent()
+        return node
+
+
 
     # Internal visitors
     def _visit_Assign(self, node):
@@ -576,8 +649,14 @@ class NodeTraverser():
             if isinstance(self.parent(), ast.Call):
                 return node
 
+            # if this is in an ast.Attribute, then this value isn't being loaded, but an attribute of it is.
+            if isinstance(self.parent(), ast.Attribute):
+                load_type = 'attribute'
+            else:
+                load_type = None
+
             varname = ".".join(attribute_fqn(node))
-            self.add_var_load(varname)
+            self.add_var_load(varname, load_type)
 
         return node
 
@@ -631,7 +710,16 @@ class NodeTraverser():
         if not isinstance(node, ast.Name): return node
 
         if isinstance(node.ctx, ast.Load):
-            self.add_var_load(node.id)
+            # if this is in an ast.Attribute, then this value isn't being loaded, but an attribute of it is.
+            print(self.parent())
+            if isinstance(self.parent(), ast.Attribute):
+                print('attribute load', node.id)
+                load_type = 'attribute'
+            else:
+                load_type = None
+
+
+            self.add_var_load(node.id, load_type)
         return node
 
     # parent class visitors
