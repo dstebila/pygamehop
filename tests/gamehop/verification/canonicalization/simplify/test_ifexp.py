@@ -27,7 +27,7 @@ def expected_result(f):
     return ast.unparse(fdef)
 
 class TestSimplifyIfExp(unittest.TestCase):
-    def test_ifexp(self):
+    def test_ifexp_constant_test(self):
         f = gamehop.utils.get_function_def(f_ifexp)
         f = simplify.simplify(f)
         self.assertEqual(
@@ -35,7 +35,22 @@ class TestSimplifyIfExp(unittest.TestCase):
             expected_result(f_ifexp_expected_result)
         )
 
-    def test_if(self):
+    def test_ifexp_body_equals_orelse(self):
+        def f(b,c):
+            a = b if c else b
+
+        def f_expected_result(b,c):
+            a = b
+
+        f_def = gamehop.utils.get_function_def(f)
+        f_def = simplify.simplify(f_def)
+        self.assertEqual(
+            ast.unparse(f_def),
+            expected_result(f_expected_result)
+        )
+
+
+    def test_if_constant_test(self):
         def f(y):
             if y:
                 z = 1
@@ -83,4 +98,20 @@ class TestSimplifyIfExp(unittest.TestCase):
             expected_result(f_expected_result)
         )
 
+    def test_if_body_equals_orelse(self):
+        def f(b,c):
+            if c:
+                a = b
+            else:
+                a = b
+
+        def f_expected_result(b,c):
+            a = b
+
+        f_def = gamehop.utils.get_function_def(f)
+        f_def = simplify.simplify(f_def)
+        self.assertEqual(
+            ast.unparse(f_def),
+            expected_result(f_expected_result)
+        )
 

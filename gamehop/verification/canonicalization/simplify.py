@@ -1,6 +1,4 @@
 import ast
-import copy
-from .. import utils
 from ... import node_traverser as nt
 
 
@@ -141,15 +139,29 @@ class NodeSimplifier(nt.NodeTraverser):
 
     def visit_IfExp(self, node):
         node = self.generic_visit(node)
-        if not(isinstance(node.test, ast.Constant)): return node
-        return node.body if node.test.value else node.orelse
+
+        # a if True else b
+        if isinstance(node.test, ast.Constant): 
+            return node.body if node.test.value else node.orelse
+
+        # a if test else a
+        if ast.unparse(node.body) == ast.unparse(node.orelse):
+            return node.body
+    
+        return node
 
     def visit_If(self, node):
         node = self.generic_visit(node)
-        if not(isinstance(node.test, ast.Constant)): return node
-        return node.body if node.test.value else node.orelse
 
+        # a if True else b
+        if isinstance(node.test, ast.Constant): 
+            return node.body if node.test.value else node.orelse
 
+        # a if test else a
+        if ast.unparse(node.body) == ast.unparse(node.orelse):
+            return node.body
+    
+        return node
 
 
 def simplify(f: ast.stmt) -> ast.stmt:
