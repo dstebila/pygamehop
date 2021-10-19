@@ -144,6 +144,12 @@ class NodeSimplifier(nt.NodeTraverser):
         if not(isinstance(node.test, ast.Constant)): return node
         return node.body if node.test.value else node.orelse
 
+    def visit_If(self, node):
+        node = self.generic_visit(node)
+        if not(isinstance(node.test, ast.Constant)): return node
+        return node.body if node.test.value else node.orelse
+
+
 
 
 def simplify(f: ast.stmt) -> ast.stmt:
