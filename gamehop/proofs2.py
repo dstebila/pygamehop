@@ -121,6 +121,12 @@ class Proof():
             right_game_src = self.get_game_src(gamenum, False)
             right_game_src_canonicalized = verification.canonicalize_game(right_game_src)
             print_hop(right_game_src, right_game_src_canonicalized)
+
+            if gamenum < len(self.proof_steps) and isinstance(self.proof_steps[gamenum], RewritingStep) and print_hops:
+                step = self.proof_steps[gamenum]
+                print(f"---- diff of rewriting step ----")
+                utils.stringDiff(step.get_left_src(), step.get_right_src())
+
             if left_game_src_canonicalized != right_game_src_canonicalized:
                 print("❌ canoncalizations are NOT equal")
                 if print_diffs: utils.stringDiff(left_game_src_canonicalized, right_game_src_canonicalized)
