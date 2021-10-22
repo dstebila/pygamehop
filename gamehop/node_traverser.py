@@ -217,7 +217,6 @@ class Scope():
 
         return None
     def var_load_type(self, var:str) -> Optional[str]:
-        print(var, self.load_type)
         if var in self.load_type:
             return self.load_type[var]
 
@@ -711,9 +710,7 @@ class NodeTraverser():
 
         if isinstance(node.ctx, ast.Load):
             # if this is in an ast.Attribute, then this value isn't being loaded, but an attribute of it is.
-            print(self.parent())
             if isinstance(self.parent(), ast.Attribute):
-                print('attribute load', node.id)
                 load_type = 'attribute'
             else:
                 load_type = None
