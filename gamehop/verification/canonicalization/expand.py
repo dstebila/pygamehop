@@ -43,5 +43,5 @@ def expand_non_compact_expressions(f: ast.FunctionDef) -> None:
     as a statement (in an Expr).  New assignments to intermediate values are
     created if necessary to make this so."""
 
-    ExpandNonCompactExpressions(var_format = "φ{:d}").visit(f)
+    f.body = ExpandNonCompactExpressions(var_format = "φ{:d}").visit_statements(f.body)
     ast.fix_missing_locations(f)

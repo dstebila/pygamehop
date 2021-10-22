@@ -1,6 +1,7 @@
 import ast
 import inspect
 import unittest
+from typing import Type
 
 import gamehop.inlining.internal
 import gamehop.verification.canonicalization.expand as expand
@@ -34,12 +35,13 @@ class TestExpandCallArguments(unittest.TestCase):
             expected_result(f_expected_result)
         )
     def test_function_call_in_return(self):
+        class Potato: pass
         def g(x):
             return x
-        def f(z):
+        def f(z: Type[Potato]):
             return g(z)
 
-        def f_expected_result(z):
+        def f_expected_result(z: Type[Potato]):
             φ0 = g  (z)
             return φ0
 
