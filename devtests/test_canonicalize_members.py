@@ -45,4 +45,23 @@ class TestCanonicalizeMembers(unittest.TestCase):
             def g(v0): return True
         c = gamehop.utils.get_class_def(C)
         s = gamehop.verification.canonicalize_game(c)
-        self.assertEqual(s, expected_result(C_expected_result) )
+        self.assertEqual(s, expected_result(C_expected_result))
+
+    def test_doesnt_need_to_be_a_member(self):
+        class C:
+            def f(self):
+                self.a = list(1)
+                b = self.c()
+                r = b + self.a
+                return r
+            def g(self): return True
+        class C_expected_result:
+            def f(v0):
+                v1 = list(1)
+                v2 = v0.c()
+                v3 = v2 + v1
+                return v3
+            def g(v0): return True
+        c = gamehop.utils.get_class_def(C)
+        s = gamehop.verification.canonicalize_game(c)
+        self.assertEqual(s, expected_result(C_expected_result))
