@@ -59,21 +59,27 @@ def canonicalize_function(f: Union[Callable, str]) -> str:
 
 def canonicalize_game(c: Union[Type[Any], str, ast.ClassDef]) -> str:
     cdef = utils.get_class_def(c)
+    cdef.name = "G"
     for i, f in enumerate(cdef.body):
         if not isinstance(f, ast.FunctionDef):
             raise ValueError(f"Cannot canonicalize games containing anything other than functions; {cdef.name} contains a node of type {type(f).__name__}")
-        ifstatements.if_statements_to_expressions(f)
-        debug_helper(f, "ifstatements.if_statements_to_expressions")
-        expand.expand_non_compact_expressions(f)
-        debug_helper(f, "expand.expand_non_compact_expressions")
-        canonicalization.collapse_useless_assigns(f)
-        debug_helper(f, "canonicalization.collapse_useless_assigns")
-        canonicalization.simplify.simplify(f)
-        debug_helper(f, "canonicalization.simplify.simplify")
-        if f.name != "__init__":
-            canonicalization.canonicalize_line_order(f)
-            debug_helper(f, "canonicalization.canonicalize_line_order")
-        canonicalization.canonicalize_variable_names(f)
-        debug_helper(f, "canonicalization.canonicalize_variable_names")
+        str_previous = ""
+        str_current = ast.unparse(ast.fix_missing_locations(f))
+        while str_previous != str_current:
+            str_previous = str_current
+            ifstatements.if_statements_to_expressions(f)
+            debug_helper(f, "ifstatements.if_statements_to_expressions")
+            expand.expand_non_compact_expressions(f)
+            debug_helper(f, "expand.expand_non_compact_expressions")
+            canonicalization.collapse_useless_assigns(f)
+            debug_helper(f, "canonicalization.collapse_useless_assigns")
+            canonicalization.simplify.simplify(f)
+            debug_helper(f, "canonicalization.simplify.simplify")
+            if f.name != "__init__":
+                canonicalization.canonicalize_line_order(f)
+                debug_helper(f, "canonicalization.canonicalize_line_order")
+            canonicalization.canonicalize_variable_names(f)
+            debug_helper(f, "canonicalization.canonicalize_variable_names")
+            str_current = ast.unparse(ast.fix_missing_locations(f))
         cdef.body[i] = f
     return ast.unparse(ast.fix_missing_locations(cdef))
