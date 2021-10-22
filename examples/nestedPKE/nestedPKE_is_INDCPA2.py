@@ -52,7 +52,9 @@ class R1(PKE.INDCPA_Adversary, Crypto.Reduction): # This is an INDCPA adversary 
 
 proof1.add_distinguishing_proof_step(R1, PKE.INDCPA, PKE1)
 
-assert proof1.check(print_hops=True, print_canonicalizations=True)
+assert proof1.check(print_hops=True, print_canonicalizations=False, print_diffs=True, abort_on_failure=False)
+proof1.check(print_hops=True, print_canonicalizations=False, print_diffs=True, abort_on_failure=False)
+print("Theorem 1:")
 print(proof1.advantage_bound())
 
 with open(os.path.join('examples', 'nestedPKE', 'nestedPKE_is_INDCPA_proof1.tex'), 'w') as fh:
@@ -64,64 +66,76 @@ proof2 = Proof(NestedPKE, PKE.INDCPA)
 
 # Game 0 is the NestedPKE scheme inlined into PKE.INDCPA_Left (where m0 is encrypted).
 
-# We want to hop to a gme that encrypts m1 rather than m0.  Before we can do that,
+# We want to hop to a game that encrypts m1 rather than m0.  Before we can do that,
 # we need to codify an implicit assumption in NestedPKE, encryptions of equal-length
 # messages yield equal-length ciphertexts.
 # This will be done by a rewriting step.
 
+INDCPA_Adversary = PKE.INDCPA_Adversary
+
 class Rewrite0_Left(Crypto.Game):
 
-    def __init__(v0, v1):
-        v0.Scheme = v2
-        v2.adversary = v1(v2)
+    def __init__(v0, v1: Type[INDCPA_Adversary]):
+        v0.Scheme = NestedPKE
+        v0.adversary = v1(NestedPKE)
 
     def main(v0) -> Crypto.Bit:
-        (v0.pk1, v0.sk1) = PKE1.KeyGen()
-        (v1, v2) = PKE2.KeyGen()
-        (v3, v4) = v0.adversary.challenge(v1)
-        v5 = len(v3)
-        v6 = len(v4)
-        v0.ok = v5 == v6
-        v7 = PKE1.Encrypt(v0.pk1, v3)
-        v8 = PKE2.Encrypt(v1, v7)
-        v9 = PKE1.Encrypt(v0.pk1, v4)
-        v10 = cast(NestedPKE.Ciphertext, v8)
-        v11 = len(v7)
-        v12 = len(v9)
-        v13 = v0.adversary.guess(v10)
-        v14 = Crypto.Bit(0)
-        v15 = True
-        v16 = v13 if v0.ok else v14
-        v17 = Crypto.Bit(0)
-        v18 = v16 if v15 else v17
-        return v18
+        v1 = NestedPKE.PublicKey.__new__(NestedPKE.PublicKey)
+        (v2, v3) = PKE1.KeyGen()
+        v1.pk1 = v2
+        (v4, v5) = PKE2.KeyGen()
+        v1.pk2 = v4
+        (v6, v7) = v0.adversary.challenge(v1)
+        v8 = PKE1.Encrypt(v2, v6)
+        v9 = cast(PKE2.Message, v8)
+        v10 = PKE1.Encrypt(v2, v7)
+        v11 = len(v6)
+        v12 = len(v7)
+        v13 = PKE2.Encrypt(v4, v9)
+        v14 = cast(PKE2.Message, v10)
+        v0ok = v11 == v12
+        v15 = cast(NestedPKE.Ciphertext, v13)
+        v16 = len(v9)
+        v17 = len(v14)
+        v18 = v0.adversary.guess(v15)
+        v19 = Crypto.Bit(0)
+        v20 = True
+        v21 = v18 if v0ok else v19
+        v22 = Crypto.Bit(0)
+        v23 = v21 if v20 else v22
+        return v23
 
 class Rewrite0_Right(Crypto.Game):
 
-    def __init__(v0, v1):
-        v0.Scheme = v2
-        v2.adversary = v1(v2)
+    def __init__(v0, v1: Type[INDCPA_Adversary]):
+        v0.Scheme = NestedPKE
+        v0.adversary = v1(NestedPKE)
 
     def main(v0) -> Crypto.Bit:
-        (v0.pk1, v0.sk1) = PKE1.KeyGen()
-        (v1, v2) = PKE2.KeyGen()
-        (v3, v4) = v0.adversary.challenge(v1)
-        v5 = len(v3)
-        v6 = len(v4)
-        v0.ok = v5 == v6
-        v7 = PKE1.Encrypt(v0.pk1, v3)
-        v8 = PKE2.Encrypt(v1, v7)
-        v9 = PKE1.Encrypt(v0.pk1, v4)
-        v10 = cast(NestedPKE.Ciphertext, v8)
-        v11 = len(v7)
-        v12 = len(v9)
-        v13 = v0.adversary.guess(v10)
-        v14 = Crypto.Bit(0)
-        v15 = v11 == v12
-        v16 = v13 if v0.ok else v14
-        v17 = Crypto.Bit(0)
-        v18 = v16 if v15 else v17
-        return v18
+        v1 = NestedPKE.PublicKey.__new__(NestedPKE.PublicKey)
+        (v2, v3) = PKE1.KeyGen()
+        v1.pk1 = v2
+        (v4, v5) = PKE2.KeyGen()
+        v1.pk2 = v4
+        (v6, v7) = v0.adversary.challenge(v1)
+        v8 = PKE1.Encrypt(v2, v6)
+        v9 = cast(PKE2.Message, v8)
+        v10 = PKE1.Encrypt(v2, v7)
+        v11 = len(v6)
+        v12 = len(v7)
+        v13 = PKE2.Encrypt(v4, v9)
+        v14 = cast(PKE2.Message, v10)
+        v0.ok = v11 == v12
+        v15 = cast(NestedPKE.Ciphertext, v13)
+        v16 = len(v9)
+        v17 = len(v14)
+        v18 = v0.adversary.guess(v15)
+        v19 = Crypto.Bit(0)
+        v20 = v16 == v17
+        v21 = v18 if v0.ok else v19
+        v22 = Crypto.Bit(0)
+        v23 = v21 if v20 else v22
+        return v23
 
 proof2.add_rewriting_proof_step(Rewrite0_Left, Rewrite0_Right)
 
@@ -143,13 +157,15 @@ class R2(PKE.INDCPA_Adversary, Crypto.Reduction): # This is an INDCPA adversary 
         # Once we get the challenge messages from the adversary, we have to encrypt
         # them under PKE1 so that the ciphertext we will eventually get back from
         # the PKE2 challenger is a NestedPKE ciphertext
-        (self.pk1, self.sk1) = PKE1.KeyGen()
-        pk_double = NestedPKE.PublicKey(self.pk1, pk2)
+        (pk1, sk1) = PKE1.KeyGen()
+        pk_double = NestedPKE.PublicKey(pk1, pk2)
         (m0, m1) = self.inner_adversary.challenge(pk_double)
         self.ok = len(m0) == len(m1)
-        i0 = PKE1.Encrypt(self.pk1, m0)
-        i1 = PKE1.Encrypt(self.pk1, m1)
-        return (i0, i1)
+        i0 = PKE1.Encrypt(pk1, m0)
+        i1 = PKE1.Encrypt(pk1, m1)
+        c0 = cast(PKE2.Message, i0)
+        c1 = cast(PKE2.Message, i1)
+        return (c0, c1)
     def guess(self, ct2: PKE2.Ciphertext) -> Crypto.Bit:
         # The challenge PKE2 ciphertext from the INDCPA challenger for PKE2 contains
         # a PKE1 ciphertext of either m0 or m1, so it is immediately the NestedPKE 
@@ -160,7 +176,78 @@ class R2(PKE.INDCPA_Adversary, Crypto.Reduction): # This is an INDCPA adversary 
 
 proof2.add_distinguishing_proof_step(R2, PKE.INDCPA, PKE2)
 
-assert proof2.check(print_hops=False, print_canonicalizations=False, print_diffs=False, abort_on_failure=False)
+# Need to codify an implicit assumption in NestedPKE that encryptions of equal-length
+# messages yield equal-length ciphertexts.
+# This will be done by a rewriting step.
+
+class Rewrite2_Left(Crypto.Game):
+
+    def __init__(v0, v1: Type[INDCPA_Adversary]):
+        v0.Scheme = NestedPKE
+        v0.adversary = v1(NestedPKE)
+
+    def main(v0) -> Crypto.Bit:
+        v1 = NestedPKE.PublicKey.__new__(NestedPKE.PublicKey)
+        (v2, v3) = PKE1.KeyGen()
+        v1.pk1 = v2
+        (v4, v5) = PKE2.KeyGen()
+        v1.pk2 = v4
+        (v6, v7) = v0.adversary.challenge(v1)
+        v8 = PKE1.Encrypt(v2, v7)
+        v9 = cast(PKE2.Message, v8)
+        v10 = PKE1.Encrypt(v2, v6)
+        v11 = len(v6)
+        v12 = len(v7)
+        v13 = PKE2.Encrypt(v4, v9)
+        v14 = cast(PKE2.Message, v10)
+        v0.ok = v11 == v12
+        v15 = cast(NestedPKE.Ciphertext, v13)
+        v16 = len(v14)
+        v17 = len(v9)
+        v18 = v0.adversary.guess(v15)
+        v19 = Crypto.Bit(0)
+        v20 = v16 == v17
+        v21 = v18 if v0.ok else v19
+        v22 = Crypto.Bit(0)
+        v23 = v21 if v20 else v22
+        return v23
+
+class Rewrite2_Right(Crypto.Game):
+
+    def __init__(v0, v1: Type[INDCPA_Adversary]):
+        v0.Scheme = NestedPKE
+        v0.adversary = v1(NestedPKE)
+
+    def main(v0) -> Crypto.Bit:
+        v1 = NestedPKE.PublicKey.__new__(NestedPKE.PublicKey)
+        (v2, v3) = PKE1.KeyGen()
+        v1.pk1 = v2
+        (v4, v5) = PKE2.KeyGen()
+        v1.pk2 = v4
+        (v6, v7) = v0.adversary.challenge(v1)
+        v8 = PKE1.Encrypt(v2, v7)
+        v9 = cast(PKE2.Message, v8)
+        v10 = PKE1.Encrypt(v2, v6)
+        v11 = len(v6)
+        v12 = len(v7)
+        v13 = PKE2.Encrypt(v4, v9)
+        v14 = cast(PKE2.Message, v10)
+        v0ok = v11 == v12
+        v15 = cast(NestedPKE.Ciphertext, v13)
+        v16 = len(v14)
+        v17 = len(v9)
+        v18 = v0.adversary.guess(v15)
+        v19 = Crypto.Bit(0)
+        v20 = True
+        v21 = v18 if v0ok else v19
+        v22 = Crypto.Bit(0)
+        v23 = v21 if v20 else v22
+        return v23
+
+proof2.add_rewriting_proof_step(Rewrite2_Left, Rewrite2_Right)
+
+assert proof2.check(print_hops=True, print_canonicalizations=False, print_diffs=False, abort_on_failure=False)
+print("Theorem 2:")
 print(proof2.advantage_bound())
 
 with open(os.path.join('examples', 'nestedPKE', 'nestedPKE_is_INDCPA_proof2.tex'), 'w') as fh:
