@@ -221,8 +221,9 @@ class GraphMaker(nt.NodeTraverser):
 
 
             # if this is an inner graph, then the assigning variable may not
-            # be in this graph
-            if assigning_stmt in self.graphs[-1].vertices:
+            # be in this graph.
+            # Statements with bodies may load and store the same variable in any order, so check.
+            if assigning_stmt in self.graphs[-1].vertices and assigning_stmt is not stmt:
                 self.graphs[-1].add_edge(stmt, assigning_stmt, var)
             else:
                 # Variable wasn't assigned in this block, so add this
@@ -240,48 +241,54 @@ class GraphMaker(nt.NodeTraverser):
             if store.store_type == 'overwrite':
                 old_assigner = store.previous_assigner
                 var_name = var + ':overwrite'
-                self.graphs[-1].add_edge(stmt, old_assigner, var_name)
 
-                # we also need to add edges to any statement that previously
-                # loaded this variable since they need to come before this
-                # statement in order to have the correct value
-                if var in self.graphs[-1].in_edges[old_assigner]:
-                   for u in self.graphs[-1].in_edges[old_assigner][var]:
-                       self.graphs[-1].add_edge(stmt, u, var_name)
+                # the old assigner might not be in this graph, eg. if this is an inner graph
+                # In that case it should be handled by the parent statement.
+                # For statements with bodies, there can be multiple stores to the same varible,
+                # but we don't want to have an edge from a vertex to itself, so check.
+                if old_assigner in self.graphs[-1].vertices and old_assigner is not stmt:
+                    self.graphs[-1].add_edge(stmt, old_assigner, var_name)
+
+                    # we also need to add edges to any statement that previously
+                    # loaded this variable since they need to come before this
+                    # statement in order to have the correct value
+                    if var in self.graphs[-1].in_edges[old_assigner]:
+                       for u in self.graphs[-1].in_edges[old_assigner][var]:
+                           # a statement with a body can load a variable that it assigns to, and we don't
+                           # want to create loops for that
+                           if u is not stmt:
+                               self.graphs[-1].add_edge(stmt, u, var_name)
+
         return ret
 
 
-    def visit_If_body(self, body):
+    def visit_body(self, body, body_name):
         # Push a new graph for the body
         self.graphs.append(Graph())
 
         # Visit the body
         new_body = self.visit_stmts(body)
 
-        # Pop the body's inner graph and assign as inner graph for the if
+        # Pop the body's inner graph and assign as inner graph for the parent node
         body_graph = self.graphs.pop()
         if self.parent() not in self.graphs[-1].inner_graphs:
             self.graphs[-1].inner_graphs[self.parent()] = dict()
 
-        self.graphs[-1].inner_graphs[self.parent()]['body'] = body_graph
+        self.graphs[-1].inner_graphs[self.parent()][body_name] = body_graph
 
         return new_body
+
+    def visit_If_body(self, body):
+        return self.visit_body(body, 'body')
 
     def visit_If_orelse(self, body):
-        # Push a new graph for the orelse
-        self.graphs.append(Graph())
+        return self.visit_body(body, 'orelse')
 
-        # Visit the orelse
-        new_body = self.visit_stmts(body)
+    def visit_While_body(self, body):
+        return self.visit_body(body, 'body')
 
-        # Pop the orelse's inner graph and assign as inner graph for the if
-        orelse_graph = self.graphs.pop()
-
-        if self.parent() not in self.graphs[-1].inner_graphs:
-            self.graphs[-1].inner_graphs[self.parent()] = dict()
-        self.graphs[-1].inner_graphs[self.parent()]['orelse'] = orelse_graph
-
-        return new_body
+    def visit_While_orelse(self, body):
+        return self.visit_body(body, 'orelse')
 
     def visit_FunctionDef(self, node):
          # Push a new graph for the orelse

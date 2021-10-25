@@ -121,12 +121,17 @@ class Scope():
         self.parameters_loaded = list()     # parameters that have been read by a load, in order by first load
         self.parameter_annotations = dict() # most recent type annotation for a variable
         self.stores = list()                # list of Store objects recording the order that variables are written to
+        self.report_values = True           # In some cases (eg. while loops) we don't want to report the value of variables.
+        self.store_values = True            # In some cases we don't want to store values because they may become incorrect later (eg. while loops)
 
     def add_parameter(self, par_name, annotation = NoValue()):
         self.parameters.append(par_name)
         self.parameter_annotations[par_name] = annotation
 
     def add_var_store(self, varname, value, assigner: ast.stmt, store_type = None, annotation = None):
+        if not self.store_values:
+            value = NoValue()
+
         old_assigner = None
         if store_type is None:
             if self.in_scope(varname):
@@ -182,7 +187,10 @@ class Scope():
     def var_value(self, var:str) -> Union[ast.expr, NoValue, None]:
         store = self.var_store(var)
         if store:
-            return store.value
+            if self.report_values:
+                return store.value
+            else:
+                return NoValue()
         if var in self.parameters:
             return NoValue()
 
@@ -539,16 +547,18 @@ class NodeTraverser():
         # restore the saved scope to reset it back to before the bodies
         self.scopes[-1] = old_scope
 
-        # we only want to keep variables that were assigned to
-        # in _both_ branches, otherwise they may not be defined.
+        # If a variable was assigned in either branch, or both, then we assign NoValue() since
+        # the value may depend on the test, or may not have been assigned.
         # If a variable was already in scope, update to have NoValue() since we don't
         # know what the value will be
         vars_in_scopes = ifscope.names_in_scope() + elsescope.names_in_scope()  # all variables assigned in the bodies, with multiplicity
-        vars_to_store = unique_elements([ v for v in vars_in_scopes if (vars_in_scopes.count(v) == 2 or self.in_local_scope(v)) ])
+        vars_to_store = unique_elements(vars_in_scopes)
         for v in vars_to_store:
             bodyvalue = ifscope.var_value(v)
             orelsevalue = elsescope.var_value(v)
-            if ast.unparse(bodyvalue) == ast.unparse(orelsevalue):
+
+            # If body and else agree on a value, then we can assign it.
+            if bodyvalue is not None and orelsevalue is not None and ast.unparse(bodyvalue) == ast.unparse(orelsevalue):
                 value = bodyvalue
             else:
                 value = NoValue()
@@ -581,17 +591,20 @@ class NodeTraverser():
         # no problem with scopes for the test!
         node.test = self.visit_While_test(node.test)
 
-        # remember variables and values currently in the local scope to help fix things up later
-        old_scope = self.local_scope().copy()
-
-        # TODO: any values for variables in scope might be invalid because they are overwritten in 
-        # the loop, and hence wrong for subsequent iterations.  But we don't know until after
-        # we process the loop!
+        # We need to be careful whith values, sicne the body may overwrite some variables, and the stored 
+        # values in scope will not be correct for subsequent iterations.  Here we just report NoValue
+        # for everything in scope while processing the body, which is overly conservative but probably safer.
+        # TODO: can we be less conservative?
+        self.local_scope().report_values = False
+        self.local_scope().store_values = False
 
         # create a new block level scope for the body to keep track of its loads and stores
         self.new_block_scope()
         node.body = self.visit_While_body(node.body)
         bodyscope = self.pop_block_scope()
+
+        self.local_scope().report_values = True
+        self.local_scope().store_values = True
 
         # For variables stored by the body, we can't be sure about what the value is since
         # in can change every iteration, or there can be no iterations. Overwrite those 

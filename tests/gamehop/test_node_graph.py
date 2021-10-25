@@ -471,3 +471,65 @@ class TestNodeGraph(unittest.TestCase):
         G.canonical_sort()
         f_node.body = G.vertices
         #self.assertEqual(ast.unparse(f_node), expected_result(f_expected_result))  
+
+    def test_canonical_sort_while(self):
+        def f():
+            a = 10 
+            while a < 10:
+                a = a + 1
+                b = 1
+            else:
+                c = 1
+            d = 1
+            return a + b + c + d
+
+        def f_expected_result():
+            a = 10 
+            while a < 10:
+                a = a + 1
+                b = 1
+            else:
+                c = 1
+            d = 1
+            return a + b + c + d
+
+        fdef = utils.get_function_def(f)
+        f_node = ast.parse(fdef)
+        G = ng.Graph.from_stmts(f_node.body)
+        G.print()
+        G.canonical_sort()
+        G.print()
+        f_node.body = G.vertices
+        self.assertEqual(ast.unparse(f_node), expected_result(f_expected_result))
+
+    def test_canonical_sort_if2(self):
+        def f():
+            a = 10 
+            if a < 10:
+                a = a + 1
+                b = 1
+            else:
+                a = 1
+            d = 1
+            return a + b + d
+
+        def f_expected_result():
+            a = 10 
+            if a < 10:
+                a = a + 1
+                b = 1
+            else:
+                a = 1
+            d = 1
+            return a + b + d
+
+        fdef = utils.get_function_def(f)
+        f_node = ast.parse(fdef)
+        G = ng.Graph.from_stmts(f_node.body)
+        G.print()
+        G.canonical_sort()
+        G.print()
+        f_node.body = G.vertices
+        self.assertEqual(ast.unparse(f_node), expected_result(f_expected_result))
+
+

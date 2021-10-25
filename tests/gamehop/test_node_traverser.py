@@ -197,7 +197,7 @@ class TestNodeTraverser(unittest.TestCase):
         self.assertEqual(f_transformed, expected_result(f_expected_result))
         self.assertEqual(nnt.if_scope, [ 't', 'a', 'b', 'c' ])
         self.assertEqual(nnt.orelse_scope, [ 't', 'a', 'b', 'd' ])
-        self.assertEqual(nnt.end_scope, [ 't', 'a', 'b' ])
+        self.assertEqual(nnt.end_scope, [ 't', 'a', 'b', 'c', 'z', 'd' ])
 
         f_ast = ast.parse(utils.get_function_def(f))
         nnt = NewNodeTester()
@@ -208,7 +208,7 @@ class TestNodeTraverser(unittest.TestCase):
         self.assertEqual(f_transformed, expected_result(f_expected_result))
         self.assertEqual(nnt.if_scope, [ 'a', 'b', 'c' ])
         self.assertEqual(nnt.orelse_scope, [ 'a', 'b', 'd' ])
-        self.assertEqual(nnt.end_scope, [ 'a', 'b'  ])
+        self.assertEqual(nnt.end_scope, [ 'a', 'b', 'c', 'z', 'd'  ])
 
 
     def test_scopes_tuple_values(self):
@@ -377,5 +377,32 @@ class TestNodeTraverser(unittest.TestCase):
         f_ast = ast.parse(utils.get_function_def(f))
         nnt.visit(f_ast)
         self.assertEqual(ast.unparse(nnt.a_val), 'u')
+
+    def test_while_scopes(self):
+        class NewNodeTester(nt.NodeTraverser):
+            def visit_Call(self, node):
+                if node.func.id == 'g':
+                    ls = self.local_scope()
+                    assert(isinstance(ls.var_value('s'), nt.NoValue))
+                    assert(isinstance(ls.var_value('t'), nt.NoValue))
+                    assert(isinstance(ls.var_assigner('s'), ast.While))
+                    assert(isinstance(ls.var_assigner('t'), ast.While))
+                return node
+
+        def g(): pass
+        def f():
+            s = 0
+            while t > 0:
+                t = t - 1
+                s = s + 1
+            else:
+                s = -1
+            g()
+            return s
+
+        nnt = NewNodeTester()
+        f_ast = ast.parse(utils.get_function_def(f))
+        nnt.visit(f_ast)
+
 
 
