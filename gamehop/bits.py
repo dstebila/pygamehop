@@ -38,23 +38,23 @@ def unique_elements(l: List[T]) -> List[T]:
     return ret
 
 
-def attribute_fqn(node: ast.Attribute) -> List[str]:
+def attribute_fqn(node: ast.expr) -> List[str]:
     '''From an attribute node, determine the full name, given as a list of strings.  Handles
     attributes of attributes etc. recursively.
     Note that the outer Attribute represents the rightmost name in a full name of an attribute, i.e.
     for a.b.c, the outer Attribute node represents 'c' and the innermost node is a Name with id 'a'.
 
     '''
-    # We build the name from back to front.  varname starts off as the attribute name
-    fqn = [ node.attr ]
-    val = node.value
+    fqn: List[str] = [ ]
+    if isinstance(node, ast.Attribute):
+        val = node.value
+        fqn.insert(0, node.attr)
+        # Keep on adding prefixes (object names) to the varname until we are at the outer name
+        while isinstance(val, ast.Attribute):
+            fqn.insert(0, val.attr)
+            val = val.value
 
-    # Keep on adding prefixes (object names) to the varname until we are at the outer Attribute
-    while isinstance(val, ast.Attribute):
-        fqn.insert(0, val.attr)
-        val = val.value
-
-    # At the outer attribute
+    # At the outer name
     if isinstance(val, ast.Name):
         fqn.insert(0, val.id)
     elif isinstance(val, ast.arg):

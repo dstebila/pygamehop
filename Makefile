@@ -15,7 +15,7 @@ typecheck_library:
 	$(MYPY) --ignore-missing-imports -p gamehop
 
 unittest_library:
-	env PYTHONPATH=. $(PYTEST) -v tests/gamehop
+#	env PYTHONPATH=. $(PYTEST) -v tests/gamehop
 
 test_examples:
 	env PYTHONPATH=. $(PYTEST) -v tests/examples
