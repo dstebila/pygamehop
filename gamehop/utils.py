@@ -120,7 +120,7 @@ def vars_depends_on(node: Optional[ast.AST]) -> List[str]:
             return node.arg
         return None
 
-    return nt.glue_list_and_vals([ node_deps(n) for n in nt.nodes(node) ])
+    return nt.bits.glue_list_and_vals([ node_deps(n) for n in nt.nodes(node) ])
 
 def vars_assigns_to(node: Union[ast.AST, List[ast.stmt]]) -> List[str]:
     # TODO: this is not correct if assign happens in an inner scope
@@ -133,7 +133,7 @@ def vars_assigns_to(node: Union[ast.AST, List[ast.stmt]]) -> List[str]:
                 return vars_depends_on(node.value)
         return None
 
-    return nt.glue_list_and_vals([ node_assigns(n) for n in nt.nodes(node) ])
+    return nt.bits.glue_list_and_vals([ node_assigns(n) for n in nt.nodes(node) ])
 
 def remove_indentation(src: str) -> str:
     indentation = 0
@@ -166,21 +166,6 @@ def get_class_def(c: Union[Type[Any], str, ast.ClassDef]) -> ast.ClassDef:
     cdef = t.body[0]
     assert isinstance(cdef, ast.ClassDef)
     return cdef
-
-T = TypeVar('T')
-def ensure_list(thing: Union[T, List[T]]) -> List[T]:
-    if isinstance(thing, list):
-        return thing
-    else:
-        return [ thing ]
-
-def remove_duplicates(l):
-    '''Returns a list, where any duplicate element have been removed.  Only the first occurance of an element is kept.'''
-    new_list = list()
-    for i in l:
-        if i not in new_list:
-            new_list.append(i)
-    return new_list
 
 def fqn(o) -> str:
     if inspect.isclass(o):

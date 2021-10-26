@@ -2,81 +2,10 @@ from __future__ import annotations
 # The above is used to allow references to a class within a class definition, so
 # that we can return an instance of a class, eg. from a constructor
 
+from typing import List, Optional, Union
 import ast
-from typing import List, Optional, Union, TypeVar
-
-
-T = TypeVar('T')
-def ensure_list(thing: Union[T, List[T]]) -> List[T]:
-    ''' Argument is wrapped in a list() if it is not already a list'''
-    if isinstance(thing, list):
-        return thing
-    else:
-        return [ thing ]
-
-def glue_list_and_vals(vals: List[Union[T, List[T], None]]) -> List[T]:
-    ''' Create a single list out of vals.  If a val is a list, then it's
-    contents are added to the list, otherwise the val itself is added.
-    Any None values are removed.'''
-    ret_val: List[T] = list()
-    for v in vals:
-        if isinstance(v, list):
-            ret_val.extend(v)
-        elif v is None:
-            continue
-        else:
-            ret_val.append(v)
-    return ret_val
-
-def append_if_unique(l, val):
-    if not val in l:
-        l.append(val)
-
-def unique_elements(l: List[T]) -> List[T]:
-    ''' Returns a list where elements are taken from the given list, but only the first occurance of 
-    any particular element is kept.  Subsequent occurances of each element are removed.
-    '''
-    ret = list()
-    for v in l:
-        if v not in ret:
-            ret.append(v)
-    return ret
-
-
-def attribute_fqn(node: ast.Attribute) -> List[str]:
-    '''From an attribute node, determine the full name, given as a list of strings.  Handles
-    attributes of attributes etc. recursively.
-    Note that the outer Attribute represents the rightmost name in a full name of an attribute, i.e.
-    for a.b.c, the outer Attribute node represents 'c' and the innermost node is a Name with id 'a'.
-
-    '''
-    # We build the name from back to front.  varname starts off as the attribute name
-    fqn = [ node.attr ]
-    val = node.value
-
-    # Keep on adding prefixes (object names) to the varname until we are at the outer Attribute
-    while isinstance(val, ast.Attribute):
-        fqn.insert(0, val.attr)
-        val = val.value
-
-    # At the outer attribute
-    if isinstance(val, ast.Name):
-        fqn.insert(0, val.id)
-    elif isinstance(val, ast.arg):
-        fqn.insert(0, val.arg)
-    else:
-        # Not sure what else will come up!
-        assert(False)
-    
-    return fqn
-
-def called_function_name(node: ast.Call):
-    if isinstance(node.func, ast.Name):
-        return node.func.id
-    if isinstance(node.func, ast.Attribute):
-        return ".".join(attribute_fqn(node.func))
-    # Don't know what else might come up!
-    assert(False)
+from . import bits
+from . import scope
 
 
 # type checking is difficult for this one.  mypy doesn't understand that
@@ -94,169 +23,6 @@ def nodes(node, nodetype = ast.AST):
                 if not hasattr(node, field_name): continue
                 field = getattr(node, field_name)
                 yield from nodes(field, nodetype)
-
-class NoValue():
-    '''Used in Scope() objects to indicate that a variable has no value assigned'''
-
-class Store():
-    def __init__(self, var, value, assigner, store_type, previous_assigner, annotation) :
-        self.var = var
-        self.value = value
-        self.assigner = assigner 
-        self.store_type = store_type
-        self.annotation = annotation
-        self.previous_assigner = previous_assigner
-
-class Scope():
-    ''' Scope is used by the NodeTraverser to keep track of all variables and function
-    parameters currently in scope, plus additional information such as the most
-    recently assigned value, and any variables that were referenced that were
-    not in this scope at the time.
-    '''
-    def __init__(self):
-        self.parameters = list()            # function parameters defined in this scope
-        self.vars_loaded = list()           # variables that have been loaded, in order by first load
-        self.load_type = dict()             # type of load (attribute or whatever).  key = var, value = load type
-        self.external_vars = list()         # variables loaded that were not previously stored and are not parameters
-        self.parameters_loaded = list()     # parameters that have been read by a load, in order by first load
-        self.parameter_annotations = dict() # most recent type annotation for a variable
-        self.stores = list()                # list of Store objects recording the order that variables are written to
-        self.report_values = True           # In some cases (eg. while loops) we don't want to report the value of variables.
-        self.store_values = True            # In some cases we don't want to store values because they may become incorrect later (eg. while loops)
-
-    def add_parameter(self, par_name, annotation = NoValue()):
-        self.parameters.append(par_name)
-        self.parameter_annotations[par_name] = annotation
-
-    def add_var_store(self, varname, value, assigner: ast.stmt, store_type = None, annotation = None):
-        if not self.store_values:
-            value = NoValue()
-
-        old_assigner = None
-        if store_type is None:
-            if self.in_scope(varname):
-                store_type = 'overwrite'
-                old_assigner = self.var_assigner(varname)
-
-        self.stores.append(Store(varname, value, assigner, store_type, old_assigner, annotation))
-
-        # If an object has been overwritten, then we need to invalidate the values of any of its attributes.
-        # For this to work correctly, we depend on the fact that object stores are added before stores of
-        # attributes
-        if store_type != 'attribute':
-            for v in (v for v in self.vars_in_scope() if v.startswith(varname + '.')):
-                old_assigner = self.var_assigner(v)
-                self.stores.append(Store(v, NoValue(), assigner, store_type, old_assigner, None))
-
-    def add_var_load(self, varname, load_type = None):
-        ''' Adds the given variable name to the scope, treat as a load.  If this name is
-        already known as a parameter or variable in this scope, then records this reference
-        and returns True. If the name is not in this scope then returns False
-        '''
-        # variables stored will always assigned after the start of the function, so if this
-        # has happened then a Load refers to the stored variable, not a parameter
-        self.load_type[varname] = load_type
-        if self.in_scope(varname):
-            append_if_unique(self.vars_loaded, varname)
-            return True
-        elif varname in self.parameters:
-            append_if_unique(self.parameters_loaded, varname)
-            return True
-        else:
-            # the variable is not in scope
-            append_if_unique(self.external_vars, varname)
-            return False
-
-    def vars_in_scope(self) -> List[str]:
-        return [ s.var for s in self.stores ] 
-
-    def unique_vars_in_scope(self) -> Optional[List[str]]:
-        ''' Returns a list of variables in scope, given in order by most recent store'''
-        stores = self.vars_in_scope()
-        stores.reverse()
-        stores = unique_elements(stores)
-        stores.reverse()
-        return stores
-
-    def var_store(self, var: str) -> Optional[Store]:
-        matching_stores = [ s for s in self.stores if s.var == var ]
-        if len(matching_stores) > 0:
-            return matching_stores[-1]
-        return None
-
-    def var_value(self, var:str) -> Union[ast.expr, NoValue, None]:
-        store = self.var_store(var)
-        if store:
-            if self.report_values:
-                return store.value
-            else:
-                return NoValue()
-        if var in self.parameters:
-            return NoValue()
-
-        return None
-
-    def var_assigner(self, var:str, ignore_attribute_assigns = False) -> Optional[ast.stmt]:
-        if ignore_attribute_assigns:
-            stores = [ s for s in self.stores if s.var == var and s.store_type != 'attribute' ]
-            if len(stores) > 0:
-                store = stores[-1]
-            else:
-                store = None
-        else:
-            store = self.var_store(var)
-
-        if store:
-            return store.assigner
-
-        return None
- 
-    def var_annotation(self, var:str):
-        store = self.var_store(var)
-        if store:
-            return store.annotation
-
-        return None
-
-    def var_store_type(self, var:str) -> Optional[str]:
-        store = self.var_store(var)
-        if store:
-            return store.store_type
-
-        return None
-    def var_load_type(self, var:str) -> Optional[str]:
-        if var in self.load_type:
-            return self.load_type[var]
-
-        return None
-
-    def in_scope(self, varname):
-        return self.var_store(varname) is not None
-
-    def names_in_scope(self):
-        return self.parameters + self.vars_in_scope()
-
-    def copy(self) -> Scope:
-        ret = Scope()
-        ret.stores = self.stores[:]
-        ret.parameters = self.parameters[:]
-        ret.vars_loaded = self.vars_loaded[:]
-        ret.external_vars = self.external_vars[:]
-        ret.parameters_loaded = self.parameters_loaded[:]
-        ret.parameter_annotations = dict(self.parameter_annotations)
-        return ret
-
-    def diff(self, other: Scope) -> Scope:
-        '''Return a Scope object whose various lists are those of the
-        current object with elements from the other object's lists removed'''
-        ret = Scope()
-        ret.stores = [ s for s in self.stores if s not in other.stores ]
-        ret.parameters = [ p for p in self.parameters if p not in other.parameters ]
-        ret.vars_loaded = [ p for p in self.vars_loaded if p not in other.vars_loaded ]
-        ret.external_vars = [ p for p in self.external_vars if p not in other.external_vars ]
-        ret.parameters_loaded = [ p for p in self.parameters_loaded if p not in other.parameters_loaded ]
-        ret.parameter_annotations = { k: v for k,v in self.parameter_annotations.items() if k not in other.parameter_annotations }
-        return ret
 
 class NodeTraverser():
     """Improved AST tree traversal over the ast.NodeTransformer class.
@@ -307,16 +73,16 @@ class NodeTraverser():
         self.prelude_statements: List[List[ast.stmt]] = [list()]
 
         # start off with a gloabal scope
-        self.scopes = [ Scope() ]
+        self.scopes = [ scope.Scope() ]
 
         # Block level scopes are used to keep track of variables that are stored/loaded within a
         # block of code, eg. if body
         # Currently this only keeps track of variable stores
-        self.block_scopes = [ Scope() ]
+        self.block_scopes = [ scope.Scope() ]
 
         # Statement level scopes are used to keep track of variables that are stored/loaded within
         # a single statement and its children
-        self.stmt_scopes = [ Scope() ]
+        self.stmt_scopes = [ scope.Scope() ]
 
         # Keep track of the parent of the node being transformed
         self.ancestors = list()
@@ -347,9 +113,9 @@ class NodeTraverser():
     # scopes
 
     def new_scope(self) -> None:
-        self.scopes.append(Scope())
+        self.scopes.append(scope.Scope())
 
-    def pop_scope(self) -> Scope:
+    def pop_scope(self) -> scope.Scope:
         return self.scopes.pop()
 
     def local_scope(self):
@@ -359,9 +125,9 @@ class NodeTraverser():
         return self.stmt_scopes[-1]
 
     def new_block_scope(self) -> None:
-        self.block_scopes.append(Scope())
+        self.block_scopes.append(scope.Scope())
 
-    def pop_block_scope(self) -> Scope:
+    def pop_block_scope(self) -> scope.Scope:
         return self.block_scopes.pop()
 
     def in_scope(self, varname: str) -> bool:
@@ -376,14 +142,14 @@ class NodeTraverser():
         '''
         return self.local_scope().in_scope(varname)
 
-    def var_value(self, varname: str) -> Union[ast.expr, NoValue]:
+    def var_value(self, varname: str) -> Union[ast.expr, scope.NoValue]:
         ''' Gives the most recent value assigned to varname.  If the value connot
         be determined (eg. a function argument, or if the varname was assigned
-        in the body/orelse of an if statement) then a NoValue object is returned.
+        in the body/orelse of an if statement) then a scope.NoValue object is returned.
         '''
         for s in self.scopes[::-1]:
             if s.in_scope(varname): return s.var_value(varname)
-        return NoValue()
+        return scope.NoValue()
 
     def var_value_assigner(self, varname: str) -> Optional[ast.stmt]:
         '''Gives the most recent statement which assigned to varname, or None if
@@ -411,7 +177,7 @@ class NodeTraverser():
         # these will not capture all variable assigns
         self.local_stmt_scope().add_var_load(varname, load_type)
 
-    def add_var_store(self, varname: str, value: Union[ast.expr, NoValue], s: ast.stmt, store_type: Optional[str]) -> None:
+    def add_var_store(self, varname: str, value: Union[ast.expr, scope.NoValue], s: ast.stmt, store_type: Optional[str]) -> None:
         ''' Add a variable name to scope, storing the associated value expression
         '''
         self.local_scope().add_var_store(varname, value, s, store_type)
@@ -419,8 +185,8 @@ class NodeTraverser():
         self.stmt_scopes[-1].add_var_store(varname, value, s, store_type)
 
 
-    def add_attribute_store_to_scope(self, attribute:ast.Attribute, value: Union[ast.expr, NoValue], s: ast.stmt, store_type):
-            fqn = attribute_fqn(attribute)
+    def add_attribute_store_to_scope(self, attribute:ast.Attribute, value: Union[ast.expr, scope.NoValue], s: ast.stmt, store_type):
+            fqn = bits.attribute_fqn(attribute)
 
             # We add as though each object in the chain is stored/changed, i.e. for a.b.c we
             # add a store for a, a.b, and a.b.c
@@ -429,7 +195,7 @@ class NodeTraverser():
             # for a all names up to the last, this overwrites an attribute, not the whole thing
             for n in fqn[:-1]:
                 varname = varname + n
-                self.add_var_store(varname, NoValue(), s, 'attribute')
+                self.add_var_store(varname, scope.NoValue(), s, 'attribute')
                 varname = varname + '.'
         
             # The full name is assigned/overwritten
@@ -466,9 +232,9 @@ class NodeTraverser():
             else:
                 for t in target.elts:
                     if isinstance(t, ast.Name):
-                        self.add_var_store(t.id, NoValue(), s, None)
+                        self.add_var_store(t.id, scope.NoValue(), s, None)
                     elif isinstance(t, ast.Attribute):
-                        self.add_attribute_store_to_scope(t, NoValue(), s, None)
+                        self.add_attribute_store_to_scope(t, scope.NoValue(), s, None)
                     else:
                         # Don't know how to assign to things that aren't names or attributes.
                         assert(False)
@@ -547,12 +313,12 @@ class NodeTraverser():
         # restore the saved scope to reset it back to before the bodies
         self.scopes[-1] = old_scope
 
-        # If a variable was assigned in either branch, or both, then we assign NoValue() since
+        # If a variable was assigned in either branch, or both, then we assign scope.NoValue() since
         # the value may depend on the test, or may not have been assigned.
-        # If a variable was already in scope, update to have NoValue() since we don't
+        # If a variable was already in scope, update to have scope.NoValue() since we don't
         # know what the value will be
         vars_in_scopes = ifscope.names_in_scope() + elsescope.names_in_scope()  # all variables assigned in the bodies, with multiplicity
-        vars_to_store = unique_elements(vars_in_scopes)
+        vars_to_store = bits.unique_elements(vars_in_scopes)
         for v in vars_to_store:
             bodyvalue = ifscope.var_value(v)
             orelsevalue = elsescope.var_value(v)
@@ -561,7 +327,7 @@ class NodeTraverser():
             if bodyvalue is not None and orelsevalue is not None and ast.unparse(bodyvalue) == ast.unparse(orelsevalue):
                 value = bodyvalue
             else:
-                value = NoValue()
+                value = scope.NoValue()
 
             self.add_var_store(v, value, node, None)
 
@@ -592,7 +358,7 @@ class NodeTraverser():
         node.test = self.visit_While_test(node.test)
 
         # We need to be careful whith values, sicne the body may overwrite some variables, and the stored 
-        # values in scope will not be correct for subsequent iterations.  Here we just report NoValue
+        # values in scope will not be correct for subsequent iterations.  Here we just report scope.NoValue
         # for everything in scope while processing the body, which is overly conservative but probably safer.
         # TODO: can we be less conservative?
         self.local_scope().report_values = False
@@ -608,20 +374,20 @@ class NodeTraverser():
 
         # For variables stored by the body, we can't be sure about what the value is since
         # in can change every iteration, or there can be no iterations. Overwrite those 
-        # stores with NoValue and the While node as the assigner.
+        # stores with scope.NoValue and the While node as the assigner.
         for v in bodyscope.vars_in_scope():
-            self.add_var_store(v, NoValue(), node, None)
+            self.add_var_store(v, scope.NoValue(), node, None)
 
         # create a new block level scope for the orelse to keep track of its loads and stores
         self.new_block_scope()
         node.orelse = self.visit_While_orelse(node.orelse)
         elsescope = self.pop_block_scope()
 
-        # If the else body stored a variable, then we add a new store with NoValue as the value
+        # If the else body stored a variable, then we add a new store with scope.NoValue as the value
         # and the While node as the assigner indicating that the While statement may have stored 
         # the variable but we can't be sure what its value is
         for v in elsescope.vars_in_scope():
-            self.add_var_store(v, NoValue(), node, None)
+            self.add_var_store(v, scope.NoValue(), node, None)
 
         # all done fixing the scopes
 
@@ -667,7 +433,7 @@ class NodeTraverser():
             else:
                 load_type = None
 
-            varname = ".".join(attribute_fqn(node))
+            varname = ".".join(bits.attribute_fqn(node))
             self.add_var_load(varname, load_type)
 
         return node
@@ -704,7 +470,7 @@ class NodeTraverser():
         if not isinstance(node, ast.Call):
             return node
 
-        self.add_var_load(called_function_name(node))
+        self.add_var_load(bits.called_function_name(node))
 
         return node
 
@@ -742,7 +508,7 @@ class NodeTraverser():
             return visit_val
 
         # all statements are eligible to have preludes in front of them
-        ret_val = self.pop_prelude_statements() + ensure_list(visit_val)
+        ret_val = self.pop_prelude_statements() + bits.ensure_list(visit_val)
 
         return ret_val
 
@@ -755,7 +521,7 @@ class NodeTraverser():
         # push a new context for prelude statements so that we only
         # process preludes from this block of statements
         self.prelude_statements.append(list())
-        ret_val = glue_list_and_vals([ self.visit(stmt) for stmt in stmts])
+        ret_val = bits.glue_list_and_vals([ self.visit(stmt) for stmt in stmts])
 
         # we should have processed all preludes by now.  End of block
         # so pop off the current prelude context
@@ -764,14 +530,14 @@ class NodeTraverser():
         return ret_val
 
     def visit_exprs(self, exprs: List[ast.expr]) -> List[ast.AST]:
-        return glue_list_and_vals([ self.visit(expr) for expr in exprs ])
+        return bits.glue_list_and_vals([ self.visit(expr) for expr in exprs ])
 
     def visit_child_list(self, children: List) -> List:
-        return glue_list_and_vals([ self.visit(v) for v in children ])
+        return bits.glue_list_and_vals([ self.visit(v) for v in children ])
 
     def visit_statements(self, stmts: List[ast.stmt]) -> List[ast.stmt]:
         # overwrite the old statements with whatever we get back
-        stmts[:] = sum( [ ensure_list(self.visit(stmt)) for stmt in stmts ] , [])
+        stmts[:] = sum( [ bits.ensure_list(self.visit(stmt)) for stmt in stmts ] , [])
         return stmts
 
     # The stack of functions for calling visitors
@@ -813,7 +579,7 @@ class NodeTraverser():
 
         '''
         if isinstance(node, ast.stmt):
-            self.stmt_scopes.append(Scope())
+            self.stmt_scopes.append(scope.Scope())
             ret = self.visit_stmt(node)
             self.stmt_scopes.pop()
             return ret

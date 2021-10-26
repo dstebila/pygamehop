@@ -1,5 +1,5 @@
 from . import node_traverser as nt
-from . import utils
+from . import bits
 import ast
 from typing import Dict, List
 
@@ -166,7 +166,7 @@ class Graph():
                 # Outer graph statements are in order, so now update the inner graph's values_loaded
                 # so that they are in order loaded
                 values_in_order = [ var for var in self.var_refs(start = v) if var in inner_graph.values_loaded ]
-                inner_graph.values_loaded = utils.remove_duplicates(values_in_order)
+                inner_graph.values_loaded = bits.unique_elements(values_in_order)
 
                 inner_graph.canonical_sort()
 

@@ -2,7 +2,7 @@ import ast
 import unittest
 import gamehop.utils as utils
 import gamehop.node_traverser as nt
-
+import gamehop.scope as scope
 
 def expected_result(f):
     fdef = utils.get_function_def(f)
@@ -120,10 +120,10 @@ class TestNodeTraverser(unittest.TestCase):
         nnt.visit(f_ast)
 
         self.assertEqual(nnt.inscope_c_val, '1')
-        self.assertTrue(isinstance(nnt.outscope_c_val, nt.NoValue))
+        self.assertTrue(isinstance(nnt.outscope_c_val, scope.NoValue))
         self.assertEqual(nnt.end_a_val, '1')
-        self.assertTrue(isinstance(nnt.end_b_val, nt.NoValue))
-        self.assertTrue(isinstance(nnt.bogus_val, nt.NoValue))
+        self.assertTrue(isinstance(nnt.end_b_val, scope.NoValue))
+        self.assertTrue(isinstance(nnt.bogus_val, scope.NoValue))
 
 
     def test_scopes_function(self):
@@ -383,8 +383,8 @@ class TestNodeTraverser(unittest.TestCase):
             def visit_Call(self, node):
                 if node.func.id == 'g':
                     ls = self.local_scope()
-                    assert(isinstance(ls.var_value('s'), nt.NoValue))
-                    assert(isinstance(ls.var_value('t'), nt.NoValue))
+                    assert(isinstance(ls.var_value('s'), scope.NoValue))
+                    assert(isinstance(ls.var_value('t'), scope.NoValue))
                     assert(isinstance(ls.var_assigner('s'), ast.While))
                     assert(isinstance(ls.var_assigner('t'), ast.While))
                 return node
