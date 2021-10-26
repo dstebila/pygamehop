@@ -1,10 +1,86 @@
 from __future__ import annotations
-from typing import Optional, List, Union
+from typing import Optional, List, Union, Dict
 import ast
 from . import bits
 
 class NoValue():
     '''Used in Scope() objects to indicate that a variable has no value assigned'''
+
+class ObjectValue():
+    '''Used it Scope() objects to store the value for an object associated with a variable.
+    ObjectValue stores a dictionary of ObjectValues corresponding to its attributes'''
+    def __init__(self, assigner: Optional[ast.stmt], value: Optional[ast.expr] = None):
+        self.attributes: Dict[str, ObjectValue] = dict()        # Attribute name to ObjectValue maps.  These are attributes of this object.
+        self.assigner: Optional[ast.stmt] = assigner            # Statement that created this object in the first place.
+        self.method_callers: List[ast.stmt] = list()            # Statements that called methods on this object directly, which may have changed it.  TODO: some way to handle methods that only read?
+        self.loaders: List[ast.stmt] = list()                   # Statements that have loaded this object directly
+        self.parent: Optional[ObjectValue] = None               # The ObjectValue of which this is an attribute, if it exists
+        self.value: Optional[ast.expr] = None                   # The expression originally assigned to this object.
+
+    def modifier_stmts(self) -> List[ast.stmt]:
+        ''' Returns a list of statements that have modified this object.  This includes 
+        the original assigner statement, any statements that call methods on this object,
+        and any modifier statements for attributes of this object.'''
+        if self.assigner is not None:
+            ret = [ self.assigner ]
+        else:
+            ret = list()
+        ret.extend(self.method_callers)
+        for attr in self.attributes.values():
+            ret.extend(attr.modifier_stmts())
+        return ret
+
+    def loader_stmts(self) -> List[ast.stmt]:
+        ''' Returns a list of statements that have loaded this object or any of its attributes.'''
+        ret = list(self.loaders)
+        for attr in self.attributes.values():
+            ret.extend(attr.loader_stmts())
+        return ret
+
+    def add_load(self, fqn: List[str], stmt: ast.stmt) -> None:
+        self.loaders.append(stmt)
+
+        # If this is a load of an attribute, we need to keep track of that in the attribute.
+        if len(fqn) > 0:
+            attr = fqn[0]
+
+            # If the attribute has not been explicitly set, it might still exist on the object.
+            # Here we create an attribute to keep track of the fact that it was loaded.
+            if attr not in self.attributes:
+                self.attributes[attr] = ObjectValue(None, None)
+
+            self.attributes[attr].add_load(fqn[1:], stmt)
+
+    def add_attr_store(self, fqn: List[str], assigner: ast.stmt, value: Optional[ast.expr]) -> None:
+        # The value currently stored for this object is no longer valid since one of its attributes has changed
+        self.value = None
+
+        attr = fqn[0]
+       # If this is in an attribute of an attribute, then recurse.
+        if len(fqn) > 1:
+            # If the attribute has not been explicitly set, it might still exist on the object.
+            # Here we create an attribute to keep track of the fact that it was loaded.
+            if attr not in self.attributes: 
+                self.attributes[attr] = ObjectValue(None, None)
+            self.attributes[attr].add_attr_store(fqn[1:], assigner, value)
+        else:
+            self.attributes[attr] = ObjectValue(assigner, value)
+           
+    def add_method_call(self, fqn: List[str], stmt: ast.stmt) -> None:
+        self.method_callers.append(stmt)
+
+        # If this is a load of an attribute, we need to keep track of that in the attribute.
+        if len(fqn) > 0:
+            attr = fqn[0]
+
+            # If the attribute has not been explicitly set, it might still exist on the object.
+            # Here we create an attribute to keep track of the fact that it was loaded.
+            if attr not in self.attributes:
+                self.attributes[attr] = ObjectValue(None, None)
+
+            self.attributes[attr].add_method_call(fqn[1:], stmt)
+
+       
 
 class Store():
     def __init__(self, var, value, assigner, store_type, previous_assigner, annotation) :
