@@ -65,6 +65,12 @@ def attribute_fqn(node: ast.expr) -> List[str]:
     
     return fqn
 
+def fqn_str(fqn: List[str]) -> str:
+    return ".".join(fqn)
+
+def str_fqn(varname: str) -> List[str]:
+    return varname.split('.')
+
 def called_function_name(node: ast.Call):
     if isinstance(node.func, ast.Name):
         return node.func.id
