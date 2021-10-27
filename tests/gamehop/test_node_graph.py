@@ -129,7 +129,7 @@ class TestNodeGraph(unittest.TestCase):
         v2 = G.vertices[2]
         v3 = G.vertices[3]
         v4 = G.vertices[4]
-
+        G.print()
         new_body_stmts = [ s for s in G.topological_order_traverse() ]
 
         self.assertEqual(new_body_stmts, [ v4, v3, v1, v2, v0 ])
@@ -420,7 +420,6 @@ class TestNodeGraph(unittest.TestCase):
         G = G.reachable_subgraph([ G.vertices[-1] ])
         G.canonical_sort()
         f_node.body = G.vertices
-        
         self.assertEqual(ast.unparse(f_node), expected_result(f_expected_result))  
 
     def test_attribute_assignment(self):
@@ -445,7 +444,9 @@ class TestNodeGraph(unittest.TestCase):
         fdef = utils.get_function_def(f)
         f_node = ast.parse(fdef)       
         G = ng.Graph.from_stmts(f_node.body)
+        G.print()
         G = G.reachable_subgraph([ G.vertices[-1] ], True )
+        G.print()
         G.canonical_sort()
         f_node.body = G.vertices
         self.assertEqual(ast.unparse(f_node), expected_result(f_expected_result))  
@@ -467,10 +468,11 @@ class TestNodeGraph(unittest.TestCase):
         fdef = utils.get_function_def(f)
         f_node = ast.parse(fdef)       
         G = ng.Graph.from_stmts(f_node.body)
+        G.print()
         G = G.reachable_subgraph([ G.vertices[-1] ], True )
         G.canonical_sort()
         f_node.body = G.vertices
-        #self.assertEqual(ast.unparse(f_node), expected_result(f_expected_result))  
+        self.assertEqual(ast.unparse(f_node), expected_result(f_expected_result))  
 
     def test_canonical_sort_while(self):
         def f():

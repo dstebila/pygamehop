@@ -161,6 +161,20 @@ class NodeTraverser():
 
         return None
 
+    def add_method_call(self, varname: str, caller: ast.stmt) -> None:
+        for s in reversed(self.scopes):
+            if s.in_scope(varname):
+                s.add_method_call(varname, caller)
+
+        for s in reversed(self.block_scopes):
+           if s.in_scope(varname):
+                s.add_method_call(varname, caller)
+
+        # For statement we don't want to search up the stack of scopes since
+        # these will not capture all variable assigns
+        self.local_stmt_scope().add_method_call(varname, caller)
+
+
     def add_var_load(self, varname, load_type = None):
         ''' Add the variable name to the current scope as a load.  If it is not
         in scope, then continue adding the outer scopes until either the
@@ -410,18 +424,18 @@ class NodeTraverser():
                 # Stores are handled by _visit_Assign() 
                 return node
 
-            # if this is a method call, like a.blarg() then don't record it as anything.  Note that the object a will still have a load!
+            # if this is a method call, like a.blarg()
             if isinstance(self.parent(), ast.Call):
+                self.local_scope().add_method_call(bits.str_fqr(bits.attribute_fqn(node))) 
                 return node
 
             # if this is in an ast.Attribute, then this value isn't being loaded, but an attribute of it is.
+            # Don't record this load.  It will be handled by the parent (which is actually an attribute of this attribute)
             if isinstance(self.parent(), ast.Attribute):
-                load_type = 'attribute'
-            else:
-                load_type = None
+                return node
 
             varname = ".".join(bits.attribute_fqn(node))
-            self.add_var_load(varname, load_type)
+            self.add_var_load(varname, self.parent_statement())
 
         return node
 
@@ -477,13 +491,12 @@ class NodeTraverser():
 
         if isinstance(node.ctx, ast.Load):
             # if this is in an ast.Attribute, then this value isn't being loaded, but an attribute of it is.
+            # Don't load this Name.  It will be handled by the parent, which is the attribute of this Name.
             if isinstance(self.parent(), ast.Attribute):
-                load_type = 'attribute'
-            else:
-                load_type = None
+                return node
 
+            self.add_var_load(node.id, self.parent_statement())
 
-            self.add_var_load(node.id, load_type)
         return node
 
     # parent class visitors

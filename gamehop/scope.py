@@ -10,10 +10,11 @@ class NoValue():
 class ObjectValue():
     '''Used it Scope() objects to store the value for an object associated with a variable.
     ObjectValue stores a dictionary of ObjectValues corresponding to its attributes'''
-    def __init__(self, assigner: Optional[ast.stmt], value: Optional[ast.expr] = None):
+    def __init__(self, assigner: Optional[ast.stmt], value: Optional[ast.AST] = None):
         self.attributes: Dict[str, ObjectValue] = dict()        # Attribute name to ObjectValue maps.  These are attributes of this object.
         self._assigner: Optional[ast.stmt] = assigner           # Statement that created this object in the first place.
         self.method_callers: List[ast.stmt] = list()            # Statements that called methods on this object directly, which may have changed it.  TODO: some way to handle methods that only read?
+        self.attribute_assigners: List[ast.stmt] = list()
         self.loaders: List[ast.stmt] = list()                   # Statements that have loaded this object directly
         self.loaded: bool = False
         self.assigned:bool = False                              # Has this object actually been assigned?  It may have been created as a container to record a load
@@ -21,28 +22,45 @@ class ObjectValue():
         self._annotation = None                                 # Type annotation for this object
 
         if assigner is not None:
-            self.assigned = True                
+            self.assigned = True
+
+    def copy(self) -> ObjectValue:
+        ret = ObjectValue(self._assigner, self._value)
+        ret.method_callers = list(self.method_callers)
+        ret.attribute_assigners = list(self.attribute_assigners)
+        ret.loaders = list(self.loaders)
+        ret.loaded = self.loaded
+        ret.assigned = self.assigned
+        ret._annotation = self._annotation
+        for attr, val in self.attributes.items():
+            ret.attributes[attr] = val.copy()
+        return ret
+
 
     def modifier_stmts(self, fqn: List[str]) -> List[ast.stmt]:
         ''' Returns a list of statements that have modified this object.  This includes 
         the original assigner statement, any statements that call methods on this object,
         and any modifier statements for attributes of this object.'''
+        ret = list()
+
+        if self._assigner is not None:
+            ret.append(self._assigner)
+        ret.extend(self.method_callers)
+
         # If fqn is not empty, the recurse to get a more specific list
         if len(fqn) > 0:
             if fqn[0] not in self.attributes:
-                return list()
+                # We haven't seen this attribute before, but it might be created by some method call.  
+                # Return whatever modified this object itself.
+                return ret
             else:
-                return self.attributes[fqn[0]].modifier_stmts(fqn[1:])
+                return bits.unique_elements(ret + self.attributes[fqn[0]].modifier_stmts(fqn[1:]))
 
         # fqn is empty, so we need modifiers of this ObjectValue, plus those from any attributes
-        ret = list()
-        if self._assigner is not None:
-            ret = [ self._assigner ]
-
-        ret.extend(self.method_callers)
+        ret.extend(self.attribute_assigners)
         for attr in self.attributes.values():
             ret.extend(attr.modifier_stmts([]))
-        return ret
+        return bits.unique_elements(ret)
 
     def loader_stmts(self) -> List[ast.stmt]:
         ''' Returns a list of statements that have loaded this object or any of its attributes.'''
@@ -75,11 +93,15 @@ class ObjectValue():
         return ret
 
     def add_attribute_assignment(self, fqn: List[str], assigner: ast.stmt, value: Optional[ast.expr]) -> None:
+        assert(len(fqn) > 0)
+
         # The value currently stored for this object is no longer valid since one of its attributes has changed
         self._value = None
 
         attr = fqn[0]
-        # If this is in an attribute of an attribute, then recurse.
+        # The assigner has modified this object.
+        self.attribute_assigners.append(assigner)
+
         if len(fqn) > 1:
             # If the attribute has not been explicitly set, it might still exist on the object.
             # Here we create an attribute to keep track of the fact that it was loaded.
@@ -91,14 +113,21 @@ class ObjectValue():
             self.attributes[attr] = ObjectValue(assigner, value)
            
     def add_method_call(self, fqn: List[str], stmt: ast.stmt) -> None:
-        self.method_callers.append(stmt)
+        if len(fqn) == 0:
+            # This is the method called.  Just keep track that it was loaded/used.
+            self.loaded = True
+            self.loaders.append(stmt)
 
-        # If this is a load of an attribute, we need to keep track of that in the attribute.
-        if len(fqn) > 0:
+        else:
+            # If this is the last name, then that name is the method name and the method was called
+            # on the current object
+            if len(fqn) == 1:
+                self.method_callers.append(stmt)
+
             attr = fqn[0]
 
-            # If the attribute has not been explicitly set, it might still exist on the object.
-            # Here we create an attribute to keep track of the fact that it was loaded.
+            # If the method or attribute has not been explicitly set, it might still exist on the object.
+            # Here we create an attribute to keep track of the fact that it was loaded/called.
             if attr not in self.attributes:
                 self.attributes[attr] = ObjectValue(None, None)
 
@@ -163,9 +192,25 @@ class Scope():
         self.report_values: bool = True           # In some cases (eg. while loops) we don't want to report the value of variables.
         self.store_values: bool = True            # In some cases we don't want to store values because they may become incorrect later (eg. while loops)
 
+
+    def copy(self) -> Scope:
+        ret = Scope()
+        ret.parameters = list(self.parameters)
+        ret.vars_loaded = list(self.vars_loaded)
+        ret.vars_stored = list(self.vars_stored)
+        for var, val in self.variables.items():
+            ret.variables[var] = val.copy()
+        for val in self.object_values:
+            ret.object_values.append(val.copy())
+        ret.external_vars = list(self.external_vars)
+        ret.report_values = self.report_values
+        ret.store_values = self.store_values
+        return ret
+
     def add_parameter(self, par_name, annotation = None):
         self.parameters.append(par_name)
         self.variables[par_name] = ObjectValue(None, None)
+        self.variables[par_name].assigned = False # TODO: Not sure about this one 
         self.variables[par_name]._annotation = annotation
 
     def add_var_assignment(self, varname: str, assigner: ast.stmt, value: Optional[ast.expr])-> None:
@@ -178,7 +223,10 @@ class Scope():
         else:
             if fqn[0] not in self.variables:
                 # Attempt to assign to an attribute of an object that is not in scope.
-                assert(False)
+                # This can happen when keeping track of an assignment to an attribute in a
+                # statement scope.  We need to create an empty object to keep track of the assignment.
+                self.variables[fqn[0]] = ObjectValue(None, None)
+
             self.variables[fqn[0]].add_attribute_assignment(fqn[1:], assigner, value)
 
     def add_var_load(self, varname: str, stmt: Optional[ast.stmt] = None):
@@ -188,12 +236,15 @@ class Scope():
         '''
         fqn = bits.str_fqn(varname)
 
+        if not self.in_scope(varname):
+            self.external_vars.append(varname)
+
         assert(len(fqn) > 0)
         self.vars_loaded.append(fqn[0])
         ret = True
+
         if fqn[0] not in self.variables:
             self.variables[fqn[0]] = ObjectValue(None, None)
-            self.external_vars.append(fqn[0])
             return False
 
         self.variables[fqn[0]].add_load(fqn[1:], stmt)
@@ -201,6 +252,10 @@ class Scope():
  
     def vars_and_attributes_stored(self) -> List[str]:
         return list(self.vars_stored)
+
+    def unique_vars_and_attributes_stored(self) -> List[str]:
+        return bits.unique_elements(self.vars_and_attributes_stored())
+
 
     def vars_in_scope(self) -> List[str]:
         return [ var for var, val in self.variables.items() if val.assigned ]
@@ -250,13 +305,18 @@ class Scope():
         assert(len(fqn) > 0)
         if fqn[0] not in self.variables:
             return False
-
-        return self.variables[fqn[0]].in_scope(fqn[1:])
+        if self.variables[fqn[0]].assigned == False:
+            return False
+        return True
+        #return self.variables[fqn[0]].in_scope(fqn[1:])
 
     def names_in_scope(self):
         return self.parameters + self.vars_in_scope()
 
-    def copy(self) -> Scope:
-        return copy.deepcopy(self)
 
+    def add_method_call(self, varname: str, caller: ast.stmt) -> None:
+        if not self.in_scope(varname):
+            return
 
+        fqn = bits.str_fqn(varname)
+        self.variables[fqn[0]].add_method_call(fqn[1:], caller)

@@ -44,8 +44,9 @@ class Graph():
         '''
         if var not in self.in_edges[d]:
             self.in_edges[d][var] = list()
+        bits.append_if_unique(self.in_edges[d][var], s)
 
-        self.in_edges[d][var].append(s)
+        print(s, d, var)
         self.out_edges[s][var] = d
 
     def induced_subgraph(self, newvertices: List[ast.stmt]):
@@ -213,40 +214,41 @@ class GraphMaker(nt.NodeTraverser):
             # TODO: if referencing a variable that was never defined, this next line will fail, exception instead?
             # At this point, if this statement both loads and assigns to the same variable then the var_assigner points to this statement!  
             # Need to look at the scope previous to this statement to get the proper assigner.
-            assigning_stmt = old_scope.var_assigner(var) 
-            if not assigning_stmt:
-                for s in reversed(self.scopes[:-1]):
-                    assigning_stmt = s.var_assigner(var)
-                    if assigning_stmt: break
-
-
-            # if this is an inner graph, then the assigning variable may not
-            # be in this graph.
-            # Statements with bodies may load and store the same variable in any order, so check.
-            if assigning_stmt in self.graphs[-1].vertices and assigning_stmt is not stmt:
-                self.graphs[-1].add_edge(stmt, assigning_stmt, var)
+            if old_scope.in_scope(var):
+                modifier_stmts = old_scope.var_modifiers(var)
             else:
-                # Variable wasn't assigned in this block, so add this
-                # as an external variable to the parent statement
-                self.stmt_scopes[-2].add_var_load(var)
-        
+                modifier_stmts = list()     # in case we don't find it in scope, the rest won't die.
+                for s in reversed(self.scopes[:-1]):
+                    if s.in_scope(var):
+                        modifier_stmts = s.var_modifiers(var)
+                        break
+
+            for modifier_stmt in modifier_stmts:
+                # Statements with bodies may load and store the same variable in any order, so check.
+                if modifier_stmt == stmt:
+                    continue
+                # if this is an inner graph, then the modifier may not
+                # be in this graph.
+                if modifier_stmt in self.graphs[-1].vertices:
+                    self.graphs[-1].add_edge(stmt, modifier_stmt, var)
+                else:
+                    # Modifier was not in this block, so add this
+                    # as an external variable to the parent statement to create an edge
+                    # in the outer graph
+                    self.stmt_scopes[-2].add_var_load(var)
+            
         # Create edges from this statement for every variable that it stores
         # which was previously stored.  This is necessary to preserve
         # order.  Note that this is only necessary for variables
         # that are in the same scope.  If this is an inner scope, eg
         # FunctionDef then the overwritten variable reverts back
         # to the original value once we leave that scope.
-        for var in stmt_scope.unique_vars_in_scope():
-            store = self.local_scope().var_store(var)
-            if store.store_type == 'overwrite':
-                old_assigner = store.previous_assigner
-                var_name = var + ':overwrite'
-
+        for var in stmt_scope.unique_vars_and_attributes_stored():
+            var_name = var + ':overwrite'
+            for old_assigner in old_scope.var_modifiers(var):
                 # the old assigner might not be in this graph, eg. if this is an inner graph
                 # In that case it should be handled by the parent statement.
-                # For statements with bodies, there can be multiple stores to the same varible,
-                # but we don't want to have an edge from a vertex to itself, so check.
-                if old_assigner in self.graphs[-1].vertices and old_assigner is not stmt:
+                if old_assigner in self.graphs[-1].vertices:
                     self.graphs[-1].add_edge(stmt, old_assigner, var_name)
 
                     # we also need to add edges to any statement that previously
