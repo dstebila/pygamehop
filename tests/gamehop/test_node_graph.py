@@ -2,6 +2,7 @@ import ast
 import unittest
 import gamehop.utils as utils
 import gamehop.node_graph as ng
+from gamehop.node_graph import Edge as Edge
 
 def expected_result(f):
     fdef = utils.get_function_def(f)
@@ -9,7 +10,7 @@ def expected_result(f):
     return ast.unparse(fdef)
 
 class TestNodeGraph(unittest.TestCase):
-    def test_creat_simple_graph(self):
+    def test_create_simple_graph(self):
         def f():
             x = 1
             y = x + 1
@@ -27,17 +28,21 @@ class TestNodeGraph(unittest.TestCase):
         self.assertEqual(v1, f_node.body[1])
         self.assertEqual(v2, f_node.body[2])
 
-        self.assertEqual(len(G.out_edges[v0].keys()), 0)
-        self.assertEqual(len(G.out_edges[v1].keys()), 1)
-        self.assertEqual(len(G.out_edges[v2].keys()), 1)
-        self.assertEqual(G.out_edges[v1]['x'], v0)
-        self.assertEqual(G.out_edges[v2]['y'], v1)
+        self.assertEqual(len(G.edges), 2)
+        self.assertEqual(G.edges[0].head, v0)
+        self.assertEqual(G.edges[0].tail, v1)
+        self.assertEqual(G.edges[1].head, v1)
+        self.assertEqual(G.edges[1].tail, v2)
+       
+        self.assertEqual(G.in_neighbours(v0), [v1]) 
+        self.assertEqual(G.in_neighbours(v1), [v2]) 
+        self.assertEqual(G.in_neighbours(v2), []) 
 
-        self.assertEqual(len(G.in_edges[v0].keys()), 1)
-        self.assertEqual(len(G.in_edges[v1].keys()), 1)
-        self.assertEqual(len(G.in_edges[v2].keys()), 0)
-        self.assertEqual(G.in_edges[v0]['x'], [v1])
-        self.assertEqual(G.in_edges[v1]['y'], [v2])
+        self.assertEqual(G.out_neighbours(v0), [ ]) 
+        self.assertEqual(G.out_neighbours(v1), [v0]) 
+        self.assertEqual(G.out_neighbours(v2), [v1]) 
+
+        self.assertEqual(G.max_vertices(), [v2])
 
     def test_create_complex_graph_no_inner(self):
         def f():
@@ -64,29 +69,13 @@ class TestNodeGraph(unittest.TestCase):
         self.assertEqual(v3, f_node.body[3])
         self.assertEqual(v4, f_node.body[4])
 
-        self.assertEqual(len(G.out_edges[v0].keys()), 0)
-        self.assertEqual(len(G.out_edges[v1].keys()), 1)
-        self.assertEqual(len(G.out_edges[v2].keys()), 1)
-        self.assertEqual(len(G.out_edges[v3].keys()), 2)
-        self.assertEqual(len(G.out_edges[v4].keys()), 3)
-        self.assertEqual(G.out_edges[v1]['x'], v0)
-        self.assertEqual(G.out_edges[v2]['x'], v0)
-        self.assertEqual(G.out_edges[v3]['y'], v1)
-        self.assertEqual(G.out_edges[v3]['z'], v2)
-        self.assertEqual(G.out_edges[v4]['y'], v1)
-        self.assertEqual(G.out_edges[v4]['z'], v2)
-        self.assertEqual(G.out_edges[v4]['w'], v3)
-
-        self.assertEqual(len(G.in_edges[v0].keys()), 1)
-        self.assertEqual(len(G.in_edges[v1].keys()), 1)
-        self.assertEqual(len(G.in_edges[v2].keys()), 1)
-        self.assertEqual(len(G.in_edges[v3].keys()), 1)
-        self.assertEqual(len(G.in_edges[v4].keys()), 0)
-        self.assertEqual(G.in_edges[v0]['x'], [v1, v2])
-        self.assertEqual(G.in_edges[v1]['y'], [v3, v4])
-        self.assertEqual(G.in_edges[v2]['z'], [v3, v4])
-        self.assertEqual(G.in_edges[v3]['w'], [v4])
-        self.assertEqual(G.in_edges[v4], dict())
+        self.assertEqual(G.edges, [ Edge(v1, v0, 'x'), 
+                                    Edge(v2, v0, 'x'), 
+                                    Edge(v3, v1, 'y'),
+                                    Edge(v3, v2, 'z'),
+                                    Edge(v4, v3, 'w'),
+                                    Edge(v4, v2, 'z'),
+                                    Edge(v4, v1, 'y')])
 
     def test_graph_DFS(self):
         def f():
@@ -129,7 +118,7 @@ class TestNodeGraph(unittest.TestCase):
         v2 = G.vertices[2]
         v3 = G.vertices[3]
         v4 = G.vertices[4]
-
+        G.print()
         new_body_stmts = [ s for s in G.topological_order_traverse() ]
 
         self.assertEqual(new_body_stmts, [ v4, v3, v1, v2, v0 ])
@@ -182,17 +171,8 @@ class TestNodeGraph(unittest.TestCase):
         self.assertEqual(v1, f_node.body[1])
         self.assertEqual(v2, f_node.body[2])
 
-        self.assertEqual(len(G.out_edges[v0].keys()), 0)
-        self.assertEqual(len(G.out_edges[v1].keys()), 1)
-        self.assertEqual(len(G.out_edges[v2].keys()), 1)
-        self.assertEqual(G.out_edges[v1]['x'], v0)
-        self.assertEqual(G.out_edges[v2]['z'], v1)
-
-        self.assertEqual(len(G.in_edges[v0].keys()), 1)
-        self.assertEqual(len(G.in_edges[v1].keys()), 1)
-        self.assertEqual(len(G.in_edges[v2].keys()), 0)
-        self.assertEqual(G.in_edges[v0]['x'], [ v1 ])
-        self.assertEqual(G.in_edges[v1]['z'], [ v2 ])
+        self.assertEqual(G.edges, [ Edge(v1, v0, 'x'),
+                                    Edge(v2, v1, 'z')])
 
         body_graph = G.inner_graphs[v1]['body']
         orelse_graph = G.inner_graphs[v1]['orelse']
@@ -220,10 +200,10 @@ class TestNodeGraph(unittest.TestCase):
         v3 = Gb.vertices[0]
         v4 = Gb.vertices[1]
 
-        self.assertEqual(G.out_edges[v1]['x'], v0)
-        self.assertEqual(G.out_edges[v2]['g'], v1)
+        self.assertEqual(G.edges, [ Edge(v1, v0, 'x'), 
+                                    Edge(v2, v1, 'g')])
 
-        self.assertEqual(Gb.out_edges[v4]['z'], v3)
+        self.assertEqual(Gb.edges, [ Edge(v4, v3, 'z') ])
 
     def test_graph_function_def_reassign_variable(self):
         def f():
@@ -246,12 +226,12 @@ class TestNodeGraph(unittest.TestCase):
         v3 = Gb.vertices[0]
         v4 = Gb.vertices[1]
         v5 = Gb.vertices[2]
+        G.print()
+        self.assertEqual(G.edges, [ Edge(v2, v1, 'g'),
+                                    Edge(v2, v0, 'x')])
 
-        self.assertEqual(G.out_edges[v2]['x'], v0)
-        self.assertEqual(G.out_edges[v2]['g'], v1)
-
-        self.assertEqual(Gb.out_edges[v4]['x'], v3)
-        self.assertEqual(Gb.out_edges[v5]['z'], v4)
+        self.assertEqual(Gb.edges, [ Edge(v4, v3, 'x'),
+                                     Edge(v5, v4, 'z')])
 
     def test_graph_if_canonical_order(self):
         def f():
@@ -267,7 +247,7 @@ class TestNodeGraph(unittest.TestCase):
                 z = 2
                 w = s + z + y
             q = 3
-            return q + x + z + y
+            return q + x + z + y + w
 
 
         fdef = utils.get_function_def(f)
@@ -290,21 +270,24 @@ class TestNodeGraph(unittest.TestCase):
 
         # outer graph edges
         # not testing for extra edges because that is tested elsewhere
-        self.assertEqual(G.out_edges[v3]['x'], v0)
-        self.assertEqual(G.out_edges[v3]['r'], v1)
-        self.assertEqual(G.out_edges[v3]['s'], v2)
-        self.assertEqual(G.out_edges[v5]['q'], v4)
-        self.assertEqual(G.out_edges[v5]['x'], v0)
-        self.assertEqual(G.out_edges[v5]['z'], v3)
-        self.assertEqual(G.out_edges[v5]['y'], v3)
+        G.print()
+        self.assertEqual(G.edges, [ Edge(v3, v0, 'x'),
+                                    Edge(v3, v1, 'r'),
+                                    Edge(v3, v2, 's'),
+                                    Edge(v5, v4, 'q'),
+                                    Edge(v5, v0, 'x'),
+                                    Edge(v5, v3, 'z'),
+                                    Edge(v5, v3, 'y'),
+                                    Edge(v5, v3, 'w')])
 
         Gb = G.inner_graphs[v3]['body']
-        self.assertEqual(Gb.out_edges[v8]['y'], v6)
-        self.assertEqual(Gb.out_edges[v8]['z'], v7)
+        self.assertEqual(Gb.edges, [ Edge(v8, v6, 'y'),
+                                     Edge(v8, v7, 'z')])
 
         Go = G.inner_graphs[v3]['orelse']
-        self.assertEqual(Go.out_edges[v11]['y'], v9)
-        self.assertEqual(Go.out_edges[v11]['z'], v10)
+        self.assertEqual(Go.edges, [ Edge(v11, v10, 'z'),
+                                     Edge(v11, v9,  'y')])
+
 
         G.canonical_sort()
 
@@ -420,7 +403,6 @@ class TestNodeGraph(unittest.TestCase):
         G = G.reachable_subgraph([ G.vertices[-1] ])
         G.canonical_sort()
         f_node.body = G.vertices
-        
         self.assertEqual(ast.unparse(f_node), expected_result(f_expected_result))  
 
     def test_attribute_assignment(self):
@@ -435,8 +417,8 @@ class TestNodeGraph(unittest.TestCase):
             return c
 
         def f_expected_result():
-            c = C()
             (a, b) = A()
+            c = C()
             c.x = a
             c.y = b
             return c
@@ -445,7 +427,9 @@ class TestNodeGraph(unittest.TestCase):
         fdef = utils.get_function_def(f)
         f_node = ast.parse(fdef)       
         G = ng.Graph.from_stmts(f_node.body)
+        G.print()
         G = G.reachable_subgraph([ G.vertices[-1] ], True )
+        G.print()
         G.canonical_sort()
         f_node.body = G.vertices
         self.assertEqual(ast.unparse(f_node), expected_result(f_expected_result))  
@@ -467,10 +451,11 @@ class TestNodeGraph(unittest.TestCase):
         fdef = utils.get_function_def(f)
         f_node = ast.parse(fdef)       
         G = ng.Graph.from_stmts(f_node.body)
+        G.print()
         G = G.reachable_subgraph([ G.vertices[-1] ], True )
         G.canonical_sort()
         f_node.body = G.vertices
-        #self.assertEqual(ast.unparse(f_node), expected_result(f_expected_result))  
+        self.assertEqual(ast.unparse(f_node), expected_result(f_expected_result))  
 
     def test_canonical_sort_while(self):
         def f():

@@ -2,7 +2,7 @@ import ast
 import unittest
 import gamehop.utils as utils
 import gamehop.node_traverser as nt
-
+import gamehop.scope as scope
 
 def expected_result(f):
     fdef = utils.get_function_def(f)
@@ -120,10 +120,10 @@ class TestNodeTraverser(unittest.TestCase):
         nnt.visit(f_ast)
 
         self.assertEqual(nnt.inscope_c_val, '1')
-        self.assertTrue(isinstance(nnt.outscope_c_val, nt.NoValue))
+        self.assertTrue(nnt.outscope_c_val is None)
         self.assertEqual(nnt.end_a_val, '1')
-        self.assertTrue(isinstance(nnt.end_b_val, nt.NoValue))
-        self.assertTrue(isinstance(nnt.bogus_val, nt.NoValue))
+        self.assertTrue(nnt.end_b_val is None)
+        self.assertTrue(nnt.bogus_val is None)
 
 
     def test_scopes_function(self):
@@ -255,20 +255,21 @@ class TestNodeTraverser(unittest.TestCase):
                 elif node.func.id == 'g':
                     assert('a' in self.vars_in_scope())
                 elif node.func.id == 'h':
-                    assert('a.b' in self.local_scope().vars_in_scope())
+                    assert('a.b' in self.local_scope().vars_and_attributes_in_scope())
+                    assert('a.b' not in self.local_scope().vars_in_scope())
                     assert(self.local_scope().var_value('a.b').value == 1)
                 elif node.func.id == 'i':
-                    assert('a.b' in self.local_scope().vars_loaded)
+                    assert('a.b' not in self.local_scope().vars_loaded)
                 elif node.func.id == 'j':
-                    assert('a.b.c' in self.local_scope().vars_in_scope())
+                    assert('a.b.c' not in self.local_scope().vars_in_scope())
                 elif node.func.id == 'k':
-                    assert('a.b.c' in self.local_scope().vars_loaded)
+                    assert('a.b.c' not in self.local_scope().vars_loaded)
                 elif node.func.id == 'l':
                     assert('a.blarg' not in self.local_scope().vars_loaded)
                     assert('a.blarg' not in self.local_scope().vars_in_scope())
                 elif node.func.id == 'j':
-                    assert('a.d' in self.local_scope().vars_in_scope())
-                    assert('a.e' in self.local_scope().vars_in_scope())
+                    assert('a.d' not in self.local_scope().vars_in_scope())
+                    assert('a.e' not in self.local_scope().vars_in_scope())
 
                 return self.generic_visit(node)
 
@@ -383,10 +384,8 @@ class TestNodeTraverser(unittest.TestCase):
             def visit_Call(self, node):
                 if node.func.id == 'g':
                     ls = self.local_scope()
-                    assert(isinstance(ls.var_value('s'), nt.NoValue))
-                    assert(isinstance(ls.var_value('t'), nt.NoValue))
-                    assert(isinstance(ls.var_assigner('s'), ast.While))
-                    assert(isinstance(ls.var_assigner('t'), ast.While))
+                    assert(ls.var_value('s') is None)
+                    assert(ls.var_value('t') is None)
                 return node
 
         def g(): pass

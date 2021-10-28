@@ -7,6 +7,7 @@ from ...inlining import internal
 from ... import utils
 from ... import node_traverser as nt
 from ... import node_graph as ng
+from ... import bits 
 
 def canonicalize_function_name(f: ast.FunctionDef, name = 'f') -> None:
     """Modify (in place) the given function definition to have a canonical name."""
@@ -55,7 +56,7 @@ class VariableCollapser(nt.NodeTraverser):
         if not isinstance(node.ctx, ast.Load):
             return node
 
-        fqn = ".".join(nt.attribute_fqn(node))
+        fqn = ".".join(bits.attribute_fqn(node))
 
         if not self.in_scope(fqn):   # this includes cases like function names
             return node
@@ -103,7 +104,7 @@ class ArgumentReorderer(nt.NodeTraverser):
         # visit the body to get the scope set up
         node = self.generic_visit(node)
         s = self.local_scope()
-        node.args.args = [ ast.arg(arg = a, annotation = s.parameter_annotations[a]) for a in s.parameters_loaded ]
+        node.args.args = [ ast.arg(arg = parname , annotation = parannotation) for parname, parannotation in s.parameters_loaded() ]
         return node
 
 def canonicalize_argument_order(f: ast.FunctionDef) -> None:
