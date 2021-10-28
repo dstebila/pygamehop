@@ -142,7 +142,7 @@ class NodeTraverser():
         '''
         return self.local_scope().in_scope(varname)
 
-    def var_value(self, varname: str) -> Optional[ast.expr]:
+    def var_value(self, varname: str) -> Optional[ast.AST]:
         ''' Gives the most recent value assigned to varname.  If the value connot
         be determined (eg. a function argument, or if the varname was assigned
         in the body/orelse of an if statement) then a scope.NoValue object is returned.
