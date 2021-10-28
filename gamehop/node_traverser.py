@@ -2,7 +2,7 @@ from __future__ import annotations
 # The above is used to allow references to a class within a class definition, so
 # that we can return an instance of a class, eg. from a constructor
 
-from typing import List, Optional, Union
+from typing import List, Optional
 import ast
 from . import bits
 from . import scope
@@ -73,16 +73,16 @@ class NodeTraverser():
         self.prelude_statements: List[List[ast.stmt]] = [list()]
 
         # start off with a gloabal scope
-        self.scopes: List[Scope] = [ scope.Scope() ]
+        self.scopes: List[scope.Scope] = [ scope.Scope() ]
 
         # Block level scopes are used to keep track of variables that are stored/loaded within a
         # block of code, eg. if body
         # Currently this only keeps track of variable stores
-        self.block_scopes: List[Scope] = [ scope.Scope() ]
+        self.block_scopes: List[scope.Scope] = [ scope.Scope() ]
 
         # Statement level scopes are used to keep track of variables that are stored/loaded within
         # a single statement and its children
-        self.stmt_scopes: List[Scope] = [ scope.Scope() ]
+        self.stmt_scopes: List[scope.Scope] = [ scope.Scope() ]
 
         # Keep track of the parent of the node being transformed
         self.ancestors: List[ast.ast] = list()
