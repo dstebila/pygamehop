@@ -104,7 +104,7 @@ class ArgumentReorderer(nt.NodeTraverser):
         # visit the body to get the scope set up
         node = self.generic_visit(node)
         s = self.local_scope()
-        node.args.args = [ ast.arg(arg = a, annotation = s.parameter_annotations[a]) for a in s.parameters_loaded ]
+        node.args.args = [ ast.arg(arg = parname , annotation = parannotation) for parname, parannotation in s.parameters_loaded() ]
         return node
 
 def canonicalize_argument_order(f: ast.FunctionDef) -> None:

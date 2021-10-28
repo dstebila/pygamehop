@@ -1,7 +1,6 @@
 from __future__ import annotations
-from typing import Optional, List, Union, Dict
+from typing import Optional, List,  Dict
 import ast
-import copy
 from . import bits
 
 class NoValue():
@@ -20,7 +19,6 @@ class ObjectValue():
         self.assigned:bool = False                              # Has this object actually been assigned?  It may have been created as a container to record a load
         self._value: Optional[ast.AST] = value                  # The expression originally assigned to this object.
         self._annotation = None                                 # Type annotation for this object
-
         if assigner is not None:
             self.assigned = True
 
@@ -134,8 +132,6 @@ class ObjectValue():
             self.attributes[attr].add_method_call(fqn[1:], stmt)
 
     def value(self, fqn: List[str]) -> Optional[ast.AST]:
-        print(fqn, self._value)
-
         if len(fqn) == 0:
             return self._value
         
@@ -183,9 +179,12 @@ class Scope():
     '''
     def __init__(self):
         self.parameters: List[str] = list()                            # function parameters defined in this scope
+        self.parameter_values: List[ObjectValue] = list()              # Stores parameter ObjectValues in order, in case the parameter name gets bound to another object
+        self.parameter_values_loaded: List[ObjectValue] = list()       # Stores values for parameters in the order that they are loaded
         self.vars_loaded: List[str] = list()                           # variable names that have been loaded, in order by first load
         self.vars_stored: List[str] = list()                           # variable names that have been stored, in order by first store
-        self.variables: Dict[str, ObjectValue] = dict()     # Variable names and their currently assigned ObjectValue
+        self.values_loaded: List[ObjectValue] = list()
+        self.variables: Dict[str, ObjectValue] = dict()               # Variable names and their currently assigned ObjectValue
         self.object_values: List[ObjectValue] = list()
         self.external_vars: List[str] = list()                         # variables loaded that were not previously stored and are not parameters
 
@@ -196,8 +195,10 @@ class Scope():
     def copy(self) -> Scope:
         ret = Scope()
         ret.parameters = list(self.parameters)
+        ret.parameter_values = list(self.parameter_values)
         ret.vars_loaded = list(self.vars_loaded)
         ret.vars_stored = list(self.vars_stored)
+        ret.values_loaded = list(self.values_loaded)
         for var, val in self.variables.items():
             ret.variables[var] = val.copy()
         for val in self.object_values:
@@ -209,9 +210,22 @@ class Scope():
 
     def add_parameter(self, par_name, annotation = None):
         self.parameters.append(par_name)
-        self.variables[par_name] = ObjectValue(None, None)
-        self.variables[par_name].assigned = False # TODO: Not sure about this one 
-        self.variables[par_name]._annotation = annotation
+        parobj = ObjectValue(None, None)
+        parobj.assigned = False # TODO: Not sure about this one 
+        parobj._annotation = annotation
+
+        self.variables[par_name] = parobj
+        self.parameter_values.append(parobj)
+
+    def parameters_loaded(self):
+        # Searching over the values_loaded so that we get them in order
+        ret = []
+        for obj in self.parameter_values_loaded:
+            # Get the original name of the parameter
+            i = self.parameter_values.index(obj)
+            ret.append((self.parameters[i], obj._annotation))
+        # We only want each parameter to appear once
+        return bits.unique_elements(ret)
 
     def add_var_assignment(self, varname: str, assigner: ast.stmt, value: Optional[ast.expr])-> None:
         fqn = bits.str_fqn(varname)
@@ -238,6 +252,8 @@ class Scope():
 
         if not self.in_scope(varname):
             self.external_vars.append(varname)
+        if fqn[0] in self.variables and self.variables[fqn[0]] in self.parameter_values:
+            self.parameter_values_loaded.append(self.variables[fqn[0]])
 
         assert(len(fqn) > 0)
         self.vars_loaded.append(fqn[0])

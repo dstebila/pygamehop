@@ -426,7 +426,7 @@ class NodeTraverser():
 
             # if this is a method call, like a.blarg()
             if isinstance(self.parent(), ast.Call):
-                self.local_scope().add_method_call(bits.str_fqr(bits.attribute_fqn(node))) 
+                self.local_scope().add_method_call(bits.fqn_str(bits.attribute_fqn(node)), self.parent_statement()) 
                 return node
 
             # if this is in an ast.Attribute, then this value isn't being loaded, but an attribute of it is.

@@ -2,19 +2,18 @@ from . import node_traverser as nt
 from . import bits
 import ast
 from typing import Dict, List
+from collections import namedtuple
 
+Edge = namedtuple('Edge', 'tail head label')
 
 class Graph():
     def __init__(self):
 
-        self.vertices: List[ast.AST] = list()
-
-        # An edge goes from a Name load to a Name store
-        # These dictionaries keep track in and out edges for each vertex
-        # In the case of a vertex assigned to a variable that already exists, we will have 
-        # an edge with variable name "varname:overwrite" where varname is the variable's name
-        self.in_edges: Dict[Dict[str, List[ast.AST]]] = dict() # first key = vertex, second key = variable name, value = list of vertices that reference that variable
-        self.out_edges: Dict[Dict[str, ast.AST]] = dict() # first key = vertex, second key = variable name, value = the node that provides this value
+        self.vertices: List[ast.stmt] = list()
+        # An edge goes from the tail to the head, where the tail vertex reads a variable
+        # and the head vertex points to a vertex that wrote/modified the variable.  The label
+        # on each edge is the name of the variable.
+        self.edges: List[Edge] = list()
 
 
         # This dictionary holds graphs corresponding to bodies of nodes
@@ -35,21 +34,19 @@ class Graph():
 
     def add_vertex(self, a: ast.stmt):
         self.vertices.append(a)
-        self.in_edges[a] = dict()
-        self.out_edges[a] = dict()
 
-    def add_edge(self, s:ast.stmt, d: ast.stmt, var: str):
+    def _add_Edge(self, e: Edge):
+        assert(e.head in self.vertices)
+        assert(e.tail in self.vertices)
+        bits.append_if_unique(self.edges, e)
+
+    def add_edge(self, tail:ast.stmt, head: ast.stmt, var: str) -> None:
         '''Create an edge from vertex s to vertex d for variable var.  The edge indicates a dependency, i.e. vertex s depends
         on the value var assigned by vertex d.
         '''
-        if var not in self.in_edges[d]:
-            self.in_edges[d][var] = list()
-        bits.append_if_unique(self.in_edges[d][var], s)
+        self._add_Edge(Edge(tail, head, var))
 
-        print(s, d, var)
-        self.out_edges[s][var] = d
-
-    def induced_subgraph(self, newvertices: List[ast.stmt]):
+    def induced_subgraph(self, newvertices: List[ast.stmt]) -> 'Graph':
         '''Return a new graph which has newvertices as its vertices.  Edges are kept that go
         between vertices in newvertices'''
         G = Graph()
@@ -59,26 +56,44 @@ class Graph():
             if v in G.inner_graphs:
                 G.inner_graphs[v] = self.inner_graphs[v]
 
-        for v in newvertices:
-            for var, n in self.out_edges[v].items():
-                if n in newvertices:
-                    G.add_edge(v, n, var)
+        for e in self.edges:
+            if e.head in G.vertices and e.tail in G.vertices:
+                    G._add_Edge(e)
         return G
 
-    def in_neighbours(self, v):
-        return sum( [ v for k,v in self.in_edges[v].items() ], [])
+    def in_edges(self, v: ast.stmt) -> List[Edge]: 
+        return [ e for e in self.edges if e.head == v ]
 
-    def out_neighbours(self, v, omit_overwrites=False):
-        return [ u for var, u in self.out_edges[v].items() if not (omit_overwrites and var.endswith(':overwrite')) ]
+    def out_edges(self, v: ast.stmt) -> List[Edge]: 
+        return [ e for e in self.edges if e.tail == v ]
+
+    def in_edge_labels(self, v: ast.stmt) -> List[str]:
+        return bits.unique_elements([ e.label for e in self.in_edges(v) ])
+
+    def in_neighbours(self, v):
+        ''' For a give vertex v, return the statements u such that v assigned/modified 
+        a variable that u depends on.  I.e. u -> v is an edge.'''
+        return bits.unique_elements( [ e.tail for e in self.edges if e.head == v ] )
+
+    def out_neighbours(self, v: ast.stmt, omit_overwrites=False) -> List[ast.stmt]:
+        ''' For a give vertex v, return the statements u such that u assigned/modified 
+        a variable that v depends on.  I.e. v -> u is an edge'''
+        return bits.unique_elements([ e.head for e in self.edges if e.tail == v and not (omit_overwrites and e.label.endswith(':overwrite')) ])
 
     def var_refs(self, start = None):
-        '''Returns variable names in order referenced by vertices, starting from a particular vertex (if supplied).  Note that
+        '''Returns variable names in order referenced/loaded by vertices, starting from a particular vertex (if supplied).  Note that
         if a vertex references several variables, they are returned in reverse order.  This is so that if this function output is
         reversed the order starts with the last statement (eg return) in order that it references the variables (left to right)'''
+
+        # We assume that edges are added in order that the corresponding variables are referenced.
         i = self.vertices.index(start) if start is not None else 0
         for v in self.vertices[i:]:
-            for varname in reversed(self.out_edges[v]):
-                yield varname
+            for e in reversed(self.out_edges(v)):
+                yield e.label
+
+    def max_vertices(self) -> List[ast.stmt]:
+        ''' Returns a list of vertices such that they have no in-edges, i.e. no other vertex depends on them.'''
+        return [ v for v in self.vertices if self.in_edges(v) == [] ]
 
     def depth_first_traverse(self, start_points, omit_overwrites=False):
         yield from self.depth_first_traverse_R(start_points, list(), omit_overwrites)
@@ -108,7 +123,7 @@ class Graph():
     def topological_order_traverse(self):
         '''Returns the vertices in a topological ordering, starting from vertices that have no in-edges, i.e. they do not provide
         any values loaded by other statements'''
-        max_vertices = [ v for v in self.vertices if not self.in_edges[v] ]
+        max_vertices = self.max_vertices()
         if max_vertices:
             yield from max_vertices
             vertices_remaining = [ v for v in self.vertices if v not in max_vertices ]
@@ -128,13 +143,13 @@ class Graph():
         # relationship between values stored and referenced.  But it is not topological ordering.
 
         # vertices whose values are not in this graph (eg. return statement), reversed.  Reverse so that most recent assignment to a variable comes first
-        top_vertices = [ v for v in self.vertices if not self.in_edges[v] ]
+        top_vertices = self.max_vertices()
         top_vertices.reverse()
         # put them in the order that they are referenced in the outer graph, reversed
         dfs_start_vertices = list()
         for var in reversed(self.values_loaded):
             for v in top_vertices:
-                if var in self.in_edges[v]:
+                if var in self.in_edge_labels(v):
                     dfs_start_vertices.append(v)
                     break
 
@@ -175,25 +190,17 @@ class Graph():
         vertex_number = { v: i for i, v in enumerate(self.vertices) }
         print(vertex_number)
 
-        print('Out edges')
+        print('Edges')
         print('-----------')
-        for v, inner_dict in self.out_edges.items():
-            for var, n in inner_dict.items():
-                print(f'{vertex_number[v]}, {var}: { vertex_number[n]}')
+        for e in self.edges:
+            print(f'{vertex_number[e.tail]}, { vertex_number[e.head]}, { e.label }')
 
-        print('In edges')
-        print('------------')
-        for v, inner_dict in self.in_edges.items():
-            for var, neighbours in inner_dict.items():
-                n_str = repr([ vertex_number[u] for u in neighbours])
-                print(f'{vertex_number[v]}, {var}: {n_str}')
-
+        if self.inner_graphs: print('Inner graphs')
         for v, bodies in self.inner_graphs.items():
             print(v)
             for bodyname, bodygraph in bodies.items():
                 print(bodyname)
                 bodygraph.print()
-
 
 class GraphMaker(nt.NodeTraverser):
     def __init__(self):
@@ -254,12 +261,9 @@ class GraphMaker(nt.NodeTraverser):
                     # we also need to add edges to any statement that previously
                     # loaded this variable since they need to come before this
                     # statement in order to have the correct value
-                    if var in self.graphs[-1].in_edges[old_assigner]:
-                       for u in self.graphs[-1].in_edges[old_assigner][var]:
-                           # a statement with a body can load a variable that it assigns to, and we don't
-                           # want to create loops for that
-                           if u is not stmt:
-                               self.graphs[-1].add_edge(stmt, u, var_name)
+                    for e in self.graphs[-1].in_edges(old_assigner):
+                        if e.label == var and e.tail is not stmt:
+                               self.graphs[-1].add_edge(stmt, e.tail, var_name)
 
         return ret
 
