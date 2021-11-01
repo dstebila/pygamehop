@@ -1,88 +1,48 @@
 import os
-from typing import Tuple
+from typing import cast, Tuple, Type
 
-from gamehop.primitives import Crypto, KEM, PKE
-from gamehop.primitives.KEM import SharedSecret
-from gamehop.proofs import Proof
+from gamehop.primitives import Crypto, PKE
+from gamehop.proofs2 import Proof
 
-import KEMfromPKE
+from KEMfromPKE import KEMfromPKE, PKE1
 
-PKEScheme = PKE.PKEScheme
+# Theorem: KEMfromPKE[PKE1] is IND-CPA-secure if PKE1 is IND-CPA-secure.
+proof = Proof(KEMfromPKE, PKE.INDCPA)
 
-KEMINDCPA_adversary = KEM.KEMINDCPA_adversary
+# Game 0 is the KEMfromPKE scheme inlined into KEM.INDCPA_Real
 
-# statement we're trying to prove
-proof = Proof(KEM.INDCPA, KEMfromPKE.Scheme, KEMINDCPA_adversary)
+# Game 1 sends the encryption of an independent random value instead of the actual shared secret.
 
-# game hop: rewriting step
-# len(Crypto.UniformlySample(SharedSecret)) == len(Crypto.UniformlySample(SharedSecret))
-def rewrite_left0(v0: KEMINDCPA_adversary, v1: PKEScheme) -> Crypto.Bit:
-    (v2, v3) = v1.KeyGen()
-    v4 = Crypto.UniformlySample(SharedSecret)
-    v5 = v1.Encrypt(v2, v4)
-    v6 = v0.guess(v2, v5, v4)
-    v7 = Crypto.UniformlySample(SharedSecret)
-    v10 = v6 if True else Crypto.Bit(0)
-    return v10
+# Game 0 and Game 1 are indistinguishable under the assumption that PKE1 is IND-CPA-secure.
+# This is chosen by constructing a reduction that acts an IND-CPA-adversary against PKE1,
+# and checking that this reduction, inlined into the IND-CPA experiment for PKE1,
+# is equivalent to either Game 0 or Game 1.
 
-def rewrite_right0(v0: KEMINDCPA_adversary, v1: PKEScheme) -> Crypto.Bit:
-    (v2, v3) = v1.KeyGen()
-    v4 = Crypto.UniformlySample(SharedSecret)
-    v5 = v1.Encrypt(v2, v4)
-    v6 = v0.guess(v2, v5, v4)
-    v7 = Crypto.UniformlySample(SharedSecret)
-    v10 = v6 if len(v4) == len(v7) else Crypto.Bit(0)
-    return v10
+class R1(PKE.INDCPA_Adversary, Crypto.Reduction): # This is an INDCPA adversary for PKE1
+    def __init__(self, Scheme: Type[PKE1], inner_adversary: PKE.INDCPA_Adversary):
+        self.Scheme = Scheme
+        self.inner_adversary = inner_adversary # this is the ParallelPKE adversary
+    def challenge(self, pk1: PKE1.PublicKey) -> Tuple[PKE1.Message, PKE1.Message]:
+        self.pk = cast(KEMfromPKE.PublicKey, pk1)
+        # Generate two independent shared secrets as the challenge messages.
+        ss0 = Crypto.UniformlySample(KEMfromPKE.SharedSecret)
+        self.ss0 = ss0
+        ss1 = Crypto.UniformlySample(KEMfromPKE.SharedSecret)
+        msg0 = cast(PKE1.Message, ss0)
+        msg1 = cast(PKE1.Message, ss1)
+        return (msg0, msg1)
+    def guess(self, ct1: PKE1.Ciphertext) -> Crypto.Bit:
+        # Given the challenge PKE1 ciphertext from the INDCPA challenger for PKE1,
+        # pass it (as a KEMfromPKE ciphertext) to the KEMfromPKE adversary.
+        ct = cast(KEMfromPKE.Ciphertext, ct)
+        return self.inner_adversary.guess(self.pk, ct, self.ss0)
 
-proof.addRewritingStep(rewrite_left0, rewrite_right0)
+proof.add_distinguishing_proof_step(R1, PKE.INDCPA, PKE1)
 
-# game hop: distinguishing step
-# send the encryption of an independent random value instead of the actual shared secret
-# proven by constructing reduction from distinguishing the previous game and this game to distinguishing PKE.INDCPA (with b = 0) from PKE.INDCPA (with b = 1)
-class R12(PKE.PKEINDCPA_adversary):
-    def __init__(self, kem_adversary: KEMINDCPA_adversary) -> None:
-        self.kem_adversary = kem_adversary
-    def setup(self, pke2: PKE.PKEScheme) -> None:
-        self.pke = pke2
-        return None
-    def challenge(self, pk: PKE.PublicKey) -> Tuple[PKE.Message, PKE.Message]:
-        self.pk = pk
-        self.ss0 = Crypto.UniformlySample(SharedSecret)
-        self.ss1 = Crypto.UniformlySample(SharedSecret)
-        return (self.ss0, self.ss1)
-    def guess(self, ct: PKE.Ciphertext) -> Crypto.Bit:
-        return self.kem_adversary.guess(self.pk, ct, self.ss0)
+# TODO: Will probably need to add rewriting steps before and after R1 about len(Crypto.UniformlySample(SharedSecret)) == len(Crypto.UniformlySample(SharedSecret))
 
-proof.addDistinguishingProofStep(PKE.INDCPA, 'pke', R12)
-
-# game hop: rewriting step
-# len(Crypto.UniformlySample(SharedSecret)) == len(Crypto.UniformlySample(SharedSecret))
-def rewrite_left2(v0: KEMINDCPA_adversary, v1: PKEScheme) -> Crypto.Bit:
-    (v2, v3) = v1.KeyGen()
-    v4 = Crypto.UniformlySample(SharedSecret)
-    v5 = v1.Encrypt(v2, v4)
-    v6 = Crypto.UniformlySample(SharedSecret)
-    v7 = v0.guess(v2, v5, v6)
-    v8 = len(v6) == len(v4)
-    v9 = Crypto.Bit(0)
-    v10 = v7 if v8 else v9
-    return v10
-
-def rewrite_right2(v0: KEMINDCPA_adversary, v1: PKEScheme) -> Crypto.Bit:
-    (v2, v3) = v1.KeyGen()
-    v4 = Crypto.UniformlySample(SharedSecret)
-    v5 = v1.Encrypt(v2, v4)
-    v6 = Crypto.UniformlySample(SharedSecret)
-    v7 = v0.guess(v2, v5, v6)
-    v8 = True
-    v9 = Crypto.Bit(0)
-    v10 = v7 if v8 else v9
-    return v10
-
-proof.addRewritingStep(rewrite_left2, rewrite_right2)
-
-assert proof.check(print_hops=True, print_canonicalizations=True)
-print()
+assert proof.check(print_hops=True, print_canonicalizations=True, print_diffs=True, abort_on_failure=False)
+print("Theorem :")
 print(proof.advantage_bound())
 
 with open(os.path.join('examples', 'KEMfromPKE', 'KEMfromPKE_is_INDCPA.tex'), 'w') as fh:

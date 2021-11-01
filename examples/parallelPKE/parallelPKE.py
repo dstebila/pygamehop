@@ -39,7 +39,7 @@ class ParallelPKE(PKEScheme):
         pt1 = PKE1.Decrypt(sk.sk1, ct.ct1)
         pt2 = PKE2.Decrypt(sk.sk2, ct.ct2)
         if pt1 == Crypto.Reject or pt1 == Crypto.Reject or pt1 != pt2:
-            r = Crypto.Reject
+            r: Union[Crypto.Reject, ParallelPKE.Message] = Crypto.Reject()
         else:
             r = cast(ParallelPKE.Message, pt1)
         return r
