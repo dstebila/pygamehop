@@ -1,29 +1,45 @@
-from typing import Tuple, Union, Generic, Set
+from typing import cast, Tuple, Union
 
-from gamehop.primitives import Crypto, PKE
+from gamehop.primitives import Crypto
+from gamehop.primitives.PKE import PKEScheme
 
-PKEScheme = PKE.PKEScheme
+class PKE1(PKEScheme): pass
+class PKE2(PKEScheme): pass
 
-class Scheme(PKEScheme):
-    def __init__(self, pke1: PKEScheme, pke2: PKEScheme) -> None:
-        self.pke1 = pke1
-        self.pke2 = pke2
-    def KeyGen(self) :
-        (pk1, sk1) = self.pke1.KeyGen()
-        (pk2, sk2) = self.pke2.KeyGen()
-        return ((pk1, pk2), (sk1, sk2))
-    def Encrypt(self, pk, msg):
-        pk1, pk2 = pk
-        ct1 = self.pke1.Encrypt(pk1, msg)
-        ct2 = self.pke2.Encrypt(pk2, msg)
-        return (ct1, ct2)
-    def Decrypt(self, sk, ct):
-        (ct1, ct2) = ct
-        (sk1, sk2) = sk
-        pt2 = self.pke2.Decrypt(sk2, ct2)
-        pt1 = self.pke1.Decrypt(sk1, ct1)
-        if pt2 == Crypto.Reject or pt1 == Crypto.Reject or pt1 != pt2:
+class ParallelPKE(PKEScheme):
+    class PublicKey(PKEScheme.PublicKey):
+        def __init__(self, pk1: PKE1.PublicKey, pk2: PKE2.PublicKey):
+            self.pk1 = pk1
+            self.pk2 = pk2
+    class SecretKey(PKEScheme.SecretKey):
+        def __init__(self, sk1: PKE1.SecretKey, sk2: PKE2.SecretKey):
+            self.sk1 = sk1
+            self.sk2 = sk2
+    class Ciphertext(PKEScheme.Ciphertext):
+        def __init__(self, ct1: PKE1.Ciphertext, ct2: PKE2.Ciphertext):
+            self.ct1 = ct1
+            self.ct2 = ct2
+    class Message(PKEScheme.Message): pass
+
+    @staticmethod
+    def KeyGen() -> Tuple[PublicKey, SecretKey]:
+        (pk1, sk1) = PKE1.KeyGen()
+        (pk2, sk2) = PKE2.KeyGen()
+        pkprime = ParallelPKE.PublicKey(pk1, pk2)
+        skprime = ParallelPKE.SecretKey(sk1, sk2)
+        return (pkprime, skprime)
+    @staticmethod
+    def Encrypt(pk: PublicKey, msg: Message) -> Ciphertext: # type: ignore[override]
+        ct1 = PKE1.Encrypt(pk.pk1, msg)
+        ct2 = PKE2.Encrypt(pk.pk2, msg)
+        ct = ParallelPKE.Ciphertext(ct1, ct2)
+        return ct
+    @staticmethod
+    def Decrypt(sk: SecretKey, ct: Ciphertext) -> Union[Crypto.Reject, Message]: # type: ignore[override]
+        pt1 = PKE1.Decrypt(sk.sk1, ct.ct1)
+        pt2 = PKE2.Decrypt(sk.sk2, ct.ct2)
+        if pt1 == Crypto.Reject or pt1 == Crypto.Reject or pt1 != pt2:
             r = Crypto.Reject
-        else: 
-            r = pt1
+        else:
+            r = cast(Message, pt1)
         return r
