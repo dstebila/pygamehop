@@ -41,5 +41,5 @@ class ParallelPKE(PKEScheme):
         if pt1 == Crypto.Reject or pt1 == Crypto.Reject or pt1 != pt2:
             r = Crypto.Reject
         else:
-            r = cast(Message, pt1)
+            r = cast(ParallelPKE.Message, pt1)
         return r
