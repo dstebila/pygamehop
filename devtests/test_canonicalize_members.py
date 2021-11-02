@@ -75,9 +75,24 @@ class TestCanonicalizeMembers(unittest.TestCase):
                 return c
         class C_expected_result:
             def f(v0):
-                v0.a = 1
-                v1 = list(v0.a)
+                v1 = list(1)
                 return v1
+        c = gamehop.utils.get_class_def(C)
+        s = gamehop.verification.canonicalize_game(c)
+        self.assertEqual(s, expected_result(C_expected_result))
+
+    def test_remove_unused_lines_that_involve_members(self):
+        class C:
+            def main(self):
+                (x, y) = g.a()
+                u = g.b(x, x)
+                v = g.b(x, y)
+                return v
+        class C_expected_result:
+            def main(v0):
+                (v1, v2) = g.a()
+                v3 = g.b(v1, v2)
+                return v3
         c = gamehop.utils.get_class_def(C)
         s = gamehop.verification.canonicalize_game(c)
         self.assertEqual(s, expected_result(C_expected_result))

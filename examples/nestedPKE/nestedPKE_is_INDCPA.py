@@ -53,7 +53,6 @@ class R1(PKE.INDCPA_Adversary, Crypto.Reduction): # This is an INDCPA adversary 
 proof1.add_distinguishing_proof_step(R1, PKE.INDCPA, PKE1)
 
 assert proof1.check(print_hops=True, print_canonicalizations=True, print_diffs=True, abort_on_failure=False)
-proof1.check(print_hops=True, print_canonicalizations=False, print_diffs=True, abort_on_failure=False)
 print("Theorem 1:")
 print(proof1.advantage_bound())
 
@@ -80,23 +79,23 @@ class Rewrite0_Left(Crypto.Game):
         v0.adversary = v1(NestedPKE)
 
     def main(v0) -> Crypto.Bit:
-        v1 = NestedPKE.PublicKey.__new__(NestedPKE.PublicKey)
-        (v2, v3) = PKE1.KeyGen()
-        v1.pk1 = v2
-        (v4, v5) = PKE2.KeyGen()
-        v1.pk2 = v4
-        (v6, v7) = v0.adversary.challenge(v1)
-        v8 = PKE1.Encrypt(v2, v6)
+        (v1, v2) = PKE1.KeyGen()
+        (v3, v4) = PKE2.KeyGen()
+        v5 = NestedPKE.PublicKey.__new__(NestedPKE.PublicKey)
+        v5.pk1 = v1
+        v5.pk2 = v3
+        (v6, v7) = v0.adversary.challenge(v5)
+        v8 = PKE1.Encrypt(v1, v6)
         v9 = cast(PKE2.Message, v8)
-        v10 = PKE1.Encrypt(v2, v7)
-        v11 = len(v6)
-        v12 = len(v7)
-        v13 = PKE2.Encrypt(v4, v9)
-        v14 = cast(PKE2.Message, v10)
-        v0ok = v11 == v12
-        v15 = cast(NestedPKE.Ciphertext, v13)
+        v10 = PKE1.Encrypt(v1, v7)
+        v11 = PKE2.Encrypt(v3, v9)
+        v12 = cast(PKE2.Message, v10)
+        v13 = len(v6)
+        v14 = len(v7)
+        v15 = cast(NestedPKE.Ciphertext, v11)
         v16 = len(v9)
-        v17 = len(v14)
+        v17 = len(v12)
+        v0ok = v13 == v14
         v18 = v0.adversary.guess(v15)
         v19 = Crypto.Bit(0)
         v20 = True
@@ -112,23 +111,23 @@ class Rewrite0_Right(Crypto.Game):
         v0.adversary = v1(NestedPKE)
 
     def main(v0) -> Crypto.Bit:
-        v1 = NestedPKE.PublicKey.__new__(NestedPKE.PublicKey)
-        (v2, v3) = PKE1.KeyGen()
-        v1.pk1 = v2
-        (v4, v5) = PKE2.KeyGen()
-        v1.pk2 = v4
-        (v6, v7) = v0.adversary.challenge(v1)
-        v8 = PKE1.Encrypt(v2, v6)
+        (v1, v2) = PKE1.KeyGen()
+        (v3, v4) = PKE2.KeyGen()
+        v5 = NestedPKE.PublicKey.__new__(NestedPKE.PublicKey)
+        v5.pk1 = v1
+        v5.pk2 = v3
+        (v6, v7) = v0.adversary.challenge(v5)
+        v8 = PKE1.Encrypt(v1, v6)
         v9 = cast(PKE2.Message, v8)
-        v10 = PKE1.Encrypt(v2, v7)
-        v11 = len(v6)
-        v12 = len(v7)
-        v13 = PKE2.Encrypt(v4, v9)
-        v14 = cast(PKE2.Message, v10)
-        v0.ok = v11 == v12
-        v15 = cast(NestedPKE.Ciphertext, v13)
+        v10 = PKE1.Encrypt(v1, v7)
+        v11 = PKE2.Encrypt(v3, v9)
+        v12 = cast(PKE2.Message, v10)
+        v13 = len(v6)
+        v14 = len(v7)
+        v15 = cast(NestedPKE.Ciphertext, v11)
         v16 = len(v9)
-        v17 = len(v14)
+        v17 = len(v12)
+        v0.ok = v13 == v14
         v18 = v0.adversary.guess(v15)
         v19 = Crypto.Bit(0)
         v20 = v16 == v17
@@ -187,23 +186,23 @@ class Rewrite2_Left(Crypto.Game):
         v0.adversary = v1(NestedPKE)
 
     def main(v0) -> Crypto.Bit:
-        v1 = NestedPKE.PublicKey.__new__(NestedPKE.PublicKey)
-        (v2, v3) = PKE1.KeyGen()
-        v1.pk1 = v2
-        (v4, v5) = PKE2.KeyGen()
-        v1.pk2 = v4
-        (v6, v7) = v0.adversary.challenge(v1)
-        v8 = PKE1.Encrypt(v2, v7)
-        v9 = cast(PKE2.Message, v8)
-        v10 = PKE1.Encrypt(v2, v6)
-        v11 = len(v6)
-        v12 = len(v7)
-        v13 = PKE2.Encrypt(v4, v9)
-        v14 = cast(PKE2.Message, v10)
-        v0.ok = v11 == v12
-        v15 = cast(NestedPKE.Ciphertext, v13)
-        v16 = len(v14)
-        v17 = len(v9)
+        (v1, v2) = PKE1.KeyGen()
+        (v3, v4) = PKE2.KeyGen()
+        v5 = NestedPKE.PublicKey.__new__(NestedPKE.PublicKey)
+        v5.pk1 = v1
+        v5.pk2 = v3
+        (v6, v7) = v0.adversary.challenge(v5)
+        v8 = PKE1.Encrypt(v1, v6)
+        v9 = PKE1.Encrypt(v1, v7)
+        v10 = cast(PKE2.Message, v9)
+        v11 = PKE2.Encrypt(v3, v10)
+        v12 = cast(PKE2.Message, v8)
+        v13 = len(v6)
+        v14 = len(v7)
+        v15 = cast(NestedPKE.Ciphertext, v11)
+        v16 = len(v12)
+        v17 = len(v10)
+        v0.ok = v13 == v14
         v18 = v0.adversary.guess(v15)
         v19 = Crypto.Bit(0)
         v20 = v16 == v17
@@ -219,23 +218,23 @@ class Rewrite2_Right(Crypto.Game):
         v0.adversary = v1(NestedPKE)
 
     def main(v0) -> Crypto.Bit:
-        v1 = NestedPKE.PublicKey.__new__(NestedPKE.PublicKey)
-        (v2, v3) = PKE1.KeyGen()
-        v1.pk1 = v2
-        (v4, v5) = PKE2.KeyGen()
-        v1.pk2 = v4
-        (v6, v7) = v0.adversary.challenge(v1)
-        v8 = PKE1.Encrypt(v2, v7)
-        v9 = cast(PKE2.Message, v8)
-        v10 = PKE1.Encrypt(v2, v6)
-        v11 = len(v6)
-        v12 = len(v7)
-        v13 = PKE2.Encrypt(v4, v9)
-        v14 = cast(PKE2.Message, v10)
-        v0ok = v11 == v12
-        v15 = cast(NestedPKE.Ciphertext, v13)
-        v16 = len(v14)
-        v17 = len(v9)
+        (v1, v2) = PKE1.KeyGen()
+        (v3, v4) = PKE2.KeyGen()
+        v5 = NestedPKE.PublicKey.__new__(NestedPKE.PublicKey)
+        v5.pk1 = v1
+        v5.pk2 = v3
+        (v6, v7) = v0.adversary.challenge(v5)
+        v8 = PKE1.Encrypt(v1, v6)
+        v9 = PKE1.Encrypt(v1, v7)
+        v10 = cast(PKE2.Message, v9)
+        v11 = PKE2.Encrypt(v3, v10)
+        v12 = cast(PKE2.Message, v8)
+        v13 = len(v6)
+        v14 = len(v7)
+        v15 = cast(NestedPKE.Ciphertext, v11)
+        v16 = len(v12)
+        v17 = len(v10)
+        v0ok = v13 == v14
         v18 = v0.adversary.guess(v15)
         v19 = Crypto.Bit(0)
         v20 = True
