@@ -1,3 +1,7 @@
+if __name__ == '__main__':
+    import sys
+    sys.path.append('../../')
+
 import ast
 import unittest
 import gamehop.utils as utils
@@ -517,4 +521,61 @@ class TestNodeGraph(unittest.TestCase):
         f_node.body = G.vertices
         self.assertEqual(ast.unparse(f_node), expected_result(f_expected_result))
 
+    def test_keep_attribute_assign(self):
+        def f(self):
+            self.a = 1
+            c = list(self.a)
+            return c
+        def f_expected_result(self):
+            self.a = 1
+            c = list(self.a)
+            return c 
 
+        fdef = utils.get_function_def(f)
+        f_node = ast.parse(fdef)       
+        G = ng.Graph.from_stmts(f_node.body)
+        G.print()
+        G = G.reachable_subgraph([ G.vertices[-1] ], True )
+        G.print()
+        G.canonical_sort()
+        G.print()
+        f_node.body = G.vertices
+        self.assertEqual(ast.unparse(f_node), expected_result(f_expected_result))  
+
+    def test_kem_line_order(self):
+        SS = 1
+        def g(x): pass
+        def f(self, S, A):
+            (pk, sk) = S.KeyGen()
+            ss0 = g(SS)
+            ct0 = S.Encrypt(pk, ss0)
+            ss1 = g(SS)
+            ct1 = S.Encrypt(pk, ss1)
+            ct = S.Encrypt(pk, ss1)
+            r = A.guess(pk, ct, ss0)
+            ifexp0 = len(ss0) == len(ss1)
+            return (r, ifexp0)
+        def f_expected_result(self, S, A):
+            (pk, sk) = S.KeyGen()
+            ss1 = g(SS)
+            ct = S.Encrypt(pk, ss1)
+            ss0 = g(SS)
+            r = A.guess(pk, ct, ss0)
+            ifexp0 = len(ss0) == len(ss1)
+            return (r, ifexp0)
+        fdef = utils.get_function_def(f)
+        f_node = ast.parse(fdef)       
+        G = ng.Graph.from_stmts(f_node.body)
+        G.print()
+        G = G.reachable_subgraph([ G.vertices[-1] ], True )
+        G.print()
+        G.canonical_sort()
+        G.print()
+        f_node.body = G.vertices
+        self.assertEqual(ast.unparse(f_node), expected_result(f_expected_result))  
+
+
+
+if __name__ == '__main__':
+
+    unittest.main()

@@ -321,8 +321,6 @@ class Scope():
         assert(len(fqn) > 0)
         if fqn[0] not in self.variables:
             return False
-        if self.variables[fqn[0]].assigned == False:
-            return False
         return True
         #return self.variables[fqn[0]].in_scope(fqn[1:])
 

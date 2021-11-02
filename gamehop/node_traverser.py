@@ -425,7 +425,7 @@ class NodeTraverser():
                 return node
 
             # if this is a method call, like a.blarg()
-            if isinstance(self.parent(), ast.Call):
+            if isinstance(self.parent(), ast.Call) and node is self.parent().func:
                 self.local_scope().add_method_call(bits.fqn_str(bits.attribute_fqn(node)), self.parent_statement()) 
                 return node
 
