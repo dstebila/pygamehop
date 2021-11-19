@@ -150,5 +150,5 @@ class TestInlineReductionIntoGameWithOracle(unittest.TestCase):
                 ct = P1.Encrypt(self.pk, m1 + m2)
                 return P2fromP1.CT(ct)
         self.assertEqual(
-            gamehop.inlining.inline_reduction_into_game(R, G1, P1, G2, P2fromP1, G2_Adversary),
+            gamehop.inlining.inline_reduction_into_game(R, G1, P1, "P1", G2, P2fromP1, G2_Adversary),
             expected_result(G2_expected_result))

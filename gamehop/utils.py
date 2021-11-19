@@ -3,7 +3,8 @@ import copy
 import difflib
 import inspect
 import types
-from typing import Any, Callable, Dict, List, Optional, Type, Union, TypeVar
+from typing import Any, Callable, Dict, _GenericAlias, List, Optional, Type, Union, TypeVar
+
 from . import node_traverser as nt
 
 def stringDiff(a,b):
@@ -167,14 +168,32 @@ def get_class_def(c: Union[Type[Any], str, ast.ClassDef]) -> ast.ClassDef:
     assert isinstance(cdef, ast.ClassDef)
     return cdef
 
+def _simplifyname(s: str) -> str:
+    s = s.replace('gamehop.primitives.', '')
+    w = s.split('.')
+    if len(w) == 2:
+        module = w[0]
+        name = w[1]
+        name = name.replace('Scheme', '')
+        if module.lower() == name.lower(): return name
+        else: return f"{module}.{name}"
+    else: return s
+
 def fqn(o) -> str:
     if inspect.isclass(o):
         if o.__module__ == '__main__': return "" + o.__name__.replace('Scheme', '')
-        else: 
-            module = o.__module__.replace('gamehop.primitives.', '')
-            name = o.__name__.replace('Scheme', '')
-            if module.lower() == name.lower(): return name
-            else: return f"{module}.{name}"
+        else: return _simplifyname(f"{o.__module__}.{o.__name__}")
+    elif isinstance(o, _GenericAlias):
+        return _simplifyname(str(o))
     else: return type(o).__name__
 
-def parentfqn(o) -> str: return fqn(inspect.getmro(o)[1])
+def typefqn(o) -> str:
+    if isinstance(o, _GenericAlias):
+        # remove generic arguments
+        s = str(o)
+        i = s.index('[')
+        s = s[:i]
+        # simplify name
+        return _simplifyname(s)
+    else:
+        return fqn(inspect.getmro(o)[1])

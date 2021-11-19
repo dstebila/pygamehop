@@ -269,7 +269,7 @@ def inline_scheme_into_game(Scheme: Type[Crypto.Scheme], Game: Type[Crypto.Game]
     Game_copy.body = Game_newbody
     return ast.unparse(ast.fix_missing_locations(Game_copy))
 
-def inline_reduction_into_game(R: Type[Crypto.Reduction], GameForR: Type[Crypto.Game], SchemeForR: Type[Crypto.Scheme], TargetGame: Type[Crypto.Game], TargetScheme: Type[Crypto.Scheme], TargetAdversaryType: Type[Crypto.Adversary], game_name: Optional[str] = None) -> str:
+def inline_reduction_into_game(R: Type[Crypto.Reduction], GameForR: Type[Crypto.Game], SchemeForR: Type[Crypto.Scheme], SchemeForRName: str, TargetGame: Type[Crypto.Game], TargetScheme: Type[Crypto.Scheme], TargetAdversaryType: Type[Crypto.Adversary], game_name: Optional[str] = None) -> str:
     """Returns a string representing the inlining of a reduction into a game, to yield another game.  R is the reduction, which an adversary in the game GameForR against scheme SchemeForR.  The result of the inlining is a cryptographic game intended to be of the form TargetGame against scheme TargetScheme."""
     # The high-level idea of this procedure is as follows:
     # 1. The main method of the result should take the main method of the GameForR and inline all calls to R.
@@ -303,7 +303,7 @@ def inline_reduction_into_game(R: Type[Crypto.Reduction], GameForR: Type[Crypto.
             # rename any of R's member variables to self
             fdef = utils.rename_function_body_variables(fdef, {R.__name__: 'self'}, False)
             # replace references to self.Scheme with the scheme that R was using
-            fdef = utils.AttributeNodeReplacer(['self', 'Scheme'], SchemeForR.__name__).visit(fdef)
+            fdef = utils.AttributeNodeReplacer(['self', 'Scheme'], SchemeForRName).visit(fdef)
             # replace R's calls to its inner adversary with calls to the outer game's self.adversary
             fdef = utils.AttributeNodeReplacer(['self', 'inner_adversary'], 'self.adversary').visit(fdef)
             # GameForR's oracles will need to be saved

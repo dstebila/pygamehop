@@ -136,5 +136,5 @@ class TestInlineReductionIntoGame(unittest.TestCase):
                 ret = 1 if b == bstar else 0
                 return Crypto.Bit(ret)
         self.assertEqual(
-            gamehop.inlining.inline_reduction_into_game(R, G1, P1, G2, P2fromP1, G2_Adversary),
+            gamehop.inlining.inline_reduction_into_game(R, G1, P1, "P1", G2, P2fromP1, G2_Adversary),
             expected_result(G2_expected_result))

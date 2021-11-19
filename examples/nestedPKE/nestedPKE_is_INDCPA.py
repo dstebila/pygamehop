@@ -47,7 +47,7 @@ class R1(PKE.INDCPA_Adversary[NPK, NSK, CT2, PT1], Crypto.Reduction): # This is 
         ct2 = PKE2.Encrypt(self.pk2, ct1)
         return self.inner_adversary.guess(ct2)
 
-proof1.add_distinguishing_proof_step(R1, PKE.INDCPA, PKE1)
+proof1.add_distinguishing_proof_step(R1, PKE.INDCPA, PKE1, "PKE1")
 
 assert proof1.check(print_hops=True, print_canonicalizations=True, print_diffs=True, abort_on_failure=False)
 print("Theorem 1:")
