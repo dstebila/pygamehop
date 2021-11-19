@@ -1,43 +1,46 @@
-from typing import cast, Tuple, Union
+from typing import cast, Generic, Optional, Sized, Tuple, TypeVar
 
 from gamehop.primitives import Crypto
 from gamehop.primitives.PKE import PKEScheme
 
-class PKE1(PKEScheme): pass
-class PKE2(PKEScheme): pass
+PK1 = TypeVar('PK1')
+SK1 = TypeVar('SK1')
+CT1 = TypeVar('CT1', bound=Sized)
+PT1 = TypeVar('PT1', bound=Sized)
+PK2 = TypeVar('PK2')
+SK2 = TypeVar('SK2')
+CT2 = TypeVar('CT2')
+# Missing PT2 since PT2 will be the same as CT1
 
-class NestedPKE(PKEScheme):
-    class PublicKey(PKEScheme.PublicKey):
-        def __init__(self, pk1: PKE1.PublicKey, pk2: PKE2.PublicKey):
-            self.pk1 = pk1
-            self.pk2 = pk2
-    class SecretKey(PKEScheme.SecretKey):
-        def __init__(self, sk1: PKE1.SecretKey, sk2: PKE2.SecretKey):
-            self.sk1 = sk1
-            self.sk2 = sk2
-    class Ciphertext(PKEScheme.Ciphertext): pass
-    class Message(PKEScheme.Message): pass
+PKE1 = PKEScheme[PK1, SK1, CT1, PT1]
+PKE2 = PKEScheme[PK2, SK2, CT2, CT1]
+
+NPK = Tuple[PK1, PK2]
+NSK = Tuple[SK1, SK2]
+
+class NestedPKE(
+    Generic[PK1, PK2, SK1, SK2, CT1, CT2, PT1],
+    PKEScheme[NPK, NSK, CT2, PT1]
+):
     @staticmethod
-    def KeyGen() -> Tuple[PublicKey, SecretKey]:
-        (pk1, sk1) = PKE1.KeyGen()
+    def KeyGen():
+        pk1, sk1 = PKE1.KeyGen()
         (pk2, sk2) = PKE2.KeyGen()
-        pkprime = NestedPKE.PublicKey(pk1, pk2)
-        skprime = NestedPKE.SecretKey(sk1, sk2)
-        return (pkprime, skprime)
+        npk = (pk1, pk2)
+        nsk = (sk1, sk2)
+        return (npk, nsk)
     @staticmethod
-    def Encrypt(pk: PublicKey, msg: Message) -> Ciphertext: # type: ignore[override]
-        ct1 = PKE1.Encrypt(pk.pk1, msg)
-        pt2 = cast(PKE2.Message, ct1)
-        ct2 = PKE2.Encrypt(pk.pk2, pt2)
-        ctprime = cast(NestedPKE.Ciphertext, ct2)
-        return ctprime
+    def Encrypt(npk, msg):
+        (pk1, pk2) = npk
+        ct1 = PKE1.Encrypt(pk1, msg)
+        ct2 = PKE2.Encrypt(pk2, ct1)
+        return ct2
     @staticmethod
-    def Decrypt(sk: SecretKey, ct: Ciphertext) -> Union[Crypto.Reject, Message]: # type: ignore[override]
-        pt2 = PKE2.Decrypt(sk.sk2, ct)
-        if pt2 == Crypto.Reject:
-            r: Union[Crypto.Reject, NestedPKE.Message] = Crypto.Reject()
+    def Decrypt(nsk, ct2):
+        (sk1, sk2) = nsk
+        pt2 = PKE2.Decrypt(sk2, ct2)
+        if pt2 == None:
+            r: Optional[PT1] = None
         else:
-            ct1 = cast(PKE1.Ciphertext, pt2)
-            pt1 = PKE1.Decrypt(sk.sk1, ct1)
-            r = cast(NestedPKE.Message, pt1)
+            r = PKE1.Decrypt(sk1, pt2)
         return r

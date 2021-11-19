@@ -7,7 +7,7 @@ from gamehop.primitives import Crypto, PKE
 from gamehop.proofs2 import Proof
 import gamehop.utils
 
-from nestedPKE import NestedPKE, PKE1, PKE2
+from nestedPKE import NestedPKE, PKE1, PKE2, NPK, NSK, PK1, PK2, SK1, SK2, CT1, CT2, PT1
 
 # Theorem: NestedPKE[PKE1, PKE2] is IND-CPA-secure if either PKE1 is IND-CPA-secure or PKE2 is IND-CPA-secure.
 # This shown via two separate proofs:
@@ -27,28 +27,25 @@ proof1 = Proof(NestedPKE, PKE.INDCPA)
 # This is chosen by constructing a reduction that acts an IND-CPA-adversary against PKE1,
 # and checking that this reduction, inlined into the IND-CPA experiment for PKE1, 
 # is equivalent to either Game 0 or Game 1.
-class R1(PKE.INDCPA_Adversary, Crypto.Reduction): # This is an INDCPA adversary for PKE1
-    def __init__(self, Scheme: Type[PKE1], inner_adversary: PKE.INDCPA_Adversary):
+class R1(PKE.INDCPA_Adversary[NPK, NSK, CT2, PT1], Crypto.Reduction): # This is an INDCPA adversary for PKE1
+    def __init__(self, Scheme, inner_adversary):
         self.Scheme = Scheme
         self.inner_adversary = inner_adversary # this is the NestedPKE adversary
-    def challenge(self, pk1: PKE1.PublicKey) -> Tuple[PKE1.Message, PKE1.Message]:
+    def challenge(self, pk1):
         # Use the NestedPKE adversary to generate the two challenge messages.
         # To construct the NestedPKE public key, we use the PKE1 public key given 
         # by the INDCPA challenger for PKE1, and generate the PKE2 keypair ourselves.
         (pk2, sk2) = PKE2.KeyGen()
-        pk_double = NestedPKE.PublicKey(pk1, pk2)
-        (m0, m1) = self.inner_adversary.challenge(pk_double)
+        npk = (pk1, pk2)
+        (m0, m1) = self.inner_adversary.challenge(npk)
         self.pk2 = pk2
         return (m0, m1)
-    def guess(self, ct1: PKE1.Ciphertext) -> Crypto.Bit:
+    def guess(self, ct1):
         # Given the challenge PKE1 ciphertext from the INDCPA challenger for PKE1,
         # construct a NestedPKE ciphertext by encrypting it under the PKE2 public key,
         # then pass the NestedPKE ciphertext to the NestedPKE adversary.
-        pt2 = cast(PKE2.Message, ct1) # Treat the PKE1 ciphertext as a PKE2 message
-        pk2 = self.pk2
-        ct2 = PKE2.Encrypt(pk2, pt2)
-        ctprime = cast(NestedPKE.Ciphertext, ct2) # Treat the PKE2 ciphertext as a NestedPKE ciphertext
-        return self.inner_adversary.guess(ctprime)
+        ct2 = PKE2.Encrypt(self.pk2, ct1)
+        return self.inner_adversary.guess(ct2)
 
 proof1.add_distinguishing_proof_step(R1, PKE.INDCPA, PKE1)
 
@@ -58,6 +55,8 @@ print(proof1.advantage_bound())
 
 with open(os.path.join('examples', 'nestedPKE', 'nestedPKE_is_INDCPA_proof1.tex'), 'w') as fh:
     fh.write(proof1.tikz_figure())
+
+exit()
 
 # Second proof: If PKE2 is IND-CPA-secure, then NestedPKE[PKE1, PKE2] is IND-CPA-secure.
 # This is the statement we're trying to prove: NestedPKE is IND-CPA-secure.
