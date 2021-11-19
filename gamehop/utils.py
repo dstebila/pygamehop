@@ -3,7 +3,8 @@ import copy
 import difflib
 import inspect
 import types
-from typing import Any, Callable, Dict, _GenericAlias, List, Optional, Type, Union, TypeVar
+from typing import Any, Callable, Dict, List, Optional, Type, Union, TypeVar
+from typing import _GenericAlias # type: ignore
 
 from . import node_traverser as nt
 
