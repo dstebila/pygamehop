@@ -248,6 +248,7 @@ def inline_all_inner_class_init_calls(c_to_be_inlined: Union[Type[Any], str, ast
 def get_type_of_scheme_member_of_game(Game: Type[Crypto.Game]) -> str:
     cdef = utils.get_class_def(Game)
     for fdef in cdef.body:
+        assert isinstance(fdef, ast.FunctionDef)
         if fdef.name == "__init__":
             assert len(fdef.args.args) == 3
             schemeArg = fdef.args.args[1]
@@ -264,6 +265,7 @@ def get_type_of_scheme_member_of_game(Game: Type[Crypto.Game]) -> str:
 def get_typevars_of_scheme_member_of_game(Game: Type[Crypto.Game]) -> List[str]:
     cdef = utils.get_class_def(Game)
     for fdef in cdef.body:
+        assert isinstance(fdef, ast.FunctionDef)
         if fdef.name == "__init__":
             assert len(fdef.args.args) == 3
             schemeArg = fdef.args.args[1]
@@ -295,23 +297,27 @@ def get_typevars_of_class(c: Type) -> List[str]:
             if isinstance(base.slice, ast.Name):
                 return [base.slice.id]
             elif isinstance(base.slice, ast.Tuple):
-                return [b.id for b in base.slice.elts]
+                r = list()
+                for b in base.slice.elts:
+                    assert isinstance(b, ast.Name)
+                    r.append(b.id)
+                return r
     return list()
 
-def get_typevar_bindings_of_scheme(Scheme: Type[Crypto.Scheme]) -> Tuple[Optional[str], List[ast.Name]]:
+def get_typevar_bindings_of_class(c: Type) -> Tuple[Optional[str], List[ast.expr]]:
     parent_scheme = None
-    parent_typevar_bindings = list()
-    cdef = utils.get_class_def(Scheme)
+    parent_typevar_bindings: List[ast.expr] = list()
+    cdef = utils.get_class_def(c)
     for base in cdef.bases:
         if not(isinstance(base, ast.Subscript)): continue
         if isinstance(base.value, ast.Name):
             if base.value.id == "Generic": continue
             parent_scheme = base.value.id
         elif isinstance(base.value, ast.Attribute):
-            if base.value.value.id == "Crypto": continue
+            if ast.unparse(base.value).startswith("Crypto"): continue
             parent_scheme = ast.unparse(base.value)
         if isinstance(base.slice, ast.Name):
-            parent_typevar_bindings.append(base.slice.id)
+            parent_typevar_bindings.append(base.slice)
         elif isinstance(base.slice, ast.Tuple):
             for t in base.slice.elts:
                 parent_typevar_bindings.append(t)
@@ -353,7 +359,7 @@ def inline_scheme_into_game(Scheme: Type[Crypto.Scheme], Game: Type[Crypto.Game]
                         ctx=ast.Load()
                     )
     # get the typevar bindings used in the scheme
-    (s_parent_scheme, s_parent_typevar_bindings) = get_typevar_bindings_of_scheme(Scheme)
+    (s_parent_scheme, s_parent_typevar_bindings) = get_typevar_bindings_of_class(Scheme)
     # make sure the scheme is of the right type
     g_scheme = get_type_of_scheme_member_of_game(Game)
     if g_scheme not in [s_parent_scheme, utils.get_class_def(Scheme).name]:
@@ -471,7 +477,7 @@ def inline_reduction_into_game(R: Type[Crypto.Reduction], GameForR: Type[Crypto.
                         ctx=ast.Load()
                     )
     # get the typevar bindings used in the reduction
-    (r_parent_scheme, r_parent_typevar_bindings) = get_typevar_bindings_of_scheme(R)
+    (r_parent_scheme, r_parent_typevar_bindings) = get_typevar_bindings_of_class(R)
     # check that we have the same number of typevars and bindings
     g_typevars = get_typevars_of_class(GameForR)
     if len(r_parent_typevar_bindings) != len(g_typevars): raise ValueError("Reduction and game have different generics lengths")
