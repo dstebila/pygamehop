@@ -1,20 +1,23 @@
-from typing import Sized, Tuple, Type
+from typing import Generic, Sized, Tuple, Type, TypeVar
 
 from . import Crypto
 
-class OTPScheme(Crypto.Scheme):
-    class Message(Sized): pass
-    @staticmethod
-    def Encrypt(key: Crypto.BitString, msg: Message) -> Crypto.BitString: pass
-    @staticmethod
-    def Decrypt(key: Crypto.BitString, ctxt: Crypto.BitString) -> Message: pass
+Key = TypeVar('Key')
+Message = TypeVar('Message', bound=Sized)
+Ciphertext = TypeVar('Ciphertext', bound=Sized)
 
-class IND_Adversary(Crypto.Adversary):
-    def challenge(self) -> Tuple[OTPScheme.Message, OTPScheme.Message]: pass
-    def guess(self, ct: Crypto.BitString) -> Crypto.Bit: pass
+class OTPScheme(Crypto.Scheme, Generic[Key, Message, Ciphertext]):
+    @staticmethod
+    def Encrypt(key: Key, msg: Message) -> Ciphertext: pass
+    @staticmethod
+    def Decrypt(key: Key, ctxt: Ciphertext) -> Message: pass
 
-class IND_Left(Crypto.Game):
-    def __init__(self, Scheme: Type[OTPScheme], Adversary: Type[IND_Adversary]):
+class IND_Adversary(Crypto.Adversary, Generic[Key, Message, Ciphertext]):
+    def challenge(self) -> Tuple[Message, Message]: pass
+    def guess(self, ct: Ciphertext) -> Crypto.Bit: pass
+
+class IND_Left(Crypto.Game, Generic[Key, Message, Ciphertext]):
+    def __init__(self, Scheme: Type[OTPScheme[Key, Message, Ciphertext]], Adversary: Type[IND_Adversary[Key, Message, Ciphertext]]):
         self.Scheme = Scheme
         self.adversary = Adversary(Scheme)
     def main(self) -> Crypto.Bit:
@@ -25,16 +28,16 @@ class IND_Left(Crypto.Game):
         ret = r if len(m0) == len(m1) else Crypto.Bit(0)
         return ret
 
-class IND_Right(Crypto.Game):
-    def __init__(self, Scheme: Type[OTPScheme], Adversary: Type[IND_Adversary]):
+class IND_Right(Crypto.Game, Generic[Key, Message, Ciphertext]):
+    def __init__(self, Scheme: Type[OTPScheme[Key, Message, Ciphertext]], Adversary: Type[IND_Adversary[Key, Message, Ciphertext]]):
         self.Scheme = Scheme
         self.adversary = Adversary(Scheme)
     def main(self) -> Crypto.Bit:
         (m0, m1) = self.adversary.challenge()
-        k = Crypto.BitString.uniformly_random(len(m0))
+        k = Crypto.BitString.uniformly_random(len(m1))
         ct = self.Scheme.Encrypt(k, m1)
         r = self.adversary.guess(ct)
         ret = r if len(m0) == len(m1) else Crypto.Bit(0)
         return ret
 
-IND = Crypto.DistinguishingExperimentLeftOrRight("OTP.IND", IND_Left, IND_Right, IND_Adversary)
+IND = Crypto.DistinguishingExperimentLeftOrRight("OTP", "IND", IND_Left, IND_Right, IND_Adversary)
