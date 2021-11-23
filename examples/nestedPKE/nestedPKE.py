@@ -21,11 +21,9 @@ class NestedPKE(
 ):
     @staticmethod
     def KeyGen():
-        pk1, sk1 = PKE1.KeyGen()
+        (pk1, sk1) = PKE1.KeyGen()
         (pk2, sk2) = PKE2.KeyGen()
-        npk = (pk1, pk2)
-        nsk = (sk1, sk2)
-        return (npk, nsk)
+        return ((pk1, pk2), (sk1, sk2))
     @staticmethod
     def Encrypt(npk, msg):
         (pk1, pk2) = npk

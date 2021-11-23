@@ -324,6 +324,24 @@ def get_typevar_bindings_of_class(c: Type) -> Tuple[Optional[str], List[ast.expr
         else: assert False
     return parent_scheme, parent_typevar_bindings
 
+def get_typevar_bindings_of_inner_adversary(R: Type[Crypto.Reduction]) -> Tuple[Optional[str], List[ast.expr]]:
+    parent_scheme = None
+    parent_typevar_bindings: List[ast.expr] = list()
+    cdef = utils.get_class_def(R)
+    for fdef in cdef.body:
+        assert isinstance(fdef, ast.FunctionDef)
+        if fdef.name == "__init__":
+            assert len(fdef.args.args) == 3
+            innerAdversaryArg = fdef.args.args[2]
+            assert isinstance(innerAdversaryArg.annotation, ast.Subscript)
+            parent_scheme = ast.unparse(innerAdversaryArg.annotation.value)
+            if isinstance(innerAdversaryArg.annotation.slice, ast.Tuple):
+                for t in innerAdversaryArg.annotation.slice.elts:
+                    parent_typevar_bindings.append(t)
+            else:
+                parent_typevar_bindings.append(innerAdversaryArg.annotation.slice)
+    return parent_scheme, parent_typevar_bindings
+
 def inline_scheme_into_game(Scheme: Type[Crypto.Scheme], Game: Type[Crypto.Game], game_name: Optional[str] = None) -> str:
     """Returns a string representing the provided cryptographic game with all calls to methods of the given cryptographic scheme replaced with the body of those functions, with arguments to the call appropriately bound and with local variables named unambiguously."""
     Game_copy = utils.get_class_def(Game)
@@ -477,7 +495,7 @@ def inline_reduction_into_game(R: Type[Crypto.Reduction], GameForR: Type[Crypto.
                         ctx=ast.Load()
                     )
     # get the typevar bindings used in the reduction
-    (r_parent_scheme, r_parent_typevar_bindings) = get_typevar_bindings_of_class(R)
+    (r_parent_scheme, r_parent_typevar_bindings) = get_typevar_bindings_of_inner_adversary(R)
     # check that we have the same number of typevars and bindings
     g_typevars = get_typevars_of_class(GameForR)
     if len(r_parent_typevar_bindings) != len(g_typevars): raise ValueError("Reduction and game have different generics lengths")

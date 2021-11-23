@@ -27,8 +27,8 @@ proof1 = Proof(NestedPKE, PKE.INDCPA)
 # This is chosen by constructing a reduction that acts an IND-CPA-adversary against PKE1,
 # and checking that this reduction, inlined into the IND-CPA experiment for PKE1, 
 # is equivalent to either Game 0 or Game 1.
-class R1(Generic[PK1, PK2, SK1, SK2, CT1, CT2, PT1], PKE.INDCPA_Adversary[Tuple[PK1, PK2], Tuple[SK1, SK2], CT2, PT1], Crypto.Reduction): # This is an INDCPA adversary for PKE1
-    def __init__(self, Scheme: PKE.PKEScheme[PK1, SK1, CT1, PT1], inner_adversary: PKE.INDCPA_Adversary[PK1, SK1, CT1, PT1]):
+class R1(Generic[PK1, PK2, SK1, SK2, CT1, CT2, PT1], PKE.INDCPA_Adversary[PK1, SK1, CT1, PT1], Crypto.Reduction): # This is an INDCPA adversary for PKE1
+    def __init__(self, Scheme: PKE.PKEScheme[PK1, SK1, CT1, PT1], inner_adversary: PKE.INDCPA_Adversary[Tuple[PK1, PK2], Tuple[SK1, SK2], CT2, PT1]):
         self.Scheme = Scheme
         self.inner_adversary = inner_adversary # this is the NestedPKE adversary
     def challenge(self, pk1: PK1) -> Tuple[PT1, PT1]:
@@ -130,8 +130,8 @@ proof2.add_rewriting_proof_step(Rewrite0_Left, Rewrite0_Right)
 # This is chosen by constructing a reduction that acts an IND-CPA-adversary against PKE2,
 # and checking that this reduction, inlined into the IND-CPA experiment for PKE2, 
 # is equivalent to either Game 1 or Game 2.
-class R2(Generic[PK1, PK2, SK1, SK2, CT1, CT2, PT1], PKE.INDCPA_Adversary[Tuple[PK1, PK2], Tuple[SK1, SK2], CT2, PT1], Crypto.Reduction): # This is an INDCPA adversary for PKE2
-    def __init__(self, Scheme: PKE.PKEScheme[PK2, SK2, CT2, CT1], inner_adversary: PKE.INDCPA_Adversary[PK2, SK2, CT2, CT1]):
+class R2(Generic[PK1, PK2, SK1, SK2, CT1, CT2, PT1], PKE.INDCPA_Adversary[PK2, SK2, CT2, CT1], Crypto.Reduction): # This is an INDCPA adversary for PKE2
+    def __init__(self, Scheme: PKE.PKEScheme[PK2, SK2, CT2, CT1], inner_adversary: PKE.INDCPA_Adversary[Tuple[PK1, PK2], Tuple[SK1, SK2], CT2, CT1]):
         self.Scheme = Scheme
         self.inner_adversary = inner_adversary # this is the NestedPKE adversary
     def challenge(self, pk2: PK2) -> Tuple[CT1, CT1]:
