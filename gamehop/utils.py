@@ -172,6 +172,11 @@ def get_class_def(c: Union[Type[Any], str, ast.ClassDef]) -> ast.ClassDef:
     assert isinstance(cdef, ast.ClassDef)
     return cdef
 
+def get_method_by_name(c: ast.ClassDef, method_name: str) -> Optional[ast.FunctionDef]:
+    for x in c.body:
+        if isinstance(x, ast.FunctionDef) and x.name == method_name: return x
+    return None
+
 def _simplifyname(s: str) -> str:
     s = s.replace('gamehop.primitives.', '')
     w = s.split('.')

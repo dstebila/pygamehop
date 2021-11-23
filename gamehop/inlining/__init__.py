@@ -360,7 +360,7 @@ def inline_scheme_into_game(Scheme: Type[Crypto.Scheme], Game: Type[Crypto.Game]
 
     return ast.unparse(ast.fix_missing_locations(Game_copy))
 
-def inline_reduction_into_game(R: Type[Crypto.Reduction], GameForR: Type[Crypto.Game], SchemeForR: Type[Crypto.Scheme], SchemeForRName: str, TargetGame: Type[Crypto.Game], TargetScheme: Type[Crypto.Scheme], TargetAdversaryType: Type[Crypto.Adversary], game_name: Optional[str] = None) -> str:
+def oldinline_reduction_into_game(R: Type[Crypto.Reduction], GameForR: Type[Crypto.Game], SchemeForR: Type[Crypto.Scheme], SchemeForRName: str, TargetGame: Type[Crypto.Game], TargetScheme: Type[Crypto.Scheme], TargetAdversaryType: Type[Crypto.Adversary], game_name: Optional[str] = None) -> str:
     """Returns a string representing the inlining of a reduction into a game, to yield another game.  R is the reduction, which an adversary in the game GameForR against scheme SchemeForR.  The result of the inlining is a cryptographic game intended to be of the form TargetGame against scheme TargetScheme."""
     # The high-level idea of this procedure is as follows:
     # 1. The main method of the result should take the main method of the GameForR and inline all calls to R.
@@ -410,6 +410,7 @@ def inline_reduction_into_game(R: Type[Crypto.Reduction], GameForR: Type[Crypto.
                 OutputGame.body.append(fdef)
         else:
             raise ValueError(f"Method {fdef.name} in game {GameForR_copy.name} is an unknown type of method; only __init__, main, and oracles labeled o_ are allowed.")
+
     # copy all oracles of R into the output game
     R_copy = utils.get_class_def(R)
     for fdef in filter(lambda fdef: isinstance(fdef, ast.FunctionDef) and fdef.name.startswith("o_"), R_copy.body):
@@ -417,7 +418,6 @@ def inline_reduction_into_game(R: Type[Crypto.Reduction], GameForR: Type[Crypto.
         OutputGame.body.append(fdef)
     # for each oracle of GameForR that we saved, inline it into the OutputGame
     for fdef in OraclesToSave:
-        print(f"trying to inline oracle {fdef.name}")
         # calls to this oracle in OutputGame will be of the form R.o_whatever
         # first we'll give those calls a temporary name
         OutputGame.body = utils.AttributeNodeReplacer(['self', 'i' + fdef.name], R.__name__ + '_i' + fdef.name).visit_statements(OutputGame.body)
@@ -443,6 +443,85 @@ def inline_reduction_into_game(R: Type[Crypto.Reduction], GameForR: Type[Crypto.
         for i, otherfdef in enumerate(OutputGame.body):
             assert isinstance(otherfdef, ast.FunctionDef) # needed for typechecker
             OutputGame.body[i] = utils.get_function_def(inline_function_call(fdef, otherfdef))
+
+    # bind the typevars in the new game to the values by the reduction
+    # set the new game to use the typevars used by the reduction
+    r_typevars = get_typevars_of_class(R)
+    for b in OutputGame.bases:
+        if isinstance(b, ast.Subscript):
+            if isinstance(b.value, ast.Name):
+                if b.value.id == "Generic":
+                    b.slice = ast.Tuple(
+                        elts=[ast.Name(id=v, ctx=ast.Load()) for v in r_typevars],
+                        ctx=ast.Load()
+                    )
+    # get the typevar bindings used in the reduction
+    (r_parent_scheme, r_parent_typevar_bindings) = get_typevar_bindings_of_scheme_in_reduction(R)
+    # check that we have the same number of typevars and bindings
+    g_typevars = get_typevars_of_class(GameForR)
+    if len(r_parent_typevar_bindings) != len(g_typevars): 
+        raise ValueError(f"Reduction and game have different generics lengths (reduction bindings: {[ast.unparse(x) for x in r_parent_typevar_bindings]}; game typevars: {g_typevars})")
+    # create the mapping of bindings
+    replacements = dict()
+    for i in range(len(g_typevars)):
+        replacements[g_typevars[i]] = r_parent_typevar_bindings[i]
+    # apply the bindings
+    OutputGame = utils.NameNodeReplacer(replacements).visit(OutputGame)
+
+    return ast.unparse(ast.fix_missing_locations(OutputGame))
+
+def inline_reduction_into_game(R: Type[Crypto.Reduction], GameForR: Type[Crypto.Game], SchemeForR: Type[Crypto.Scheme], SchemeForRName: str, TargetGame: Type[Crypto.Game], TargetScheme: Type[Crypto.Scheme], TargetAdversaryType: Type[Crypto.Adversary], game_name: Optional[str] = None) -> str:
+    """Returns a string representing the inlining of a reduction into a game, to yield another game.  R is the reduction, which an adversary in the game GameForR against scheme SchemeForR.  The result of the inlining is a cryptographic game intended to be of the form TargetGame against scheme TargetScheme."""
+    # The high-level idea of this procedure is as follows:
+    # 1. The main method of the result should take the main method of the GameForR and inline all calls to R.
+    # 2. R provides methods that will become oracles in the resulting game; these are copied from R.
+    # 3. The body of all the oracles of GameForR will be inlined into the resulting game.
+    # 4. Various things are renamed and minor things are changed, for example turning static methods into non-static methods.
+    
+    GameForR_copy = utils.get_class_def(GameForR)
+    
+    # create the shell of the OutputGame
+    OutputGame = copy.deepcopy(GameForR_copy)
+    if game_name: OutputGame.name = game_name
+    else: OutputGame.name = utils.get_class_def(TargetGame).name
+    OutputGame.body = []
+    
+    # build a new __init__ for OutputGame
+    newinit = ast.parse(f"""def __init__(self, Adversary: Type[{get_type_of_inner_adversary_of_reduction(R)}]):
+    self.Scheme = {utils.get_class_def(TargetScheme).name}
+    self.adversary = Adversary({utils.get_class_def(TargetScheme).name})
+""").body[0]
+    OutputGame.body.append(newinit)
+
+    # 1. Copy main from GameForR
+    main = utils.get_method_by_name(GameForR_copy, "main")
+    assert main is not None
+    if main.args.args[0].arg != "self":
+        raise ValueError(f"First parameter of {main.name} is called '{main.args.args[0].arg}', should be called 'self'.")
+    # inline R as self.adversary in main
+    main = utils.AttributeNodeReplacer(['self', 'adversary'], R.__name__).visit(main)
+    main = utils.get_function_def(inline_all_nonstatic_method_calls(R.__name__, R, cast(ast.FunctionDef, main)))
+    # rename any of R's member variables to self
+    main = utils.rename_function_body_variables(main, {R.__name__: 'self'}, False)
+    # replace references to self.Scheme with the scheme that R was using
+    main = utils.AttributeNodeReplacer(['self', 'Scheme'], SchemeForRName).visit(main)
+    # replace R's calls to its inner adversary with calls to the outer game's self.adversary
+    assert main is not None
+    main = utils.AttributeNodeReplacer(['self', 'inner_adversary'], 'self.adversary').visit(main)
+    # main = utils.AttributeNodeReplacer(['self', 'adversary'], R.__name__).visit(main)
+
+    # # 2. Copy oracles added by R
+    # for fdef in utils.get_class_def(R).body:
+    #     if not isinstance(fdef, ast.FunctionDef): continue
+    #     if not(fdef.name.startswith("o_")): continue
+    #     OutputGame.body.append(fdef)
+
+    # 3. Inline oracles that R uses from the original game
+    # The original game is GameForR, with self.Scheme bound to SchemeForR
+    original_game = utils.get_class_def(GameForR)
+    original_game = utils.AttributeNodeReplacer(['self', 'Scheme'], SchemeForRName).visit(original_game)
+    main = utils.get_function_def(inline_all_nonstatic_method_calls("self", original_game, cast(ast.FunctionDef, main)))
+    OutputGame.body.append(main)
 
     # bind the typevars in the new game to the values by the reduction
     # set the new game to use the typevars used by the reduction
