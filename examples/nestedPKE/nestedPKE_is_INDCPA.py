@@ -7,7 +7,7 @@ from gamehop.primitives import Crypto, PKE
 from gamehop.proofs2 import Proof
 import gamehop.utils
 
-from nestedPKE import NestedPKE, PKE1, PKE2, NPK, NSK, PK1, PK2, SK1, SK2, CT1, CT2, PT1
+from nestedPKE import NestedPKE, PKE1, PKE2, PK1, PK2, SK1, SK2, CT1, CT2, PT1
 
 # Theorem: NestedPKE[PKE1, PKE2] is IND-CPA-secure if either PKE1 is IND-CPA-secure or PKE2 is IND-CPA-secure.
 # This shown via two separate proofs:
@@ -27,11 +27,11 @@ proof1 = Proof(NestedPKE, PKE.INDCPA)
 # This is chosen by constructing a reduction that acts an IND-CPA-adversary against PKE1,
 # and checking that this reduction, inlined into the IND-CPA experiment for PKE1, 
 # is equivalent to either Game 0 or Game 1.
-class R1(PKE.INDCPA_Adversary[NPK, NSK, CT2, PT1], Crypto.Reduction): # This is an INDCPA adversary for PKE1
-    def __init__(self, Scheme, inner_adversary):
+class R1(Generic[PK1, PK2, SK1, SK2, CT1, CT2, PT1], PKE.INDCPA_Adversary[Tuple[PK1, PK2], Tuple[SK1, SK2], CT2, PT1], Crypto.Reduction): # This is an INDCPA adversary for PKE1
+    def __init__(self, Scheme: PKE.PKEScheme[PK1, SK1, CT1, PT1], inner_adversary: PKE.INDCPA_Adversary[PK1, SK1, CT1, PT1]):
         self.Scheme = Scheme
         self.inner_adversary = inner_adversary # this is the NestedPKE adversary
-    def challenge(self, pk1):
+    def challenge(self, pk1: PK1) -> Tuple[PT1, PT1]:
         # Use the NestedPKE adversary to generate the two challenge messages.
         # To construct the NestedPKE public key, we use the PKE1 public key given 
         # by the INDCPA challenger for PKE1, and generate the PKE2 keypair ourselves.
@@ -40,7 +40,7 @@ class R1(PKE.INDCPA_Adversary[NPK, NSK, CT2, PT1], Crypto.Reduction): # This is 
         (m0, m1) = self.inner_adversary.challenge(npk)
         self.pk2 = pk2
         return (m0, m1)
-    def guess(self, ct1):
+    def guess(self, ct1: CT1) -> Crypto.Bit:
         # Given the challenge PKE1 ciphertext from the INDCPA challenger for PKE1,
         # construct a NestedPKE ciphertext by encrypting it under the PKE2 public key,
         # then pass the NestedPKE ciphertext to the NestedPKE adversary.
@@ -69,14 +69,9 @@ proof2 = Proof(NestedPKE, PKE.INDCPA)
 
 INDCPA_Adversary = PKE.INDCPA_Adversary
 
-PublicKey = TypeVar('PublicKey')
-SecretKey = TypeVar('SecretKey')
-Ciphertext = TypeVar('Ciphertext')
-Message = TypeVar('Message')
+class Rewrite0_Left(Crypto.Game, Generic[PK1, PK2, SK1, SK2, CT1, CT2, PT1]):
 
-class Rewrite0_Left(Crypto.Game, Generic[PublicKey, SecretKey, Ciphertext, Message]):
-
-    def __init__(v0, v1: Type[INDCPA_Adversary[PublicKey, SecretKey, Ciphertext, Message]]):
+    def __init__(v0, v1: Type[INDCPA_Adversary[Tuple[PK1, PK2], Tuple[SK1, SK2], CT2, PT1]]):
         v0.Scheme = NestedPKE
         v0.adversary = v1(NestedPKE)
 
@@ -100,9 +95,9 @@ class Rewrite0_Left(Crypto.Game, Generic[PublicKey, SecretKey, Ciphertext, Messa
         v19 = v17 if v16 else v18
         return v19
 
-class Rewrite0_Right(Crypto.Game, Generic[PublicKey, SecretKey, Ciphertext, Message]):
+class Rewrite0_Right(Crypto.Game, Generic[PK1, PK2, SK1, SK2, CT1, CT2, PT1]):
 
-    def __init__(v0, v1: Type[INDCPA_Adversary[PublicKey, SecretKey, Ciphertext, Message]]):
+    def __init__(v0, v1: Type[INDCPA_Adversary[Tuple[PK1, PK2], Tuple[SK1, SK2], CT2, PT1]]):
         v0.Scheme = NestedPKE
         v0.adversary = v1(NestedPKE)
 
@@ -135,11 +130,11 @@ proof2.add_rewriting_proof_step(Rewrite0_Left, Rewrite0_Right)
 # This is chosen by constructing a reduction that acts an IND-CPA-adversary against PKE2,
 # and checking that this reduction, inlined into the IND-CPA experiment for PKE2, 
 # is equivalent to either Game 1 or Game 2.
-class R2(PKE.INDCPA_Adversary[NPK, NSK, CT2, PT1], Crypto.Reduction): # This is an INDCPA adversary for PKE2
-    def __init__(self, Scheme, inner_adversary):
+class R2(Generic[PK1, PK2, SK1, SK2, CT1, CT2, PT1], PKE.INDCPA_Adversary[Tuple[PK1, PK2], Tuple[SK1, SK2], CT2, PT1], Crypto.Reduction): # This is an INDCPA adversary for PKE2
+    def __init__(self, Scheme: PKE.PKEScheme[PK2, SK2, CT2, CT1], inner_adversary: PKE.INDCPA_Adversary[PK2, SK2, CT2, CT1]):
         self.Scheme = Scheme
         self.inner_adversary = inner_adversary # this is the NestedPKE adversary
-    def challenge(self, pk2):
+    def challenge(self, pk2: PK2) -> Tuple[CT1, CT1]:
         # Use the NestedPKE adversary to generate the two challenge messages.
         # To construct the NestedPKE public key, we use the PKE2 public key given 
         # by the INDCPA challenger for PKE2, and generate the PKE1 keypair ourselves.
@@ -153,7 +148,7 @@ class R2(PKE.INDCPA_Adversary[NPK, NSK, CT2, PT1], Crypto.Reduction): # This is 
         c0 = PKE1.Encrypt(pk1, m0)
         c1 = PKE1.Encrypt(pk1, m1)
         return (c0, c1)
-    def guess(self, ct2) -> Crypto.Bit:
+    def guess(self, ct2: CT2) -> Crypto.Bit:
         # The challenge PKE2 ciphertext from the INDCPA challenger for PKE2 contains
         # a PKE1 ciphertext of either m0 or m1, so it is immediately the NestedPKE 
         # challenge ciphertext.
@@ -166,9 +161,9 @@ proof2.add_distinguishing_proof_step(R2, PKE.INDCPA, PKE2, 'PKE2')
 # messages yield equal-length ciphertexts.
 # This will be done by a rewriting step.
 
-class Rewrite2_Left(Crypto.Game, Generic[PublicKey, SecretKey, Ciphertext, Message]):
+class Rewrite2_Left(Crypto.Game, Generic[PK1, PK2, SK1, SK2, CT1, CT2, PT1]):
 
-    def __init__(v0, v1: Type[INDCPA_Adversary[PublicKey, SecretKey, Ciphertext, Message]]):
+    def __init__(v0, v1: Type[INDCPA_Adversary[Tuple[PK1, PK2], Tuple[SK1, SK2], CT2, PT1]]):
         v0.Scheme = NestedPKE
         v0.adversary = v1(NestedPKE)
 
@@ -192,9 +187,9 @@ class Rewrite2_Left(Crypto.Game, Generic[PublicKey, SecretKey, Ciphertext, Messa
         v19 = v17 if v16 else v18
         return v19
 
-class Rewrite2_Right(Crypto.Game, Generic[PublicKey, SecretKey, Ciphertext, Message]):
+class Rewrite2_Right(Crypto.Game, Generic[PK1, PK2, SK1, SK2, CT1, CT2, PT1]):
 
-    def __init__(v0, v1: Type[INDCPA_Adversary[PublicKey, SecretKey, Ciphertext, Message]]):
+    def __init__(v0, v1: Type[INDCPA_Adversary[Tuple[PK1, PK2], Tuple[SK1, SK2], CT2, PT1]]):
         v0.Scheme = NestedPKE
         v0.adversary = v1(NestedPKE)
 

@@ -15,12 +15,9 @@ CT2 = TypeVar('CT2')
 PKE1 = PKEScheme[PK1, SK1, CT1, PT1]
 PKE2 = PKEScheme[PK2, SK2, CT2, CT1]
 
-NPK = Tuple[PK1, PK2]
-NSK = Tuple[SK1, SK2]
-
 class NestedPKE(
     Generic[PK1, PK2, SK1, SK2, CT1, CT2, PT1],
-    PKEScheme[NPK, NSK, CT2, PT1]
+    PKEScheme[Tuple[PK1, PK2], Tuple[SK1, SK2], CT2, PT1]
 ):
     @staticmethod
     def KeyGen():

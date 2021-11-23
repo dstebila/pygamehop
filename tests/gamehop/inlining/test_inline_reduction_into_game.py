@@ -73,14 +73,14 @@ CT = TypeVar('CT')
 
 P1Instance = P1[PK, CT]
 
-class P2fromP1(P2[PK, CT]):
+class P2fromP1(Generic[PK, CT], P2[PK, CT]):
     @staticmethod
     def KG():
         return P1Instance.KeyGen()
     @staticmethod
     def ENC(pk, msg):
         return P1Instance.Encrypt(pk, msg)
-class R(Crypto.Reduction, G1_Adversary):
+class R(Generic[PK, CT], Crypto.Reduction, G1_Adversary[PK, CT]):
     def __init__(self, Scheme: Type[P1Instance], inner_adversary: G2_Adversary[PK, CT]):
         self.Scheme = Scheme
         self.inner_adversary = inner_adversary

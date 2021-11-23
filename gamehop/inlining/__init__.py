@@ -2,7 +2,7 @@ import ast
 import copy
 import inspect
 import types
-from typing import cast, Any, Callable, List, Optional, Type, Union
+from typing import cast, Any, Callable, List, Optional, Tuple, Type, Union
 
 from .. import node_traverser as nt
 from .. import utils
@@ -245,6 +245,79 @@ def inline_all_inner_class_init_calls(c_to_be_inlined: Union[Type[Any], str, ast
                     fdef_dest = utils.get_function_def(inline_function_call(method, fdef_dest, f_to_be_inlined_name=n + ".__init__"))
     return ast.unparse(ast.fix_missing_locations(fdef_dest))
 
+def get_type_of_scheme_member_of_game(Game: Type[Crypto.Game]) -> str:
+    cdef = utils.get_class_def(Game)
+    for fdef in cdef.body:
+        if fdef.name == "__init__":
+            assert len(fdef.args.args) == 3
+            schemeArg = fdef.args.args[1]
+            assert isinstance(schemeArg.annotation, ast.Subscript)
+            assert isinstance(schemeArg.annotation.value, ast.Name)
+            assert schemeArg.annotation.value.id == 'Type'
+            if isinstance(schemeArg.annotation.slice, ast.Name):
+                return schemeArg.annotation.slice.id
+            elif isinstance(schemeArg.annotation.slice, ast.Subscript):
+                assert isinstance(schemeArg.annotation.slice.value, ast.Name)
+                return schemeArg.annotation.slice.value.id
+    raise ValueError("Missing __init__ method")
+
+def get_typevars_of_scheme_member_of_game(Game: Type[Crypto.Game]) -> List[str]:
+    cdef = utils.get_class_def(Game)
+    for fdef in cdef.body:
+        if fdef.name == "__init__":
+            assert len(fdef.args.args) == 3
+            schemeArg = fdef.args.args[1]
+            assert isinstance(schemeArg.annotation, ast.Subscript)
+            assert isinstance(schemeArg.annotation.value, ast.Name)
+            assert schemeArg.annotation.value.id == 'Type'
+            if isinstance(schemeArg.annotation.slice, ast.Name):
+                return list()
+            elif isinstance(schemeArg.annotation.slice, ast.Subscript):
+                assert isinstance(schemeArg.annotation.slice.value, ast.Name)
+                genericsNode = schemeArg.annotation.slice.slice
+                typevars = list()
+                if isinstance(genericsNode, ast.Name):
+                    typevars.append(genericsNode.id)
+                elif isinstance(genericsNode, ast.Tuple):
+                    for t in genericsNode.elts:
+                        assert isinstance(t, ast.Name)
+                        typevars.append(t.id)
+                else: assert False
+                return typevars
+    raise ValueError("Missing __init__ method")
+
+def get_typevars_of_class(c: Type) -> List[str]:
+    cdef = utils.get_class_def(c)
+    for base in cdef.bases:
+        if not(isinstance(base, ast.Subscript)): continue
+        assert isinstance(base.value, ast.Name)
+        if base.value.id == "Generic":
+            if isinstance(base.slice, ast.Name):
+                return [base.slice.id]
+            elif isinstance(base.slice, ast.Tuple):
+                return [b.id for b in base.slice.elts]
+    return list()
+
+def get_typevar_bindings_of_scheme(Scheme: Type[Crypto.Scheme]) -> Tuple[Optional[str], List[ast.Name]]:
+    parent_scheme = None
+    parent_typevar_bindings = list()
+    cdef = utils.get_class_def(Scheme)
+    for base in cdef.bases:
+        if not(isinstance(base, ast.Subscript)): continue
+        if isinstance(base.value, ast.Name):
+            if base.value.id == "Generic": continue
+            parent_scheme = base.value.id
+        elif isinstance(base.value, ast.Attribute):
+            if base.value.value.id == "Crypto": continue
+            parent_scheme = ast.unparse(base.value)
+        if isinstance(base.slice, ast.Name):
+            parent_typevar_bindings.append(base.slice.id)
+        elif isinstance(base.slice, ast.Tuple):
+            for t in base.slice.elts:
+                parent_typevar_bindings.append(t)
+        else: assert False
+    return parent_scheme, parent_typevar_bindings
+
 def inline_scheme_into_game(Scheme: Type[Crypto.Scheme], Game: Type[Crypto.Game], game_name: Optional[str] = None) -> str:
     """Returns a string representing the provided cryptographic game with all calls to methods of the given cryptographic scheme replaced with the body of those functions, with arguments to the call appropriately bound and with local variables named unambiguously."""
     Game_copy = utils.get_class_def(Game)
@@ -267,6 +340,34 @@ def inline_scheme_into_game(Scheme: Type[Crypto.Scheme], Game: Type[Crypto.Game]
             fdef = utils.get_function_def(inline_all_inner_class_init_calls(Scheme, cast(ast.FunctionDef, fdef)))
             Game_newbody.append(fdef)
     Game_copy.body = Game_newbody
+
+    # bind the typevars in the new game to the values by the scheme
+    # set the new game to use the typevars used by the scheme
+    s_typevars = get_typevars_of_class(Scheme)
+    for b in Game_copy.bases:
+        if isinstance(b, ast.Subscript):
+            if isinstance(b.value, ast.Name):
+                if b.value.id == "Generic":
+                    b.slice = ast.Tuple(
+                        elts=[ast.Name(id=v, ctx=ast.Load()) for v in s_typevars],
+                        ctx=ast.Load()
+                    )
+    # get the typevar bindings used in the scheme
+    (s_parent_scheme, s_parent_typevar_bindings) = get_typevar_bindings_of_scheme(Scheme)
+    # make sure the scheme is of the right type
+    g_scheme = get_type_of_scheme_member_of_game(Game)
+    if g_scheme not in [s_parent_scheme, utils.get_class_def(Scheme).name]:
+        raise ValueError("Scheme is not an instance of the type required by the game")
+    # check that we have the same number of typevars and bindings
+    g_typevars = get_typevars_of_scheme_member_of_game(Game)
+    if len(s_parent_typevar_bindings) != len(g_typevars): raise ValueError("Scheme and game have different generics lengths")
+    # create the mapping of bindings
+    replacements = dict()
+    for i in range(len(g_typevars)):
+        replacements[g_typevars[i]] = s_parent_typevar_bindings[i]
+    # apply the bindings
+    Game_copy = utils.NameNodeReplacer(replacements).visit(Game_copy)
+
     return ast.unparse(ast.fix_missing_locations(Game_copy))
 
 def inline_reduction_into_game(R: Type[Crypto.Reduction], GameForR: Type[Crypto.Game], SchemeForR: Type[Crypto.Scheme], SchemeForRName: str, TargetGame: Type[Crypto.Game], TargetScheme: Type[Crypto.Scheme], TargetAdversaryType: Type[Crypto.Adversary], game_name: Optional[str] = None) -> str:
@@ -276,8 +377,9 @@ def inline_reduction_into_game(R: Type[Crypto.Reduction], GameForR: Type[Crypto.
     # 2. R provides methods that will become oracles in the resulting game; these are copied from R.
     # 3. The body of all the oracles of GameForR will be inlined into the resulting game.
     # 4. Various things are renamed and minor things are changed, for example turning static methods into non-static methods.
-    OutputGame = utils.get_class_def(TargetGame)
+    OutputGame = utils.get_class_def(GameForR)
     if game_name: OutputGame.name = game_name
+    else: OutputGame.name = utils.get_class_def(TargetGame).name
     OutputGame.body = []
     # copy the __init__ and main methods of GameForR into OutputGame
     GameForR_copy = utils.get_class_def(GameForR)
@@ -356,4 +458,28 @@ def inline_reduction_into_game(R: Type[Crypto.Reduction], GameForR: Type[Crypto.
         if fdef.name == "__init__": continue
         else:
             OutputGame.body[i] = utils.get_function_def(inline_all_inner_class_init_calls(TargetScheme, cast(ast.FunctionDef, fdef)))
+
+    # bind the typevars in the new game to the values by the reduction
+    # set the new game to use the typevars used by the reduction
+    r_typevars = get_typevars_of_class(R)
+    for b in OutputGame.bases:
+        if isinstance(b, ast.Subscript):
+            if isinstance(b.value, ast.Name):
+                if b.value.id == "Generic":
+                    b.slice = ast.Tuple(
+                        elts=[ast.Name(id=v, ctx=ast.Load()) for v in r_typevars],
+                        ctx=ast.Load()
+                    )
+    # get the typevar bindings used in the reduction
+    (r_parent_scheme, r_parent_typevar_bindings) = get_typevar_bindings_of_scheme(R)
+    # check that we have the same number of typevars and bindings
+    g_typevars = get_typevars_of_class(GameForR)
+    if len(r_parent_typevar_bindings) != len(g_typevars): raise ValueError("Reduction and game have different generics lengths")
+    # create the mapping of bindings
+    replacements = dict()
+    for i in range(len(g_typevars)):
+        replacements[g_typevars[i]] = r_parent_typevar_bindings[i]
+    # apply the bindings
+    OutputGame = utils.NameNodeReplacer(replacements).visit(OutputGame)
+
     return ast.unparse(ast.fix_missing_locations(OutputGame))

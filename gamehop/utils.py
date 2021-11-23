@@ -79,7 +79,10 @@ class NameNodeReplacer(nt.NodeTraverser):
         self.replacements = replacements
         super().__init__()
     def visit_Name(self, node):
-        if node.id in self.replacements: return self.replacements[node.id]
+        if node.id in self.replacements: 
+            if isinstance(self.replacements[node.id], str):
+                return ast.Name(id=self.replacements[node.id], ctx=node.ctx)
+            else: return self.replacements[node.id]
         else: return node
 
 class AttributeNodeReplacer(nt.NodeTraverser):
