@@ -1,11 +1,8 @@
 import os
 from typing import cast, Generic, Tuple, Type, TypeVar
 
-import gamehop.inlining
-import gamehop.verification
 from gamehop.primitives import Crypto, PKE
 from gamehop.proofs2 import Proof
-import gamehop.utils
 
 from nestedPKE import NestedPKE, PKE1, PKE2, PK1, PK2, SK1, SK2, CT1, CT2, PT1
 

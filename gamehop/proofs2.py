@@ -162,10 +162,6 @@ class Proof():
             variable_end_string='≥≥'
         )
         env.filters['classname'] = lambda value: utils.fqn(value)
-        def nogenerics(s):
-            if s.find('[') == -1: return s
-            return s[:s.find('[')] + "[...]"
-        env.filters['nogenerics'] = nogenerics
         env.filters['type'] = lambda value: type(value).__name__
         env.filters['isinstance'] = lambda value, type_to_test: isinstance(value, eval(type_to_test))
         env.filters['texify'] = lambda value: value.replace('_', '\_')
