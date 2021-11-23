@@ -183,68 +183,6 @@ def inline_all_static_method_calls(c_to_be_inlined: Union[Type[Any], str, ast.Cl
             fdef_dest = utils.get_function_def(inline_function_call(f, fdef_dest))
     return ast.unparse(ast.fix_missing_locations(fdef_dest))
 
-def inline_all_inner_class_init_calls(c_to_be_inlined: Union[Type[Any], str, ast.ClassDef], f_dest: Union[Callable, str, ast.FunctionDef]) -> str:
-    """Returns a string where calls to __init__ methods of inner classes of c_to_be_inlined are inlined into f_dest, with arguments to the call appropriately bound and with local variables named unambiguously."""
-
-    cdef_to_be_inlined = utils.get_class_def(c_to_be_inlined)
-    fdef_dest = utils.get_function_def(f_dest)
-
-    class ReplaceInit(utils.nt.NodeTraverser):
-        def __init__(self, needle: str):
-            self.needle = needle
-            super().__init__()
-        def visit_Assign(self, node):
-            if isinstance(node.value, ast.Call) and ast.unparse(node.value.func) == self.needle:
-                if len(node.targets) != 1 or not isinstance(node.targets[0], ast.Name):
-                    raise ValueError(f"Left-hand side of assignment statements involving constructors must be a single variable {ast.unparse(node)}")
-                # for example, suppose the statement is
-                #     z = C.D(3, 2)
-                # construct statements
-                #     z = C.D.__new__(C.D)
-                #     C.D.__init__(z, 3, 2)
-                ret = []
-                ret.append(ast.Assign(
-                    targets = [node.targets[0]],
-                    value = ast.Call(
-                        func=ast.Attribute(
-                            value=node.value.func,
-                            attr='__new__',
-                            ctx=ast.Load()
-                        ),
-                        args=[node.value.func],
-                        keywords=[]
-                    )
-                ))
-                ret.append(ast.Expr(
-                    value = ast.Call(
-                        func=ast.Attribute(
-                            value=node.value.func,
-                            attr='__init__',
-                            ctx=ast.Load()
-                        ),
-                        args=[node.targets[0]] + node.value.args,
-                        keywords=[]
-                    )
-                ))
-                return ret
-            return node
-
-    # go through every inner class
-    for innerc in cdef_to_be_inlined.body:
-        if isinstance(innerc, ast.ClassDef):
-            for method in innerc.body:
-                if isinstance(method, ast.FunctionDef) and method.name == '__init__':
-                    n = cdef_to_be_inlined.name + "." + innerc.name
-                    # convert
-                    #     z = C.D(3, 2)
-                    # to
-                    #     z = C.D.__new__(C.D)
-                    #     C.D.__init__(z, 3, 2)
-                    fdef_dest = ReplaceInit(n).visit(fdef_dest)
-                    # then inline calls to C.D.__init__
-                    fdef_dest = utils.get_function_def(inline_function_call(method, fdef_dest, f_to_be_inlined_name=n + ".__init__"))
-    return ast.unparse(ast.fix_missing_locations(fdef_dest))
-
 def get_type_of_scheme_member_of_game(Game: Type[Crypto.Game]) -> str:
     cdef = utils.get_class_def(Game)
     for fdef in cdef.body:
@@ -390,7 +328,6 @@ def inline_scheme_into_game(Scheme: Type[Crypto.Scheme], Game: Type[Crypto.Game]
             # replace these with "Scheme.whatever" so that they can easily be replaced
             fdef = utils.AttributeNodeReplacer(['self', 'Scheme'], Scheme.__name__).visit(fdef)
             fdef = utils.get_function_def(inline_all_static_method_calls(Scheme, cast(ast.FunctionDef, fdef)))
-            fdef = utils.get_function_def(inline_all_inner_class_init_calls(Scheme, cast(ast.FunctionDef, fdef)))
             Game_newbody.append(fdef)
     Game_copy.body = Game_newbody
 
@@ -480,6 +417,7 @@ def inline_reduction_into_game(R: Type[Crypto.Reduction], GameForR: Type[Crypto.
         OutputGame.body.append(fdef)
     # for each oracle of GameForR that we saved, inline it into the OutputGame
     for fdef in OraclesToSave:
+        print(f"trying to inline oracle {fdef.name}")
         # calls to this oracle in OutputGame will be of the form R.o_whatever
         # first we'll give those calls a temporary name
         OutputGame.body = utils.AttributeNodeReplacer(['self', 'i' + fdef.name], R.__name__ + '_i' + fdef.name).visit_statements(OutputGame.body)
@@ -505,16 +443,6 @@ def inline_reduction_into_game(R: Type[Crypto.Reduction], GameForR: Type[Crypto.
         for i, otherfdef in enumerate(OutputGame.body):
             assert isinstance(otherfdef, ast.FunctionDef) # needed for typechecker
             OutputGame.body[i] = utils.get_function_def(inline_function_call(fdef, otherfdef))
-    # go through every method of the game (__init__, main, oracles)
-    for i, fdef in enumerate(OutputGame.body):
-        # make sure the game only consists of functions
-        if not isinstance(fdef, ast.FunctionDef):
-            raise ValueError(f"Unable to handle games with members that are anything other than functions; game {OutputGame.name}, member {ast.unparse(fdef).splitlines()[0]}")
-        # __init__ has a special form for games and must always consist of just two lines, setting self.Scheme and self.Adversary
-        # bind self.Scheme to the given Scheme
-        if fdef.name == "__init__": continue
-        else:
-            OutputGame.body[i] = utils.get_function_def(inline_all_inner_class_init_calls(TargetScheme, cast(ast.FunctionDef, fdef)))
 
     # bind the typevars in the new game to the values by the reduction
     # set the new game to use the typevars used by the reduction
