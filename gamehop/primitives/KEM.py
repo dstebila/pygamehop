@@ -1,24 +1,27 @@
-from typing import Tuple, Type, Union
+from typing import Annotated, Generic, Optional, Tuple, Type, TypeVar
 
 from . import Crypto
 
-class KEMScheme(Crypto.Scheme):
-    class PublicKey(): pass
-    class SecretKey(): pass
-    class Ciphertext(): pass
-    class SharedSecret(): pass
+PublicKey = TypeVar('PublicKey')
+SecretKey = TypeVar('SecretKey')
+Ciphertext = TypeVar('Ciphertext')
+SharedSecret = TypeVar('SharedSecret')
+
+class KEMScheme(Crypto.Scheme, Generic[PublicKey, SecretKey, Ciphertext, SharedSecret]):
+    @staticmethod
+    def uniformSharedSecret() -> Annotated[SharedSecret, Crypto.UniformlyRandom]: pass
     @staticmethod
     def KeyGen() -> Tuple[PublicKey, SecretKey]: pass
     @staticmethod
     def Encaps(pk: PublicKey) -> Tuple[Ciphertext, SharedSecret]: pass
     @staticmethod
-    def Decaps(sk: SecretKey, ct: Ciphertext) -> Union[SharedSecret, Crypto.Reject]: pass
+    def Decaps(sk: SecretKey, ct: Ciphertext) -> Optional[SharedSecret]: pass
 
-class INDCPA_Adversary(Crypto.Adversary):
-    def guess(self, pk: KEMScheme.PublicKey, ct: KEMScheme.Ciphertext, ss: KEMScheme.SharedSecret) -> Crypto.Bit: pass
+class INDCPA_Adversary(Crypto.Adversary, Generic[PublicKey, SecretKey, Ciphertext, SharedSecret]):
+    def guess(self, pk: PublicKey, ct: Ciphertext, ss: SharedSecret) -> Crypto.Bit: pass
 
-class INDCPA_Real(Crypto.Game):
-    def __init__(self, Scheme: Type[KEMScheme], Adversary: Type[INDCPA_Adversary]):
+class INDCPA_Real(Crypto.Game, Generic[PublicKey, SecretKey, Ciphertext, SharedSecret]):
+    def __init__(self, Scheme: Type[KEMScheme[PublicKey, SecretKey, Ciphertext, SharedSecret]], Adversary: Type[INDCPA_Adversary[PublicKey, SecretKey, Ciphertext, SharedSecret]]):
         self.Scheme = Scheme
         self.adversary = Adversary(Scheme)
     def main(self) -> Crypto.Bit:
@@ -27,14 +30,14 @@ class INDCPA_Real(Crypto.Game):
         r = self.adversary.guess(pk, ct, ss_real)
         return r
 
-class INDCPA_Random(Crypto.Game):
-    def __init__(self, Scheme: Type[KEMScheme], Adversary: Type[INDCPA_Adversary]):
+class INDCPA_Random(Crypto.Game, Generic[PublicKey, SecretKey, Ciphertext, SharedSecret]):
+    def __init__(self, Scheme: Type[KEMScheme[PublicKey, SecretKey, Ciphertext, SharedSecret]], Adversary: Type[INDCPA_Adversary[PublicKey, SecretKey, Ciphertext, SharedSecret]]):
         self.Scheme = Scheme
         self.adversary = Adversary(Scheme)
     def main(self) -> Crypto.Bit:
         (pk, sk) = self.Scheme.KeyGen()
         (ct, _) = self.Scheme.Encaps(pk)
-        ss_rand = Crypto.UniformlySample(self.Scheme.SharedSecret)
+        ss_rand = self.Scheme.uniformSharedSecret()
         r = self.adversary.guess(pk, ct, ss_rand)
         return r
 

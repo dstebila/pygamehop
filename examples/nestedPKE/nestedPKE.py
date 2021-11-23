@@ -1,4 +1,4 @@
-from typing import cast, Generic, Optional, Sized, Tuple, TypeVar
+from typing import Generic, Optional, Sized, Tuple, TypeVar
 
 from gamehop.primitives import Crypto
 from gamehop.primitives.PKE import PKEScheme

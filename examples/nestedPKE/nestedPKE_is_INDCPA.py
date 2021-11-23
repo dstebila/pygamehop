@@ -1,5 +1,5 @@
 import os
-from typing import cast, Generic, Tuple, Type, TypeVar
+from typing import Generic, Tuple, Type, TypeVar
 
 from gamehop.primitives import Crypto, PKE
 from gamehop.proofs2 import Proof
@@ -63,6 +63,8 @@ proof2 = Proof(NestedPKE, PKE.INDCPA)
 # we need to codify an implicit assumption in NestedPKE, encryptions of equal-length
 # messages yield equal-length ciphertexts.
 # This will be done by a rewriting step.
+# The rewriting step also renames one member variable to a local variable since the
+# canonicalization engine can't handle that properly yet.
 
 INDCPA_Adversary = PKE.INDCPA_Adversary
 
@@ -154,9 +156,11 @@ class R2(Generic[PK1, PK2, SK1, SK2, CT1, CT2, PT1], PKE.INDCPA_Adversary[PK2, S
 
 proof2.add_distinguishing_proof_step(R2, PKE.INDCPA, PKE2, 'PKE2')
 
-# Need to codify an implicit assumption in NestedPKE that encryptions of equal-length
-# messages yield equal-length ciphertexts.
+# Need to again codify an implicit assumption in NestedPKE that encryptions of 
+# equal-length messages yield equal-length ciphertexts.
 # This will be done by a rewriting step.
+# The rewriting step also renames one member variable to a local variable since the
+# canonicalization engine can't handle that properly yet.
 
 class Rewrite2_Left(Crypto.Game, Generic[PK1, PK2, SK1, SK2, CT1, CT2, PT1]):
 
