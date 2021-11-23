@@ -86,7 +86,7 @@ class P2fromP1(Generic[PK, CT], P2[PK, CT]):
     def ENC(pk, msg):
         return P1Instance.Encrypt(pk, msg)
 class R(Generic[PK, CT], Crypto.Reduction, G1_Adversary[PK, CT]):
-    def __init__(self, Scheme: Type[P1Instance], inner_adversary: G2_Adversary[PK, CT]):
+    def __init__(self, Scheme: Type[P1[PK, CT]], inner_adversary: G2_Adversary[PK, CT]):
         self.Scheme = Scheme
         self.inner_adversary = inner_adversary
     def hi_or_bye(self, pk: PK, ct: CT, o_encrypter: Callable[[str], CT]) -> int:

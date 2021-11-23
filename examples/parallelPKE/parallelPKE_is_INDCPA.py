@@ -17,7 +17,10 @@ proof = Proof(ParallelPKE, PKE.INDCPA)
 # This is chosen by constructing a reduction that acts an IND-CPA-adversary against PKE1,
 # and checking that this reduction, inlined into the IND-CPA experiment for PKE1,
 # is equivalent to either Game 0 or Game 1.
-class R1(Generic[PK1, PK2, SK1, SK2, CT1, CT2, PT12], PKE.INDCPA_Adversary[PK1, SK1, CT1, PT12], Crypto.Reduction): # This is an INDCPA adversary for PKE1
+class R1(Crypto.Reduction,
+    Generic[PK1, PK2, SK1, SK2, CT1, CT2, PT12],
+    PKE.INDCPA_Adversary[PK1, SK1, CT1, PT12] # This is an INDCPA adversary for PKE1
+):
     def __init__(self, Scheme: Type[PKE.PKEScheme[PK1, SK1, CT1, PT12]], inner_adversary: PKE.INDCPA_Adversary[Tuple[PK1, PK2], Tuple[SK1, SK2], Tuple[CT1, CT2], PT12]):
         self.Scheme = Scheme
         self.inner_adversary = inner_adversary # this is the ParallelPKE adversary
@@ -46,7 +49,10 @@ proof.add_distinguishing_proof_step(R1, PKE.INDCPA, PKE1, "PKE1")
 # This is chosen by constructing a reduction that acts an IND-CPA-adversary against PKE2,
 # and checking that this reduction, inlined into the IND-CPA experiment for PKE2,
 # is equivalent to either Game 1 or Game 2.
-class R2(Generic[PK1, PK2, SK1, SK2, CT1, CT2, PT12], PKE.INDCPA_Adversary[PK2, SK2, CT2, PT12], Crypto.Reduction): # This is an INDCPA adversary for PKE2
+class R2(Crypto.Reduction,
+    Generic[PK1, PK2, SK1, SK2, CT1, CT2, PT12],
+    PKE.INDCPA_Adversary[PK2, SK2, CT2, PT12] # This is an INDCPA adversary for PKE2
+):
     def __init__(self, Scheme: Type[PKE.PKEScheme[PK2, SK2, CT2, PT12]], inner_adversary: PKE.INDCPA_Adversary[Tuple[PK1, PK2], Tuple[SK1, SK2], Tuple[CT1, CT2], PT12]):
         self.Scheme = Scheme
         self.inner_adversary = inner_adversary # this is the ParallelPKE adversary
@@ -69,8 +75,8 @@ class R2(Generic[PK1, PK2, SK1, SK2, CT1, CT2, PT12], PKE.INDCPA_Adversary[PK2, 
 
 proof.add_distinguishing_proof_step(R2, PKE.INDCPA, PKE2, "PKE2")
 
-assert proof.check(print_hops=True, print_canonicalizations=True, print_diffs=True, abort_on_failure=False)
-print("Theorem :")
+assert proof.check(print_hops=False, print_canonicalizations=False, print_diffs=False, abort_on_failure=False)
+print("Theorem:")
 print(proof.advantage_bound())
 
 with open(os.path.join('examples', 'parallelPKE', 'parallelPKE_is_INDCPA.tex'), 'w') as fh:

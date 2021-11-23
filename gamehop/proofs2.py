@@ -33,7 +33,7 @@ class DistinguishingProofStep(ProofStep):
     def get_right_src(self):
         return inlining.inline_reduction_into_game(self.reduction, self.get_right_game(), self.scheme, self.schemeName, self.target_experiment.get_target_game(), self.target_scheme, self.target_experiment.get_adversary(), game_name = "G")
     def advantage(self):
-        return f"Advantage of reduction {utils.fqn(self.reduction)} in experiment {self.experiment.name} for {utils.typefqn(self.scheme)} scheme {self.schemeName}"
+        return f"Advantage of reduction {utils.fqn(self.reduction)} in experiment {self.experiment.get_primitive_name()}.{self.experiment.get_experiment_name()} for {utils.typefqn(self.scheme)} scheme {self.schemeName}"
 
 class RewritingStep(ProofStep):
     def __init__(self, rewrite_left: Type[Crypto.Game], rewrite_right: Type[Crypto.Game]):
@@ -64,7 +64,7 @@ class Proof():
     def get_game_src(self, gamenum: int, before_hop = True) -> str:
         if gamenum == 0 and before_hop: # use the original experiment
             if isinstance(self.experiment, Crypto.DistinguishingExperiment):
-                return inlining.inline_scheme_into_game(self.scheme, self.experiment.get_left(), game_name = "G")
+                return inlining.inline_scheme_into_game(self.scheme, self.experiment.get_left(), game_name = "G", adversary_package = self.experiment.get_primitive_name())
         elif 0 <= gamenum < len(self.proof_steps) and not(before_hop): # use the reduction inlined into the left side of its experiment
             step = self.proof_steps[gamenum]
             if isinstance(step, DistinguishingProofStep) or isinstance(step, RewritingStep):
@@ -75,7 +75,7 @@ class Proof():
                 return step.get_right_src()
         elif (gamenum == -1 or gamenum == len(self.proof_steps)) and not(before_hop): # use the final experiment
             if isinstance(self.experiment, Crypto.DistinguishingExperiment):
-                return inlining.inline_scheme_into_game(self.scheme, self.experiment.get_right(), game_name = "G")
+                return inlining.inline_scheme_into_game(self.scheme, self.experiment.get_right(), game_name = "G", adversary_package = self.experiment.get_primitive_name())
         raise NotImplementedError()
 
     def get_game_description(self, gamenum: int, before_hop = True) -> str:
@@ -145,7 +145,7 @@ class Proof():
         elif self.proof_checked == "invalid":
             raise ValueError("Cannot compute advantage bound, proof is not valid")
         lines = []
-        lines.append(f"Advantage of adversary in experiment {self.experiment.get_name()} for {utils.typefqn(self.scheme)} scheme {utils.fqn(self.scheme)}")
+        lines.append(f"Advantage of adversary in experiment {self.experiment.get_primitive_name()}.{self.experiment.get_experiment_name()} for {utils.typefqn(self.scheme)} scheme {utils.fqn(self.scheme)}")
         lines.append("≤")
         for stepnum, step in enumerate(self.proof_steps):
             lines.append(step.advantage())

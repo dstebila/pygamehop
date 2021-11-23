@@ -1,4 +1,4 @@
-from typing import Annotated, Generic, TypeVar
+from typing import Annotated, Generic, Sized, TypeVar
 
 from gamehop.primitives import Crypto
 from gamehop.primitives.KEM import KEMScheme
@@ -7,7 +7,7 @@ from gamehop.primitives.PKE import PKEScheme
 PK = TypeVar('PK')
 SK = TypeVar('SK')
 CT = TypeVar('CT')
-SS = TypeVar('SS')
+SS = TypeVar('SS', bound=Sized)
 
 InnerPKE = PKEScheme[PK, SK, CT, SS]
 

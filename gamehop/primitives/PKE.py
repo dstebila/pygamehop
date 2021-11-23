@@ -45,7 +45,7 @@ class INDCPA_Right(Crypto.Game, Generic[PublicKey, SecretKey, Ciphertext, Messag
         else: ret = Crypto.Bit(0)
         return ret
 
-INDCPA = Crypto.DistinguishingExperimentLeftOrRight("PKE.INDCPA", INDCPA_Left, INDCPA_Right, INDCPA_Adversary)
+INDCPA = Crypto.DistinguishingExperimentLeftOrRight("PKE", "INDCPA", INDCPA_Left, INDCPA_Right, INDCPA_Adversary)
 
 class INDCCA2_Adversary(Crypto.Adversary, Generic[PublicKey, SecretKey, Ciphertext, Message]):
     def challenge(self, pk: PublicKey, o_decrypt: Callable[[Ciphertext], Optional[Message]]) -> Tuple[Message, Message]: pass
@@ -87,4 +87,4 @@ class INDCCA2_Right(Crypto.Game, Generic[PublicKey, SecretKey, Ciphertext, Messa
         if ct != self.ctstar: ret = self.Scheme.Decrypt(self.sk, ct)
         return ret
 
-INDCCA2 = Crypto.DistinguishingExperimentLeftOrRight("PKE.INDCCA2", INDCCA2_Left, INDCCA2_Right, INDCCA2_Adversary)
+INDCCA2 = Crypto.DistinguishingExperimentLeftOrRight("PKE", "INDCCA2", INDCCA2_Left, INDCCA2_Right, INDCCA2_Adversary)

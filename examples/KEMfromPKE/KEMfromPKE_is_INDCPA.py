@@ -18,11 +18,9 @@ proof = Proof(KEMfromPKE, KEM.INDCPA)
 # The rewriting step also renames one member variable to a local variable since the
 # canonicalization engine can't handle that properly yet.
 
-INDCPA_Adversary = KEM.INDCPA_Adversary
-
 class Rewrite0_Left(Crypto.Game, Generic[PK, SK, CT, SS]):
 
-    def __init__(v0, v1: Type[INDCPA_Adversary[PK, SK, CT, SS]]):
+    def __init__(v0, v1: Type[KEM.INDCPA_Adversary[PK, SK, CT, SS]]):
         v0.Scheme = KEMfromPKE
         v0.adversary = v1(KEMfromPKE)
 
@@ -41,7 +39,7 @@ class Rewrite0_Left(Crypto.Game, Generic[PK, SK, CT, SS]):
 
 class Rewrite0_Right(Crypto.Game, Generic[PK, SK, CT, SS]):
 
-    def __init__(v0, v1: Type[INDCPA_Adversary[PK, SK, CT, SS]]):
+    def __init__(v0, v1: Type[KEM.INDCPA_Adversary[PK, SK, CT, SS]]):
         v0.Scheme = KEMfromPKE
         v0.adversary = v1(KEMfromPKE)
 
@@ -67,8 +65,11 @@ proof.add_rewriting_proof_step(Rewrite0_Left, Rewrite0_Right)
 # and checking that this reduction, inlined into the IND-CPA experiment for InnerPKE,
 # is equivalent to either Game 0 or Game 1.
 
-class R1(Generic[PK, SK, CT, SS], PKE.INDCPA_Adversary[PK, SK, CT, SS], Crypto.Reduction): # This is an INDCPA adversary for InnerPKE
-    def __init__(self, Scheme: Type[InnerPKE], inner_adversary: KEM.INDCPA_Adversary[PK, SK, CT, SS]):
+class R1(Crypto.Reduction,
+    Generic[PK, SK, CT, SS],
+    PKE.INDCPA_Adversary[PK, SK, CT, SS] # This is an INDCPA adversary for InnerPKE
+):
+    def __init__(self, Scheme: Type[PKE.PKEScheme[PK, SK, CT, SS]], inner_adversary: KEM.INDCPA_Adversary[PK, SK, CT, SS]):
         self.Scheme = Scheme
         self.inner_adversary = inner_adversary # this is the KEMfromPKE adversary
     def challenge(self, pk: PK) -> Tuple[SS, SS]:
@@ -92,7 +93,7 @@ proof.add_distinguishing_proof_step(R1, PKE.INDCPA, InnerPKE, "InnerPKE")
 
 class Rewrite2_Left(Crypto.Game, Generic[PK, SK, CT, SS]):
 
-    def __init__(v0, v1: Type[INDCPA_Adversary[PK, SK, CT, SS]]):
+    def __init__(v0, v1: Type[KEM.INDCPA_Adversary[PK, SK, CT, SS]]):
         v0.Scheme = KEMfromPKE
         v0.adversary = v1(KEMfromPKE)
 
@@ -111,7 +112,7 @@ class Rewrite2_Left(Crypto.Game, Generic[PK, SK, CT, SS]):
 
 class Rewrite2_Right(Crypto.Game, Generic[PK, SK, CT, SS]):
 
-    def __init__(v0, v1: Type[INDCPA_Adversary[PK, SK, CT, SS]]):
+    def __init__(v0, v1: Type[KEM.INDCPA_Adversary[PK, SK, CT, SS]]):
         v0.Scheme = KEMfromPKE
         v0.adversary = v1(KEMfromPKE)
 
@@ -130,7 +131,7 @@ class Rewrite2_Right(Crypto.Game, Generic[PK, SK, CT, SS]):
 
 proof.add_rewriting_proof_step(Rewrite2_Left, Rewrite2_Right)
 
-assert proof.check(print_hops=True, print_canonicalizations=True, print_diffs=True, abort_on_failure=False)
+assert proof.check(print_hops=False, print_canonicalizations=False, print_diffs=False, abort_on_failure=False)
 print("Theorem:")
 print(proof.advantage_bound())
 

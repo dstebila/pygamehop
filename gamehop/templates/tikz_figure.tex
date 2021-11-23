@@ -88,7 +88,7 @@
 		\node [reduction]
 			(reduction≤≤ loop.index ≥≥)
 			at (≤≤ loop.index * 4 - 1 ≥≥,1)
-			{\texttt{≤≤ proofstep.reduction|classname|texify ≥≥:} \\ \texttt{≤≤ proofstep.experiment.get_name()|texify ≥≥} \\ adversary against \\ \texttt{≤≤ proofstep.schemeName|texify ≥≥}};
+			{\texttt{≤≤ proofstep.reduction|classname|texify ≥≥:} \\ \texttt{≤≤ proofstep.experiment.get_primitive_name()|texify ≥≥.≤≤ proofstep.experiment.get_experiment_name()|texify ≥≥} \\ adversary against \\ \texttt{≤≤ proofstep.schemeName|texify ≥≥}};
 
 		% ARROWS FROM THE REDUCTION TO THE MAIN LINE GAMES
 		\draw [->] (reduction≤≤ loop.index ≥≥) -- (hop≤≤ loop.index ≥≥left);
@@ -99,7 +99,7 @@
 			(hop≤≤ loop.index ≥≥left)
 			--
 			node[mainarrowlabel,above] {computationally \\ indistinguishable}
-			node[mainarrowlabel,below] {$\mathrm{Adv}^{\texttt{≤≤ proofstep.experiment.get_name()|texify ≥≥}}_{\texttt{≤≤ proofstep.schemeName|texify ≥≥}}(\texttt{≤≤ proofstep.reduction|classname|texify ≥≥})$}
+			node[mainarrowlabel,below] {$\mathrm{Adv}^{\texttt{≤≤ proofstep.experiment.get_primitive_name()|texify ≥≥.≤≤ proofstep.experiment.get_experiment_name()|texify ≥≥}}_{\texttt{≤≤ proofstep.schemeName|texify ≥≥}}(\texttt{≤≤ proofstep.reduction|classname|texify ≥≥})$}
 			(hop≤≤ loop.index ≥≥right);
 	
 	≤% elif proofstep|type == 'RewritingStep' %≥

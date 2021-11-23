@@ -324,7 +324,7 @@ def get_typevar_bindings_of_class(c: Type) -> Tuple[Optional[str], List[ast.expr
         else: assert False
     return parent_scheme, parent_typevar_bindings
 
-def get_typevar_bindings_of_inner_adversary(R: Type[Crypto.Reduction]) -> Tuple[Optional[str], List[ast.expr]]:
+def get_typevar_bindings_of_scheme_in_reduction(R: Type[Crypto.Reduction]) -> Tuple[Optional[str], List[ast.expr]]:
     parent_scheme = None
     parent_typevar_bindings: List[ast.expr] = list()
     cdef = utils.get_class_def(R)
@@ -332,21 +332,35 @@ def get_typevar_bindings_of_inner_adversary(R: Type[Crypto.Reduction]) -> Tuple[
         assert isinstance(fdef, ast.FunctionDef)
         if fdef.name == "__init__":
             assert len(fdef.args.args) == 3
-            innerAdversaryArg = fdef.args.args[2]
-            assert isinstance(innerAdversaryArg.annotation, ast.Subscript)
-            parent_scheme = ast.unparse(innerAdversaryArg.annotation.value)
-            if isinstance(innerAdversaryArg.annotation.slice, ast.Tuple):
-                for t in innerAdversaryArg.annotation.slice.elts:
+            schemeArg = fdef.args.args[1]
+            assert isinstance(schemeArg.annotation, ast.Subscript)
+            assert isinstance(schemeArg.annotation.value, ast.Name)
+            assert schemeArg.annotation.value.id == 'Type'
+            assert isinstance(schemeArg.annotation.slice, ast.Subscript)
+            parent_scheme = ast.unparse(schemeArg.annotation.slice.value)
+            if isinstance(schemeArg.annotation.slice.slice, ast.Tuple):
+                for t in schemeArg.annotation.slice.slice.elts:
                     parent_typevar_bindings.append(t)
             else:
-                parent_typevar_bindings.append(innerAdversaryArg.annotation.slice)
+                parent_typevar_bindings.append(schemeArg.annotation.slice.slice)
     return parent_scheme, parent_typevar_bindings
 
-def inline_scheme_into_game(Scheme: Type[Crypto.Scheme], Game: Type[Crypto.Game], game_name: Optional[str] = None) -> str:
+def get_type_of_inner_adversary_of_reduction(R: Type[Crypto.Reduction]) -> str:
+    cdef = utils.get_class_def(R)
+    for fdef in cdef.body:
+        if isinstance(fdef, ast.FunctionDef) and fdef.name == "__init__":
+            assert len(fdef.args.args) == 3
+            innerAdversaryArg = fdef.args.args[2]
+            assert innerAdversaryArg.annotation is not None
+            return ast.unparse(innerAdversaryArg.annotation)
+    raise ValueError(f"No __init__ method found on reduction {cdef.name}")
+
+def inline_scheme_into_game(Scheme: Type[Crypto.Scheme], Game: Type[Crypto.Game], game_name: Optional[str] = None, adversary_package: Optional[str] = None) -> str:
     """Returns a string representing the provided cryptographic game with all calls to methods of the given cryptographic scheme replaced with the body of those functions, with arguments to the call appropriately bound and with local variables named unambiguously."""
     Game_copy = utils.get_class_def(Game)
     if game_name: Game_copy.name = game_name
     Game_newbody: List[ast.stmt] = []
+    
     # go through every method of the game (__init__, main, oracles)
     for fdef in Game_copy.body:
         # make sure the game only consists of functions
@@ -355,7 +369,22 @@ def inline_scheme_into_game(Scheme: Type[Crypto.Scheme], Game: Type[Crypto.Game]
         # __init__ has a special form for games and must always consist of just two lines, setting self.Scheme and self.Adversary
         # bind self.Scheme to the given Scheme
         if fdef.name == "__init__":
-            Game_newbody.append(utils.get_function_def(inline_argument_into_function('Scheme', Scheme, fdef)))
+            newinit = utils.get_function_def(inline_argument_into_function('Scheme', Scheme, fdef))
+            # (hack) prefix the name of the adversary with the adversary_package name, if provided
+            if adversary_package is not None:
+                assert len(newinit.args.args) == 2
+                AdversaryArg = newinit.args.args[1]
+                assert isinstance(AdversaryArg.annotation, ast.Subscript)
+                assert isinstance(AdversaryArg.annotation.value, ast.Name)
+                assert AdversaryArg.annotation.value.id == "Type"
+                assert isinstance(AdversaryArg.annotation.slice, ast.Subscript)
+                if isinstance(AdversaryArg.annotation.slice.value, ast.Name):
+                    AdversaryArg.annotation.slice.value = ast.Attribute(
+                        value = ast.Name(id=adversary_package, ctx=ast.Load()),
+                        attr = AdversaryArg.annotation.slice.value.id,
+                        ctx = ast.Load()
+                    )
+            Game_newbody.append(newinit)
         else:
             # references to the scheme will look like "self.Scheme.whatever"
             # replace these with "Scheme.whatever" so that they can easily be replaced
@@ -401,25 +430,29 @@ def inline_reduction_into_game(R: Type[Crypto.Reduction], GameForR: Type[Crypto.
     # 2. R provides methods that will become oracles in the resulting game; these are copied from R.
     # 3. The body of all the oracles of GameForR will be inlined into the resulting game.
     # 4. Various things are renamed and minor things are changed, for example turning static methods into non-static methods.
-    OutputGame = utils.get_class_def(GameForR)
+    
+    GameForR_copy = utils.get_class_def(GameForR)
+    
+    # create the shell of the OutputGame
+    OutputGame = copy.deepcopy(GameForR_copy)
     if game_name: OutputGame.name = game_name
     else: OutputGame.name = utils.get_class_def(TargetGame).name
     OutputGame.body = []
-    # copy the __init__ and main methods of GameForR into OutputGame
-    GameForR_copy = utils.get_class_def(GameForR)
+    
+    # build a new __init__ for OutputGame
+    newinit = ast.parse(f"""def __init__(self, Adversary: Type[{get_type_of_inner_adversary_of_reduction(R)}]):
+    self.Scheme = {utils.get_class_def(TargetScheme).name}
+    self.adversary = Adversary({utils.get_class_def(TargetScheme).name})
+""").body[0]
+    OutputGame.body.append(newinit)
+
     # and save the oracles of GameForR that will need to be inlined into the OutputGame
     OraclesToSave: List[ast.FunctionDef] = []
     for fdef in GameForR_copy.body:
         # make sure the game only consists of functions
         if not isinstance(fdef, ast.FunctionDef):
             raise ValueError(f"Unable to handle games with members that are anything other than functions; game {GameForR_copy.name}, member {ast.unparse(fdef).splitlines()[0]}")
-        if fdef.name == "__init__":
-            # __init__ has a special form for games and must always consist of just two lines, setting self.Scheme and self.Adversary
-            # bind self.Scheme to the given Scheme
-            newinit = utils.get_function_def(inline_argument_into_function('Scheme', TargetScheme, fdef))
-            # change the type of the adversary to match the target game
-            newinit = utils.rename_function_body_variables(newinit, {f"{GameForR.__name__}_Adversary": f"{TargetAdversaryType.__name__}"}, False)
-            OutputGame.body.append(newinit)
+        if fdef.name == "__init__": pass
         elif fdef.name == "main" or fdef.name.startswith("o_"):
             if fdef.args.args[0].arg != "self":
                 raise ValueError(f"First parameter of {fdef.name} is called '{fdef.args.args[0].arg}', should be called 'self'.")
@@ -495,10 +528,11 @@ def inline_reduction_into_game(R: Type[Crypto.Reduction], GameForR: Type[Crypto.
                         ctx=ast.Load()
                     )
     # get the typevar bindings used in the reduction
-    (r_parent_scheme, r_parent_typevar_bindings) = get_typevar_bindings_of_inner_adversary(R)
+    (r_parent_scheme, r_parent_typevar_bindings) = get_typevar_bindings_of_scheme_in_reduction(R)
     # check that we have the same number of typevars and bindings
     g_typevars = get_typevars_of_class(GameForR)
-    if len(r_parent_typevar_bindings) != len(g_typevars): raise ValueError("Reduction and game have different generics lengths")
+    if len(r_parent_typevar_bindings) != len(g_typevars): 
+        raise ValueError(f"Reduction and game have different generics lengths (reduction bindings: {[ast.unparse(x) for x in r_parent_typevar_bindings]}; game typevars: {g_typevars})")
     # create the mapping of bindings
     replacements = dict()
     for i in range(len(g_typevars)):
