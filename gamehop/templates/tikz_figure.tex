@@ -16,19 +16,23 @@
 	yscale=3,
 ]
 
+% STARTING GAME
 ≤% if proof.experiment|isinstance("Crypto.DistinguishingExperiment") %≥
 	\node [game] (startinggame) at (0,0) {\textbf{Starting game:} \\ \texttt{≤≤ proof.scheme|classname|texify ≥≥} \\ inlined into \\ \texttt{≤≤ proof.experiment.get_left()|classname|texify ≥≥}};
 ≤% endif %≥
 
+% ITERATE THROUGH PROOF STEPS
 ≤% for proofstep in proof.proof_steps %≥
 
 	≤% if proofstep|type == "DistinguishingProofStep" %≥
 
+		% BOX FOR THE HOP'S LEFT COMPONENT
 		\node [game] 
 			(hop≤≤ loop.index ≥≥left) 
 			at (≤≤ loop.index * 4 - 2 ≥≥,0) 
 			{\textbf{Hop ≤≤ loop.index ≥≥:} \\ \texttt{≤≤ proofstep.reduction|classname|texify ≥≥} \\ inlined into \\ \texttt{≤≤ proofstep.experiment.get_right()|classname|texify if proofstep.reverseDirection else proofstep.experiment.get_left()|classname|texify ≥≥}};
 
+		% BOX FOR THE HOP'S RIGHT COMPONENT
 		\node [game] 
 			(hop≤≤ loop.index ≥≥right) 
 			at (≤≤ loop.index * 4 ≥≥,0) 
@@ -36,11 +40,13 @@
 	
 	≤% elif proofstep|type == "RewritingStep" %≥
 	
+		% BOX FOR THE HOP'S LEFT COMPONENT
 		\node [game] 
 			(hop≤≤ loop.index ≥≥left) 
 			at (≤≤ loop.index * 4 - 2 ≥≥,0) 
 			{\textbf{Hop ≤≤ loop.index ≥≥:} \\ rewriting step \\ (before rewrite) \\ \ };
 
+		% BOX FOR THE HOP'S RIGHT COMPONENT
 		\node [game] 
 			(hop≤≤ loop.index ≥≥right) 
 			at (≤≤ loop.index * 4 ≥≥,0) 
@@ -49,45 +55,56 @@
 	≤% endif %≥
 
 	≤% if loop.index0 == 0 %≥
-	\draw [isequivalentto] 
-		(startinggame) 
-		-- 
-		node[mainarrowlabel,above] {code-wise equivalent}
-		(hop1left);
-	\draw [decorate,decoration={brace,amplitude=10pt,mirror}]
-		(startinggame.south west) -- (hop≤≤ loop.index ≥≥left.south east) 
-		node[black,midway,yshift=-0.6cm] {game ≤≤ loop.index0 ≥≥};
+
+		% ARROW BETWEEN STARTING GAME AND HOP 1 LEFT
+		\draw [isequivalentto] 
+			(startinggame) 
+			-- 
+			node[mainarrowlabel,above] {code-wise equivalent}
+			(hop1left);
+		% BRACE UNDER GAME 0
+		\draw [decorate,decoration={brace,amplitude=10pt,mirror}]
+			(startinggame.south west) -- (hop≤≤ loop.index ≥≥left.south east) 
+			node[black,midway,yshift=-0.6cm] {game ≤≤ loop.index0 ≥≥};
 
 	≤% else %≥
-	\draw [isequivalentto]
-		(hop≤≤ loop.index-1 ≥≥right)
-		--
-		node[mainarrowlabel,above] {code-wise equivalent}
-		(hop≤≤ loop.index ≥≥left);
-	\draw [decorate,decoration={brace,amplitude=10pt,mirror}]
-		(hop≤≤ loop.index - 1 ≥≥right.south west) -- (hop≤≤ loop.index ≥≥left.south east) 
-		node[black,midway,yshift=-0.6cm] {game ≤≤ loop.index0 ≥≥};
+
+		% ARROW BETWEEN PREVIOUS GAME AND THIS GAME LEFT
+		\draw [isequivalentto]
+			(hop≤≤ loop.index-1 ≥≥right)
+			--
+			node[mainarrowlabel,above] {code-wise equivalent}
+			(hop≤≤ loop.index ≥≥left);
+		% BRACE UNDER THIS GAME
+		\draw [decorate,decoration={brace,amplitude=10pt,mirror}]
+			(hop≤≤ loop.index - 1 ≥≥right.south west) -- (hop≤≤ loop.index ≥≥left.south east) 
+			node[black,midway,yshift=-0.6cm] {game ≤≤ loop.index0 ≥≥};
+
 	≤% endif %≥
 
 	≤% if proofstep|type == 'DistinguishingProofStep' %≥
 
+		% NODE FOR THE REDUCTION
 		\node [reduction]
 			(reduction≤≤ loop.index ≥≥)
 			at (≤≤ loop.index * 4 - 1 ≥≥,1)
 			{\texttt{≤≤ proofstep.reduction|classname|texify ≥≥:} \\ \texttt{≤≤ proofstep.experiment.get_name()|texify ≥≥} \\ adversary against \\ \texttt{≤≤ proofstep.scheme|classname|texify ≥≥}};
 
+		% ARROWS FROM THE REDUCTION TO THE MAIN LINE GAMES
 		\draw [->] (reduction≤≤ loop.index ≥≥) -- (hop≤≤ loop.index ≥≥left);
 		\draw [->] (reduction≤≤ loop.index ≥≥) -- (hop≤≤ loop.index ≥≥right);
 
+		% ARROW BETWEEN THE MAIN LINE GAMES
 		\draw [iscomputationallyindistuishable]
 			(hop≤≤ loop.index ≥≥left)
 			--
 			node[mainarrowlabel,above] {computationally \\ indistinguishable}
-			node[mainarrowlabel,below] {$\mathrm{Adv}^{\texttt{≤≤ proofstep.experiment.get_name()|texify ≥≥}}_{\texttt{≤≤ proofstep.scheme|classname|texify ≥≥}}(\texttt{≤≤ proofstep.reduction|classname|texify ≥≥})$}
+			node[mainarrowlabel,below] {$\mathrm{Adv}^{\texttt{≤≤ proofstep.experiment.get_name()|texify ≥≥}}_{\texttt{≤≤ proofstep.scheme|classname|nogenerics|texify ≥≥}}(\texttt{≤≤ proofstep.reduction|classname|texify ≥≥})$}
 			(hop≤≤ loop.index ≥≥right);
 	
 	≤% elif proofstep|type == 'RewritingStep' %≥
 
+		% ARROW BETWEEN THE MAIN LINE GAMES
 		\draw [iscomputationallyindistuishable]
 			(hop≤≤ loop.index ≥≥left)
 			--
@@ -98,13 +115,16 @@
 
 ≤% endfor %≥
 
+% ENDING GAME
 \node [game] (endinggame) at (≤≤ proof.proof_steps|length * 4 + 2 ≥≥,0) {\textbf{Ending game:} \\ \texttt{≤≤ proof.scheme|classname|texify ≥≥} \\ inlined into \\ \texttt{≤≤ proof.experiment.get_right()|classname|texify ≥≥}};
 
+% ARROW BETWEEN PREVIOUS GAME RIGHT AND THE ENDING GAME
+\draw [isequivalentto] (hop≤≤ proof.proof_steps|length ≥≥right) -- node[mainarrowlabel,above] {code-wise equivalent} (endinggame);
+
+% BRACE UNDER ENDING GAME
 \draw [decorate,decoration={brace,amplitude=10pt,mirror}]
 	(hop≤≤ proof.proof_steps|length ≥≥right.south west) -- (endinggame.south east)
 	node[black,midway,yshift=-0.6cm] {game ≤≤ proof.proof_steps|length ≥≥};
-
-\draw [isequivalentto] (hop≤≤ proof.proof_steps|length ≥≥right) -- node[mainarrowlabel,above] {code-wise equivalent} (endinggame);
 
 \end{tikzpicture}
 	
