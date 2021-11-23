@@ -14,7 +14,7 @@ class TestTemplate(unittest.TestCase):
         def f():
             return 1
 
-        def f_expected_result(z):
+        def f_expected_result():
             return 1
 
         fdef = utils.get_function_def(f)

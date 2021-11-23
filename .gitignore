@@ -135,3 +135,5 @@ examples/*/*.log
 examples/*/*.pdf
 examples/*/*.tex
 .texpadtmp
+
+.vscode/
