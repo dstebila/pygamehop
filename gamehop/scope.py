@@ -121,6 +121,7 @@ class ObjectValue():
             # on the current object
             if len(fqn) == 1:
                 self.method_callers.append(stmt)
+                print(fqn[0], ast.unparse(stmt))
 
             attr = fqn[0]
 
@@ -329,8 +330,8 @@ class Scope():
 
 
     def add_method_call(self, varname: str, caller: ast.stmt) -> None:
-        if not self.in_scope(varname):
-            return
-
         fqn = bits.str_fqn(varname)
+        if not self.in_scope(varname):            
+            self.variables[fqn[0]] = ObjectValue(None, None)
+
         self.variables[fqn[0]].add_method_call(fqn[1:], caller)
