@@ -6,12 +6,26 @@ from . import bits
 class NoValue():
     '''Used in Scope() objects to indicate that a variable has no value assigned'''
 
+MethodPurity = Dict[str, List[int]]
+TypeMethodPurity = Dict[str, MethodPurity]
+
+"""
+ #######  ########        ## ########  ######  ######## ##     ##    ###    ##       ##     ## ########
+##     ## ##     ##       ## ##       ##    ##    ##    ##     ##   ## ##   ##       ##     ## ##
+##     ## ##     ##       ## ##       ##          ##    ##     ##  ##   ##  ##       ##     ## ##
+##     ## ########        ## ######   ##          ##    ##     ## ##     ## ##       ##     ## ######
+##     ## ##     ## ##    ## ##       ##          ##     ##   ##  ######### ##       ##     ## ##
+##     ## ##     ## ##    ## ##       ##    ##    ##      ## ##   ##     ## ##       ##     ## ##
+ #######  ########   ######  ########  ######     ##       ###    ##     ## ########  #######  ########
+"""
+
 class ObjectValue():
     '''Used it Scope() objects to store the value for an object associated with a variable.
     ObjectValue stores a dictionary of ObjectValues corresponding to its attributes'''
-    def __init__(self, assigner: Optional[ast.stmt], value: Optional[ast.AST] = None):
+    def __init__(self, assigner: Optional[ast.stmt], value: Optional[ast.AST] = None, methodpurity: Optional[MethodPurity] = None ):
         self.attributes: Dict[str, ObjectValue] = dict()        # Attribute name to ObjectValue maps.  These are attributes of this object.
         self._assigner: Optional[ast.stmt] = assigner           # Statement that created this object in the first place.
+        self.pure_method_callers: List[ast.stmt] = list()       # Statements that called methods that don't change the object
         self.method_callers: List[ast.stmt] = list()            # Statements that called methods on this object directly, which may have changed it.  TODO: some way to handle methods that only read?
         self.attribute_assigners: List[ast.stmt] = list()
         self.loaders: List[ast.stmt] = list()                   # Statements that have loaded this object directly
@@ -21,6 +35,7 @@ class ObjectValue():
         self._annotation = None                                 # Type annotation for this object
         if assigner is not None:
             self.assigned = True
+        self._method_purity: MethodPurity = methodpurity if methodpurity else dict()
 
     def copy(self) -> ObjectValue:
         ret = ObjectValue(self._assigner, self._value)
@@ -90,7 +105,7 @@ class ObjectValue():
             ret &= self.attributes[attr].add_load(fqn[1:], stmt)
         return ret
 
-    def add_attribute_assignment(self, fqn: List[str], assigner: ast.stmt, value: Optional[ast.expr]) -> None:
+    def add_attribute_assignment(self, fqn: List[str], assigner: ast.stmt, value: Optional[ast.expr], method_purity: Optional[MethodPurity] = None) -> None:
         assert(len(fqn) > 0)
 
         # The value currently stored for this object is no longer valid since one of its attributes has changed
@@ -104,11 +119,11 @@ class ObjectValue():
             # If the attribute has not been explicitly set, it might still exist on the object.
             # Here we create an attribute to keep track of the fact that it was loaded.
             if attr not in self.attributes: 
-                self.attributes[attr] = ObjectValue(None, None)
+                self.attributes[attr] = ObjectValue(None, None, method_purity)
                 self.attributes[attr].assigned = True  # We'll assume that someone has created this attribute.  It can't be from another scope.
-            self.attributes[attr].add_attribute_assignment(fqn[1:], assigner, value)
+            self.attributes[attr].add_attribute_assignment(fqn[1:], assigner, value, method_purity)
         else:
-            self.attributes[attr] = ObjectValue(assigner, value)
+            self.attributes[attr] = ObjectValue(assigner, value, method_purity)
            
     def add_method_call(self, fqn: List[str], stmt: ast.stmt) -> None:
         if len(fqn) == 0:
@@ -119,11 +134,16 @@ class ObjectValue():
         else:
             # If this is the last name, then that name is the method name and the method was called
             # on the current object
-            if len(fqn) == 1:
-                self.method_callers.append(stmt)
-                print(fqn[0], ast.unparse(stmt))
-
             attr = fqn[0]
+            if len(fqn) == 1:
+                # Check if this method is pure for this argument (i.e. self)
+                if attr in self._method_purity and self._method_purity[attr][0] == 0:
+                    self.pure_method_callers.append(stmt)
+                elif '__default_purity__' in self._method_purity and self._method_purity['__default__purity'][0] == 0:
+                    self.pure_method_callers.append(stmt)
+                else:
+                    # Method is not pure for this object, so add the statement as a potential modifier
+                    self.method_callers.append(stmt)
 
             # If the method or attribute has not been explicitly set, it might still exist on the object.
             # Here we create an attribute to keep track of the fact that it was loaded/called.
@@ -131,6 +151,16 @@ class ObjectValue():
                 self.attributes[attr] = ObjectValue(None, None)
 
             self.attributes[attr].add_method_call(fqn[1:], stmt)
+
+    def method_purity(self, fqn: List[str]) -> Optional[List[int]]:
+        assert len(fqn) > 0
+        if len(fqn) == 1:
+            if fqn[0] in self._method_purity:
+                return self._method_purity[fqn[0]]
+            else:
+                return list()
+        return self.attributes[fqn[0]].method_purity(fqn[1:])
+
 
     def value(self, fqn: List[str]) -> Optional[ast.AST]:
         if len(fqn) == 0:
@@ -172,13 +202,23 @@ class ObjectValue():
         return ret
 
 
+"""
+ ######   ######   #######  ########  ########
+##    ## ##    ## ##     ## ##     ## ##
+##       ##       ##     ## ##     ## ##
+ ######  ##       ##     ## ########  ######
+      ## ##       ##     ## ##        ##
+##    ## ##    ## ##     ## ##        ##
+ ######   ######   #######  ##        ########
+"""
+
 class Scope():
     ''' Scope is used by the NodeTraverser to keep track of all variables and function
     parameters currently in scope, plus additional information such as the most
     recently assigned value, and any variables that were referenced that were
     not in this scope at the time.
     '''
-    def __init__(self):
+    def __init__(self, typeMethodPurity: Optional[TypeMethodPurity] = None):
         self.parameters: List[str] = list()                            # function parameters defined in this scope
         self.parameter_values: List[ObjectValue] = list()              # Stores parameter ObjectValues in order, in case the parameter name gets bound to another object
         self.parameter_values_loaded: List[ObjectValue] = list()       # Stores values for parameters in the order that they are loaded
@@ -192,6 +232,7 @@ class Scope():
         self.report_values: bool = True           # In some cases (eg. while loops) we don't want to report the value of variables.
         self.store_values: bool = True            # In some cases we don't want to store values because they may become incorrect later (eg. while loops)
 
+        self.type_method_purity: TypeMethodPurity = typeMethodPurity if typeMethodPurity else dict()
 
     def copy(self) -> Scope:
         ret = Scope()
@@ -211,7 +252,10 @@ class Scope():
 
     def add_parameter(self, par_name, annotation = None):
         self.parameters.append(par_name)
-        parobj = ObjectValue(None, None)
+        method_purity = None
+        if annotation and annotation in self.type_method_purity:
+            method_purity = self.type_method_purity[annotation]
+        parobj = ObjectValue(None, None, method_purity)
         parobj.assigned = False # TODO: Not sure about this one 
         parobj._annotation = annotation
 
@@ -228,13 +272,18 @@ class Scope():
         # We only want each parameter to appear once
         return bits.unique_elements(ret)
 
-    def add_var_assignment(self, varname: str, assigner: ast.stmt, value: Optional[ast.expr])-> None:
+    def add_var_assignment(self, varname: str, assigner: ast.stmt, value: Optional[ast.expr], annotation: Optional[str] = None)-> None:
+        # TODO: annotations and method purity
         fqn = bits.str_fqn(varname)
         assert(len(fqn) > 0)
         self.vars_stored.append(bits.fqn_str(fqn))
 
+        method_purity = None
+        if annotation and annotation in self.type_method_purity:
+            method_purity = self.type_method_purity[annotation]
+        
         if len(fqn) == 1:
-            self.variables[fqn[0]] = ObjectValue(assigner, value)
+            self.variables[fqn[0]] = ObjectValue(assigner, value, method_purity)
         else:
             if fqn[0] not in self.variables:
                 # Attempt to assign to an attribute of an object that is not in scope.
@@ -242,7 +291,24 @@ class Scope():
                 # statement scope.  We need to create an empty object to keep track of the assignment.
                 self.variables[fqn[0]] = ObjectValue(None, None)
 
-            self.variables[fqn[0]].add_attribute_assignment(fqn[1:], assigner, value)
+            self.variables[fqn[0]].add_attribute_assignment(fqn[1:], assigner, value, method_purity)
+
+    def add_var_store(self, varname: str, assigner: ast.stmt, )-> None:
+        fqn = bits.str_fqn(varname)
+        assert(len(fqn) > 0)
+        self.vars_stored.append(bits.fqn_str(fqn))
+
+        if len(fqn) == 1:
+            self.variables[fqn[0]] = ObjectValue(assigner, None)
+        else:
+            if fqn[0] not in self.variables:
+                # Attempt to assign to an attribute of an object that is not in scope.
+                # This can happen when keeping track of an assignment to an attribute in a
+                # statement scope.  We need to create an empty object to keep track of the assignment.
+                self.variables[fqn[0]] = ObjectValue(None, None)
+
+            self.variables[fqn[0]].add_attribute_assignment(fqn[1:], assigner, None)
+    
 
     def add_var_load(self, varname: str, stmt: Optional[ast.stmt] = None):
         ''' Adds the given variable name to the scope as a load.  If this name is
@@ -316,6 +382,13 @@ class Scope():
         if fqn[0] not in self.variables:
             return None
         return self.variables[fqn[0]].annotation(fqn[1:])
+
+    def method_purity(self, methodname: str) -> Optional[List[int]]:
+        fqn = bits.str_fqn(methodname)
+        assert(len(fqn) > 0)
+        if fqn[0] not in self.variables:
+            return None
+        return self.variables[fqn[0]].method_purity(fqn[1:])
 
     def in_scope(self, varname: str) -> bool:
         fqn = bits.str_fqn(varname)

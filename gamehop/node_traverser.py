@@ -191,6 +191,15 @@ class NodeTraverser():
         # these will not capture all variable assigns
         self.local_stmt_scope().add_var_load(varname, load_type)
 
+    def add_var_store(self, varname: str, stmt: ast.stmt) -> None:
+        ''' Record a ast.Store event on a Name or Attribute.  This is called instead of add_var_assignment
+        when the value is not known, for example when varname is an argument to a function/method that might change
+        the value.
+        '''
+        self.local_scope().add_var_store(varname, stmt)
+        self.block_scopes[-1].add_var_store(varname, stmt)
+        self.stmt_scopes[-1].add_var_store(varname, stmt)        
+
     def add_var_assignment(self, varname: str, stmt: ast.stmt, value: Optional[ast.expr]) -> None:
         ''' Add a variable name to scope, storing the associated value expression
         '''
@@ -496,6 +505,21 @@ class NodeTraverser():
                 return node
 
             self.add_var_load(node.id, self.parent_statement())
+
+            # Arguments of function call might be modified.  Consult purity of function.
+            if isinstance(self.parent(), ast.Call) and node in self.parent().args:
+                argindex = self.parent().args.index(node)
+                if isinstance(self.parent().func, ast.Attribute) and argindex == 0:
+                    # This is the object whose method has been called.  This will be handled by the objectvalue in the scope.
+                    pass
+                else:
+                    #TODO
+                    # Get the purity
+                    # look up position
+                    # if not pure, add a store
+                    self.add_var_store(node.id, self.parent_statement())
+
+            
 
         return node
 
