@@ -68,60 +68,9 @@ proof2 = Proof(NestedPKE, PKE.INDCPA)
 # This will be done by a rewriting step.
 # The rewriting step also renames one member variable to a local variable since the
 # canonicalization engine can't handle that properly yet.
-
-class Rewrite0_Left(Crypto.Game, Generic[PK1, PK2, SK1, SK2, CT1, CT2, PT1]):
-
-    def __init__(v0, v1: Type[PKE.INDCPA_Adversary[Tuple[PK1, PK2], Tuple[SK1, SK2], CT2, PT1]]):
-        v0.Scheme = NestedPKE
-        v0.adversary = v1(NestedPKE)
-
-    def main(v0) -> Crypto.Bit:
-        (v1, v2) = PKE1.KeyGen()
-        (v3, v4) = PKE2.KeyGen()
-        (v5, v6) = v0.adversary.challenge((v1, v3))
-        v7 = PKE1.Encrypt(v1, v5)
-        v8 = PKE1.Encrypt(v1, v6)
-        v9 = len(v5)
-        v10 = len(v6)
-        v11 = PKE2.Encrypt(v3, v7)
-        v12 = len(v7)
-        v13 = len(v8)
-        v0ok = v9 == v10
-        v14 = v0.adversary.guess(v11)
-        v15 = Crypto.Bit(0)
-        v16 = True
-        v17 = v14 if v0ok else v15
-        v18 = Crypto.Bit(0)
-        v19 = v17 if v16 else v18
-        return v19
-
-class Rewrite0_Right(Crypto.Game, Generic[PK1, PK2, SK1, SK2, CT1, CT2, PT1]):
-
-    def __init__(v0, v1: Type[PKE.INDCPA_Adversary[Tuple[PK1, PK2], Tuple[SK1, SK2], CT2, PT1]]):
-        v0.Scheme = NestedPKE
-        v0.adversary = v1(NestedPKE)
-
-    def main(v0) -> Crypto.Bit:
-        (v1, v2) = PKE1.KeyGen()
-        (v3, v4) = PKE2.KeyGen()
-        (v5, v6) = v0.adversary.challenge((v1, v3))
-        v7 = PKE1.Encrypt(v1, v5)
-        v8 = PKE1.Encrypt(v1, v6)
-        v9 = len(v5)
-        v10 = len(v6)
-        v11 = PKE2.Encrypt(v3, v7)
-        v12 = len(v7)
-        v13 = len(v8)
-        v0.ok = v9 == v10
-        v14 = v0.adversary.guess(v11)
-        v15 = Crypto.Bit(0)
-        v16 = v12 == v13
-        v17 = v14 if v0.ok else v15
-        v18 = Crypto.Bit(0)
-        v19 = v17 if v16 else v18
-        return v19
-
-proof2.add_rewriting_proof_step(Rewrite0_Left, Rewrite0_Right)
+# This rewriting step will be phrased by rewriting the next game to get the previous 
+# game, so we have to defer inserting this rewriting step until after the next step 
+# has been added.
 
 # Game 2 encrypts m1 rather than m0.
 # Game 2 is equivalent to the NestedPKE scheme inlined into PKE.INDCPA_Right (where m1 is encrypted).
@@ -160,65 +109,26 @@ class R2(Crypto.Reduction,
 
 proof2.add_distinguishing_proof_step(R2, PKE.INDCPA, PKE2, 'PKE2')
 
+# Here's the deferred rewriting step as noted above.
+proof2.insert_simple_rewriting_proof_step_before(
+    {
+        "if len(m0) == len(m1)": "if True",
+        "self.ok": "isokay"
+    }
+)
+
 # Need to again codify an implicit assumption in NestedPKE that encryptions of 
 # equal-length messages yield equal-length ciphertexts.
 # This will be done by a rewriting step.
 # The rewriting step also renames one member variable to a local variable since the
 # canonicalization engine can't handle that properly yet.
 
-class Rewrite2_Left(Crypto.Game, Generic[PK1, PK2, SK1, SK2, CT1, CT2, PT1]):
-
-    def __init__(v0, v1: Type[PKE.INDCPA_Adversary[Tuple[PK1, PK2], Tuple[SK1, SK2], CT2, PT1]]):
-        v0.Scheme = NestedPKE
-        v0.adversary = v1(NestedPKE)
-
-    def main(v0) -> Crypto.Bit:
-        (v1, v2) = PKE1.KeyGen()
-        (v3, v4) = PKE2.KeyGen()
-        (v5, v6) = v0.adversary.challenge((v1, v3))
-        v7 = PKE1.Encrypt(v1, v5)
-        v8 = PKE1.Encrypt(v1, v6)
-        v9 = len(v5)
-        v10 = len(v6)
-        v11 = PKE2.Encrypt(v3, v8)
-        v12 = len(v7)
-        v13 = len(v8)
-        v0.ok = v9 == v10
-        v14 = v0.adversary.guess(v11)
-        v15 = Crypto.Bit(0)
-        v16 = v12 == v13
-        v17 = v14 if v0.ok else v15
-        v18 = Crypto.Bit(0)
-        v19 = v17 if v16 else v18
-        return v19
-
-class Rewrite2_Right(Crypto.Game, Generic[PK1, PK2, SK1, SK2, CT1, CT2, PT1]):
-
-    def __init__(v0, v1: Type[PKE.INDCPA_Adversary[Tuple[PK1, PK2], Tuple[SK1, SK2], CT2, PT1]]):
-        v0.Scheme = NestedPKE
-        v0.adversary = v1(NestedPKE)
-
-    def main(v0) -> Crypto.Bit:
-        (v1, v2) = PKE1.KeyGen()
-        (v3, v4) = PKE2.KeyGen()
-        (v5, v6) = v0.adversary.challenge((v1, v3))
-        v7 = PKE1.Encrypt(v1, v5)
-        v8 = PKE1.Encrypt(v1, v6)
-        v9 = len(v5)
-        v10 = len(v6)
-        v11 = PKE2.Encrypt(v3, v8)
-        v12 = len(v7)
-        v13 = len(v8)
-        v0ok = v9 == v10
-        v14 = v0.adversary.guess(v11)
-        v15 = Crypto.Bit(0)
-        v16 = True
-        v17 = v14 if v0ok else v15
-        v18 = Crypto.Bit(0)
-        v19 = v17 if v16 else v18
-        return v19
-
-proof2.add_rewriting_proof_step(Rewrite2_Left, Rewrite2_Right)
+proof2.insert_simple_rewriting_proof_step_after(
+    {
+        "if len(m0) == len(m1)": "if True",
+        "self.ok": "isokay"
+    }
+)
 
 assert proof2.check(print_hops=True, print_canonicalizations=True, print_diffs=True, abort_on_failure=False)
 print("Theorem 2:")

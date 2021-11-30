@@ -1,6 +1,7 @@
 import ast
+import copy
 import jinja2
-from typing import List, Type
+from typing import cast, Dict, List, Optional, Type
 
 from .primitives import Crypto
 from . import inlining
@@ -60,6 +61,28 @@ class Proof():
     def add_rewriting_proof_step(self, rewrite_left: Type[Crypto.Game], rewrite_right: Type[Crypto.Game]) -> None:
         """Add a rewriting proof step asserting (without computer verification) that the games rewrite_left and rewrite_right are equivalent to each other."""
         self.proof_steps.append(RewritingStep(rewrite_left, rewrite_right))
+
+    def insert_simple_rewriting_proof_step_after(self, rewrites: Dict[str, str], gamenum: Optional[int] = None) -> None:
+        """Add a rewriting step that's constructed by using string replacements as specified in rewrites. The string replacements will be applied to the *uncanonicalized* form of game gamenum (where gamenum is the currently last game, if unspecified). The effect of this will be to add a rewriting step of the form (left=copy_of_game_gamenum_unchanged, right=copy_of_game_gamenum_with_replacements) immediately after game gamenum."""
+        if gamenum is None: gamenum = len(self.proof_steps)
+        prev_game_src = self.get_game_src(gamenum)
+        next_game_src = copy.copy(prev_game_src)
+        for k in rewrites:
+            next_game_src = next_game_src.replace(k, rewrites[k])
+        self.proof_steps.insert(gamenum, RewritingStep(
+            cast(Type[Crypto.Game], utils.get_class_def(prev_game_src)), 
+            cast(Type[Crypto.Game], utils.get_class_def(next_game_src))))
+
+    def insert_simple_rewriting_proof_step_before(self, rewrites: Dict[str, str], gamenum: Optional[int] = None) -> None:
+        """Add a rewriting step that's constructed by using string replacements as specified in rewrites. The string replacements will be applied to the *uncanonicalized* form of game gamenum (where gamenum is the currently last game, if unspecified). However, this method works in "reverse" compared to insert_simple_rewriting_proof_step_after: the effect of this will be to add a rewriting step of the form (left=copy_of_game_gamenum_with_replacements, right=copy_of_game_gamenum_unchanged) immediately *before* game gamenum.  Note this means that this method must be called after gamenum has been added."""
+        if gamenum is None: gamenum = len(self.proof_steps) - 1
+        next_game_src = self.proof_steps[gamenum].get_left_src()
+        prev_game_src = copy.copy(next_game_src)
+        for k in rewrites:
+            prev_game_src = prev_game_src.replace(k, rewrites[k])
+        self.proof_steps.insert(gamenum, RewritingStep(
+            cast(Type[Crypto.Game], utils.get_class_def(prev_game_src)),
+            cast(Type[Crypto.Game], utils.get_class_def(next_game_src))))
 
     def get_game_src(self, gamenum: int, before_hop = True) -> str:
         if gamenum == 0 and before_hop: # use the original experiment
