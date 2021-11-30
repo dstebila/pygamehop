@@ -4,6 +4,7 @@ from typing import Optional, List,  Dict
 import ast
 from . import bits
 
+
 class NoValue():
     '''Used in Scope() objects to indicate that a variable has no value assigned'''
 
@@ -307,7 +308,8 @@ class Scope():
                 # This can happen when keeping track of an assignment to an attribute in a
                 # statement scope.  We need to create an empty object to keep track of the assignment.
                 self.variables[fqn[0]] = ObjectValue(None, None)
-
+            
+            # TODO: is this the correct thing?  This probably came from a function call with this possibly written to.
             self.variables[fqn[0]].add_attribute_assignment(fqn[1:], assigner, None)
     
 
@@ -387,9 +389,14 @@ class Scope():
     def method_purity(self, methodname: str) -> Optional[List[int]]:
         fqn = bits.str_fqn(methodname)
         assert(len(fqn) > 0)
-        if fqn[0] not in self.variables:
-            return None
-        return self.variables[fqn[0]].method_purity(fqn[1:])
+        if len(fqn) > 1:
+            # This is a method call.  Check the objects first
+            ret = self.variables[fqn[0]].method_purity(fqn[1:])
+            if ret:
+                return ret
+            
+        return None
+
 
     def in_scope(self, varname: str) -> bool:
         fqn = bits.str_fqn(varname)
