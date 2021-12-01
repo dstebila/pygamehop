@@ -42,3 +42,20 @@ class TestUnnecessaryMembers(unittest.TestCase):
             ast.unparse(c),
             expected_result(C_expected_result)
         )
+    def test_with_oracle(self):
+        class C:
+            def chicken(self):
+                return 7 + self.o_beef()
+            def o_beef(self):
+                return 5
+        class C_expected_result:
+            def chicken(self):
+                return 7 + self.o_beef()
+            def o_beef(self):
+                return 5
+        c = gamehop.utils.get_class_def(C)
+        gamehop.verification.canonicalization.classes.unnecessary_members(c)
+        self.assertEqual(
+            ast.unparse(c),
+            expected_result(C_expected_result)
+        )

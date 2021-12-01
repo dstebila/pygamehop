@@ -24,6 +24,7 @@ def unnecessary_members(c: ast.ClassDef) -> None:
             a_used_elsewhere = False
             for fdefprime in selfattributes:
                 if fdefprime == fdef: continue
+                if a == fdefprime.name: a_used_elsewhere = True
                 if a in selfattributes[fdefprime]: a_used_elsewhere = True
             if not(a_used_elsewhere):
                 selfname = fdef.args.args[0].arg
