@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from typing import List, Optional
 import ast
+import re
+
 from . import bits
 from . import scope
 
@@ -23,6 +25,30 @@ def nodes(node, nodetype = ast.AST):
                 if not hasattr(node, field_name): continue
                 field = getattr(node, field_name)
                 yield from nodes(field, nodetype)
+
+defaultPurity = {
+    '__regexp__': {  #  Match by regular expression (including for normal functions).  First match used.
+        '.*': [1] * 20   # default for functions not otherwise mentioned.  This needs to be LAST
+    }
+    # example
+    # 'MyType': { 'myMethod', [1,0,0,0]}  # self is modified, other arguments are not.
+}
+
+
+
+
+
+
+
+
+##    ##  #######  ########  ######## ######## ########     ###    ##     ## ######## ########   ######  ######## ########
+###   ## ##     ## ##     ## ##          ##    ##     ##   ## ##   ##     ## ##       ##     ## ##    ## ##       ##     ##
+####  ## ##     ## ##     ## ##          ##    ##     ##  ##   ##  ##     ## ##       ##     ## ##       ##       ##     ##
+## ## ## ##     ## ##     ## ######      ##    ########  ##     ## ##     ## ######   ########   ######  ######   ########
+##  #### ##     ## ##     ## ##          ##    ##   ##   #########  ##   ##  ##       ##   ##         ## ##       ##   ##
+##   ### ##     ## ##     ## ##          ##    ##    ##  ##     ##   ## ##   ##       ##    ##  ##    ## ##       ##    ##
+##    ##  #######  ########  ########    ##    ##     ## ##     ##    ###    ######## ##     ##  ######  ######## ##     ##
+
 
 class NodeTraverser():
     """Improved AST tree traversal over the ast.NodeTransformer class.
@@ -58,7 +84,7 @@ class NodeTraverser():
     - Get this functionality into the NodeVisitor somehow.  Nothing here changes any
      nodes, so it shouldn't be too bad.
      """
-    def __init__(self, counter=0, var_format = '_var_{:d}'):
+    def __init__(self, counter=0, var_format = '_var_{:d}', type_method_purity = None ):
         ''' counter sets the starting value for unique_variable_name() calls.
         var_format gives the string format for unique_variable_name() calls.
         '''
@@ -72,20 +98,24 @@ class NodeTraverser():
         # for before it than within its body
         self.prelude_statements: List[List[ast.stmt]] = [list()]
 
+        self.type_method_purity = type_method_purity if type_method_purity else defaultPurity
+
         # start off with a gloabal scope
-        self.scopes: List[scope.Scope] = [ scope.Scope() ]
+        self.scopes: List[scope.Scope] = [ scope.Scope(self.type_method_purity) ]
 
         # Block level scopes are used to keep track of variables that are stored/loaded within a
         # block of code, eg. if body
         # Currently this only keeps track of variable stores
-        self.block_scopes: List[scope.Scope] = [ scope.Scope() ]
+        self.block_scopes: List[scope.Scope] = [ scope.Scope(self.type_method_purity) ]
 
         # Statement level scopes are used to keep track of variables that are stored/loaded within
         # a single statement and its children
-        self.stmt_scopes: List[scope.Scope] = [ scope.Scope() ]
+        self.stmt_scopes: List[scope.Scope] = [ scope.Scope(self.type_method_purity) ]
 
         # Keep track of the parent of the node being transformed
         self.ancestors: List[ast.ast] = list()
+
+
 
     def unique_variable_name(self):
         ''' returns a new string each time.  This works by using a counter
@@ -110,10 +140,19 @@ class NodeTraverser():
         return new_statements
 
 
+  #####
+ #     #  ####   ####  #####  ######  ####
+ #       #    # #    # #    # #      #
+  #####  #      #    # #    # #####   ####
+       # #      #    # #####  #           #
+ #     # #    # #    # #      #      #    #
+  #####   ####   ####  #      ######  ####
+
+
     # scopes
 
     def new_scope(self) -> None:
-        self.scopes.append(scope.Scope())
+        self.scopes.append(scope.Scope(self.type_method_purity))
 
     def pop_scope(self) -> scope.Scope:
         return self.scopes.pop()
@@ -125,7 +164,7 @@ class NodeTraverser():
         return self.stmt_scopes[-1]
 
     def new_block_scope(self) -> None:
-        self.block_scopes.append(scope.Scope())
+        self.block_scopes.append(scope.Scope(self.type_method_purity))
 
     def pop_block_scope(self) -> scope.Scope:
         return self.block_scopes.pop()
@@ -191,6 +230,15 @@ class NodeTraverser():
         # these will not capture all variable assigns
         self.local_stmt_scope().add_var_load(varname, load_type)
 
+    def add_var_store(self, varname: str, stmt: ast.stmt) -> None:
+        ''' Record a ast.Store event on a Name or Attribute.  This is called instead of add_var_assignment
+        when the value is not known, for example when varname is an argument to a function/method that might change
+        the value.
+        '''
+        self.local_scope().add_var_store(varname, stmt)
+        self.block_scopes[-1].add_var_store(varname, stmt)
+        self.stmt_scopes[-1].add_var_store(varname, stmt)        
+
     def add_var_assignment(self, varname: str, stmt: ast.stmt, value: Optional[ast.expr]) -> None:
         ''' Add a variable name to scope, storing the associated value expression
         '''
@@ -249,6 +297,32 @@ class NodeTraverser():
         ''' Returns a list of variables and parameters in the current local scope only.'''
         return self.local_scope().names_in_scope()
 
+    def method_purity(self, methodName: str) -> List[int]:
+        # This is an object method.  Search the scopes for the object to get the purity            
+        for s in self.scopes[::-1]:
+            if s.in_scope(methodName):
+                ret = s.method_purity(methodName)
+                if ret: return ret
+                break
+
+        # Look for matches by regular expression
+        for exp, purity in self.type_method_purity['__regexp__'].items():
+            if re.match(exp, methodName):
+                return purity
+
+        # If we get here then something messed up or there was no sensible default regexp.
+        assert(False)
+
+
+ ######
+ #     #   ##   #####  ###### #    # #####  ####
+ #     #  #  #  #    # #      ##   #   #   #
+ ######  #    # #    # #####  # #  #   #    ####
+ #       ###### #####  #      #  # #   #        #
+ #       #    # #   #  #      #   ##   #   #    #
+ #       #    # #    # ###### #    #   #    ####
+
+
     # Keep track of parent of each node
     def parent(self):
         ''' Returns the node of which the currently visited node is a child.
@@ -272,7 +346,18 @@ class NodeTraverser():
     def pop_parent(self):
         self.ancestors.pop()
 
-    # visitor functions
+
+
+ #     #
+ #     # #  ####  # #####  ####  #####   ####
+ #     # # #      #   #   #    # #    # #
+ #     # #  ####  #   #   #    # #    #  ####
+  #   #  #      # #   #   #    # #####       #
+   # #   # #    # #   #   #    # #   #  #    #
+    #    #  ####  #   #    ####  #    #  ####
+
+
+
 
     # These are here so that we can easily override them to hook into If visiting without
     # having to reproduce all the scope stuff
@@ -397,16 +482,28 @@ class NodeTraverser():
 
 
 
-    # Internal visitors
-    def _visit_Assign(self, node):
-        # if there are many targets (eg. a = b = 1) we handle each one
+ ###
+  #  #    # ##### ###### #####  #    #   ##   #         #    # #  ####  # #####  ####  #####   ####
+  #  ##   #   #   #      #    # ##   #  #  #  #         #    # # #      #   #   #    # #    # #
+  #  # #  #   #   #####  #    # # #  # #    # #         #    # #  ####  #   #   #    # #    #  ####
+  #  #  # #   #   #      #####  #  # # ###### #         #    # #      # #   #   #    # #####       #
+  #  #   ##   #   #      #   #  #   ## #    # #          #  #  # #    # #   #   #    # #   #  #    #
+ ### #    #   #   ###### #    # #    # #    # ######      ##   #  ####  #   #    ####  #    #  ####
 
+
+    def _visit_Name(self, node):
         node = self.call_subclass_visitor(node)
 
-        # this might not be an Assign after above call.
-        if isinstance(node, ast.Assign):
-            for v in node.targets:
-                self.add_target_to_scope(v, node, node.value)
+        # this might have changed to a different type of node
+        if not isinstance(node, ast.Name): return node
+
+        if isinstance(node.ctx, ast.Load):
+            # if this is in an ast.Attribute, then this value isn't being loaded, but an attribute of it is.
+            # Don't load this Name.  It will be handled by the parent, which is the attribute of this Name.
+            if isinstance(self.parent(), ast.Attribute):
+                return node
+
+            self.add_var_load(node.id, self.parent_statement())         
 
         return node
 
@@ -439,6 +536,17 @@ class NodeTraverser():
 
         return node
 
+    def _visit_Assign(self, node):
+        # if there are many targets (eg. a = b = 1) we handle each one
+
+        node = self.call_subclass_visitor(node)
+
+        # this might not be an Assign after above call.
+        if isinstance(node, ast.Assign):
+            for v in node.targets:
+                self.add_target_to_scope(v, node, node.value)
+
+        return node
 
     def _visit_FunctionDef(self, node):
         # Functions create a new scope
@@ -454,7 +562,9 @@ class NodeTraverser():
 
 
         node = self.call_subclass_visitor(node)
-        
+
+        # TODO: figure out the purity of the function def automatically?
+
         # We must pop the scope before adding the functionDef to scope, because the current
         # scope is for the body of the function.  The functionDef must be added to the scope
         # in which it sits
@@ -472,8 +582,24 @@ class NodeTraverser():
         if not isinstance(node, ast.Call):
             return node
 
-        self.add_var_load(bits.called_function_name(node))
+        functionName = bits.called_function_name(node)
+        self.add_var_load(functionName)
 
+        # Record change to arguments for non-pure functions
+        purity = self.method_purity(functionName)
+        print(purity)
+        for argindex, arg in enumerate(node.args):
+            if isinstance(node.func, ast.Attribute) and argindex == 0:
+                # This is the object whose method has been called.  This will be handled by the objectvalue in the scope.
+                continue
+            print(argindex)
+            if purity[argindex] == 1:
+                # this call may have modified this argument, so add a store
+                if isinstance(arg, ast.Name):
+                    self.add_var_store(arg.id, self.parent_statement())
+                if isinstance(arg, ast.Attribute):
+                    fqn = bits.fqn_str(bits.attribute_fqn(arg))
+                    self.add_var_store(fqn, self.parent_statement())
         return node
 
     def _visit_ClassDef(self, node):
@@ -483,23 +609,16 @@ class NodeTraverser():
         self.pop_scope()
         return node
 
-    def _visit_Name(self, node):
-        node = self.call_subclass_visitor(node)
 
-        # this might have changed to a different type of node
-        if not isinstance(node, ast.Name): return node
 
-        if isinstance(node.ctx, ast.Load):
-            # if this is in an ast.Attribute, then this value isn't being loaded, but an attribute of it is.
-            # Don't load this Name.  It will be handled by the parent, which is the attribute of this Name.
-            if isinstance(self.parent(), ast.Attribute):
-                return node
+ ###
+  #  #    # ###### #####    ##    ####  ##### #####  #    #  ####  ##### #    # #####  ######
+  #  ##   # #      #    #  #  #  #        #   #    # #    # #    #   #   #    # #    # #
+  #  # #  # #####  #    # #    #  ####    #   #    # #    # #        #   #    # #    # #####
+  #  #  # # #      #####  ######      #   #   #####  #    # #        #   #    # #####  #
+  #  #   ## #      #   #  #    # #    #   #   #   #  #    # #    #   #   #    # #   #  #
+ ### #    # #      #    # #    #  ####    #   #    #  ####   ####    #    ####  #    # ######
 
-            self.add_var_load(node.id, self.parent_statement())
-
-        return node
-
-    # parent class visitors
 
     def visit_stmt(self, stmt: ast.stmt):
         # First, visit with any more specific visit function
@@ -580,7 +699,7 @@ class NodeTraverser():
 
         '''
         if isinstance(node, ast.stmt):
-            self.stmt_scopes.append(scope.Scope())
+            self.stmt_scopes.append(scope.Scope(self.type_method_purity))
             ret = self.visit_stmt(node)
             self.stmt_scopes.pop()
             return ret

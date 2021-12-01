@@ -242,7 +242,7 @@ class GraphMaker(nt.NodeTraverser):
                     # Modifier was not in this block, so add this
                     # as an external variable to the parent statement to create an edge
                     # in the outer graph
-                    self.stmt_scopes[-2].add_var_load(var)
+                    self.stmt_scopes[-2].add_var_load(var, self.parent_statement())
             
         # Create edges from this statement for every variable that it stores
         # which was previously stored.  This is necessary to preserve
