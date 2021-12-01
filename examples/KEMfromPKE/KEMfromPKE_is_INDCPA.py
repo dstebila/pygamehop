@@ -49,7 +49,6 @@ class R1(Crypto.Reduction,
 proof.add_distinguishing_proof_step(R1, PKE.INDCPA, InnerPKE, "InnerPKE")
 
 proof.insert_simple_rewriting_proof_step_before({
-    "self.ss0": "selfss0",
     "if len(m0) == len(m1)": "if True"
 })
 
@@ -60,7 +59,6 @@ proof.insert_simple_rewriting_proof_step_before({
 # canonicalization engine can't handle that properly yet.
 
 proof.insert_simple_rewriting_proof_step_after({
-    "self.ss0": "selfss0",
     "if len(m0) == len(m1)": "if True"
 })
 

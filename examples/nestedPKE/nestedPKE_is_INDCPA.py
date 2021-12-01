@@ -112,8 +112,7 @@ proof2.add_distinguishing_proof_step(R2, PKE.INDCPA, PKE2, 'PKE2')
 # Here's the deferred rewriting step as noted above.
 proof2.insert_simple_rewriting_proof_step_before(
     {
-        "if len(m0) == len(m1)": "if True",
-        "self.ok": "isokay"
+        "if len(m0) == len(m1)": "if True"
     }
 )
 
@@ -125,8 +124,7 @@ proof2.insert_simple_rewriting_proof_step_before(
 
 proof2.insert_simple_rewriting_proof_step_after(
     {
-        "if len(m0) == len(m1)": "if True",
-        "self.ok": "isokay"
+        "if len(m0) == len(m1)": "if True"
     }
 )
 
