@@ -6,7 +6,7 @@ all:
 
 # eventually just replace this with
 # env PYTHONPATH=. pytest -v --mypy
-test: typecheck_library unittest_library test_examples
+test: typecheck_library unittest_library typecheck_examples test_examples
 
 typecheck_library:
 	$(MYPY) --ignore-missing-imports -p gamehop.inlining
@@ -16,6 +16,11 @@ typecheck_library:
 
 unittest_library:
 	env PYTHONPATH=. $(PYTEST) -v tests/gamehop
+
+typecheck_examples:
+	$(MYPY) examples/nestedPKE/nestedPKE.py
+	$(MYPY) examples/parallelPKE/parallelPKE.py
+	$(MYPY) examples/KEMfromPKE/KEMfromPKE.py
 
 test_examples:
 	env PYTHONPATH=. $(PYTEST) -v tests/examples

@@ -1,4 +1,5 @@
 import ast
+from typing import Type
 import unittest
 
 import gamehop.inlining
@@ -12,16 +13,16 @@ def expected_result(g):
 class TestInlineSchemeIntoGame(unittest.TestCase):
 
     def test_basic(self):
+        class P(Crypto.Scheme):
+            @staticmethod
+            def KeyGen(): return (1, 2)
         class G(Crypto.Game):
-            def __init__(self, Scheme, Adversary):
+            def __init__(self, Scheme: Type[P], Adversary):
                 self.Scheme = Scheme
                 self.Adversary = Adversary
             def main(self) -> Crypto.Bit:
                 (pk, _) = self.Scheme.KeyGen()
                 return pk
-        class P(Crypto.Scheme):
-            @staticmethod
-            def KeyGen(): return (1, 2)
         class G_expected_result(Crypto.Game):
             def __init__(self, Adversary):
                 self.Scheme = P

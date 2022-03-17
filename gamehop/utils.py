@@ -4,6 +4,8 @@ import difflib
 import inspect
 import types
 from typing import Any, Callable, Dict, List, Optional, Type, Union, TypeVar
+from typing import _GenericAlias # type: ignore
+
 from . import node_traverser as nt
 
 def stringDiff(a,b):
@@ -77,7 +79,10 @@ class NameNodeReplacer(nt.NodeTraverser):
         self.replacements = replacements
         super().__init__()
     def visit_Name(self, node):
-        if node.id in self.replacements: return self.replacements[node.id]
+        if node.id in self.replacements: 
+            if isinstance(self.replacements[node.id], str):
+                return ast.Name(id=self.replacements[node.id], ctx=node.ctx)
+            else: return self.replacements[node.id]
         else: return node
 
 class AttributeNodeReplacer(nt.NodeTraverser):
@@ -167,14 +172,37 @@ def get_class_def(c: Union[Type[Any], str, ast.ClassDef]) -> ast.ClassDef:
     assert isinstance(cdef, ast.ClassDef)
     return cdef
 
+def get_method_by_name(c: ast.ClassDef, method_name: str) -> Optional[ast.FunctionDef]:
+    for x in c.body:
+        if isinstance(x, ast.FunctionDef) and x.name == method_name: return x
+    return None
+
+def _simplifyname(s: str) -> str:
+    s = s.replace('gamehop.primitives.', '')
+    w = s.split('.')
+    if len(w) == 2:
+        module = w[0]
+        name = w[1]
+        name = name.replace('Scheme', '')
+        if module.lower() == name.lower(): return name
+        else: return f"{module}.{name}"
+    else: return s
+
 def fqn(o) -> str:
     if inspect.isclass(o):
         if o.__module__ == '__main__': return "" + o.__name__.replace('Scheme', '')
-        else: 
-            module = o.__module__.replace('gamehop.primitives.', '')
-            name = o.__name__.replace('Scheme', '')
-            if module.lower() == name.lower(): return name
-            else: return f"{module}.{name}"
+        else: return _simplifyname(f"{o.__module__}.{o.__name__}")
+    elif isinstance(o, _GenericAlias):
+        return _simplifyname(str(o))
     else: return type(o).__name__
 
-def parentfqn(o) -> str: return fqn(inspect.getmro(o)[1])
+def typefqn(o) -> str:
+    if isinstance(o, _GenericAlias):
+        # remove generic arguments
+        s = str(o)
+        i = s.index('[')
+        s = s[:i]
+        # simplify name
+        return _simplifyname(s)
+    else:
+        return fqn(inspect.getmro(o)[1])

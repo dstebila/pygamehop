@@ -12,6 +12,7 @@ from .. import utils
 from .canonicalization import expand
 from .canonicalization import simplify
 from .canonicalization import ifstatements
+from .canonicalization.classes import unnecessary_members
 
 def debug_helper(x, label):
     if False: # change this to True to print some debugging info
@@ -60,13 +61,13 @@ def canonicalize_function(f: Union[Callable, str]) -> str:
 def canonicalize_game(c: Union[Type[Any], str, ast.ClassDef]) -> str:
     cdef = utils.get_class_def(c)
     cdef.name = "G"
-    for i, f in enumerate(cdef.body):
-        if not isinstance(f, ast.FunctionDef):
-            raise ValueError(f"Cannot canonicalize games containing anything other than functions; {cdef.name} contains a node of type {type(f).__name__}")
-        str_previous = ""
-        str_current = ast.unparse(ast.fix_missing_locations(f))
-        while str_previous != str_current:
-            str_previous = str_current
+    str_previous = ""
+    str_current = ast.unparse(ast.fix_missing_locations(cdef))
+    while str_previous != str_current:
+        str_previous = str_current
+        for i, f in enumerate(cdef.body):
+            if not isinstance(f, ast.FunctionDef):
+                raise ValueError(f"Cannot canonicalize games containing anything other than functions; {cdef.name} contains a node of type {type(f).__name__}")
             ifstatements.if_statements_to_expressions(f)
             debug_helper(f, "ifstatements.if_statements_to_expressions")
             expand.expand_non_compact_expressions(f)
@@ -80,6 +81,8 @@ def canonicalize_game(c: Union[Type[Any], str, ast.ClassDef]) -> str:
                 debug_helper(f, "canonicalization.canonicalize_line_order")
             canonicalization.canonicalize_variable_names(f)
             debug_helper(f, "canonicalization.canonicalize_variable_names")
-            str_current = ast.unparse(ast.fix_missing_locations(f))
-        cdef.body[i] = f
+            cdef.body[i] = f
+        unnecessary_members(cdef)
+        debug_helper(cdef, "canonicalization.classes.unnecessary_members")
+        str_current = ast.unparse(ast.fix_missing_locations(cdef))
     return ast.unparse(ast.fix_missing_locations(cdef))
