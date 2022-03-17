@@ -188,7 +188,10 @@ class Graph():
 
     def print(self):
         vertex_number = { v: i for i, v in enumerate(self.vertices) }
-        print(vertex_number)
+        print('Vertices')
+        print('-----------')
+        for v in vertex_number:
+            print(f'{vertex_number[v]}: {ast.unparse(v)}')
 
         print('Edges')
         print('-----------')
