@@ -587,12 +587,10 @@ class NodeTraverser():
 
         # Record change to arguments for non-pure functions
         purity = self.method_purity(functionName)
-        print(purity)
         for argindex, arg in enumerate(node.args):
             if isinstance(node.func, ast.Attribute) and argindex == 0:
                 # This is the object whose method has been called.  This will be handled by the objectvalue in the scope.
                 continue
-            print(argindex)
             if purity[argindex] == 1:
                 # this call may have modified this argument, so add a store
                 if isinstance(arg, ast.Name):
