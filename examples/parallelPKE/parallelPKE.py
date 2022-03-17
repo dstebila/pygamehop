@@ -34,7 +34,7 @@ class ParallelPKE(
         (ct1, ct2) = nct
         pt1 = PKE1.Decrypt(sk1, ct1)
         pt2 = PKE2.Decrypt(sk2, ct2)
-        if pt1 is None or pt1 is None or pt1 != pt2:
+        if pt1 is None or pt2 is None or pt1 != pt2:
             r: Optional[PT12] = None
         else:
             r = pt1
