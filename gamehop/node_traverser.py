@@ -28,7 +28,10 @@ def nodes(node, nodetype = ast.AST):
 
 defaultPurity = {
     '__regexp__': {  #  Match by regular expression (including for normal functions).  First match used.
-        '.*': [1] * 20   # default for functions not otherwise mentioned.  This needs to be LAST
+        # '.*': [1] * 20   # default for functions not otherwise mentioned.  This needs to be LAST
+        # TODO: This is a temporary hack that reduces generality but works (?) for our crypto examples
+        # because all our methods are pure
+        '.*': [0] * 20   # default for functions not otherwise mentioned.  This needs to be LAST
     }
     # example
     # 'MyType': { 'myMethod', [1,0,0,0]}  # self is modified, other arguments are not.
