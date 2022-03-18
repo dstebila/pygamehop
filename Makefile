@@ -21,6 +21,7 @@ typecheck_examples:
 	$(MYPY) examples/nestedPKE/nestedPKE.py
 	$(MYPY) examples/parallelPKE/parallelPKE.py
 	$(MYPY) examples/KEMfromPKE/KEMfromPKE.py
+	$(MYPY) examples/PKEfromKEM/PKEfromKEM.py
 
 test_examples:
 	env PYTHONPATH=. $(PYTEST) -v tests/examples
