@@ -1,4 +1,4 @@
-from typing import Annotated, Callable, Generic, Sized, Type, TypeVar
+from typing import Annotated, Callable, Generic, Sized, Tuple, Type, TypeVar
 
 from . import Crypto
 from .. import lists
@@ -42,3 +42,31 @@ class ROR_Random(Crypto.Game, Generic[Key, Output]):
         return self.query_list.get_item((label, outlen))
 
 ROR = Crypto.DistinguishingExperimentRealOrRandom("KDF", "ROR", ROR_Real, ROR_Random, ROR_Adversary)
+
+class ROR1_Adversary(Crypto.Adversary, Generic[Key, Output]):
+    def challenge(self) -> Tuple[str, int]: pass
+    def guess(self, v: Output) -> Crypto.Bit: pass
+
+class ROR1_Real(Crypto.Game, Generic[Key, Output]):
+    def __init__(self, Scheme: Type[KDFScheme[Key, Output]], Adversary: Type[ROR1_Adversary[Key, Output]]):
+        self.Scheme = Scheme
+        self.adversary = Adversary(Scheme)
+    def main(self) -> Crypto.Bit:
+        self.k = self.Scheme.uniformKey()
+        (label, outlen) = self.adversary.challenge()
+        v = self.Scheme.Eval(self.k, label, outlen)
+        r = self.adversary.guess(v)
+        return r
+
+class ROR1_Random(Crypto.Game, Generic[Key, Output]):
+    def __init__(self, Scheme: Type[KDFScheme[Key, Output]], Adversary: Type[ROR1_Adversary[Key, Output]]):
+        self.Scheme = Scheme
+        self.adversary = Adversary(Scheme)
+    def main(self) -> Crypto.Bit:
+        self.k = self.Scheme.uniformKey()
+        (label, outlen) = self.adversary.challenge()
+        v = self.Scheme.uniformOutput(outlen)
+        r = self.adversary.guess(v)
+        return r
+
+ROR1 = Crypto.DistinguishingExperimentRealOrRandom("KDF", "ROR1", ROR1_Real, ROR1_Random, ROR1_Adversary)
