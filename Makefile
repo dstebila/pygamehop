@@ -23,6 +23,7 @@ typecheck_examples:
 	$(MYPY) examples/KEMfromPKE/KEMfromPKE.py
 	$(MYPY) examples/PKEfromKEM/PKEfromKEM.py
 	$(MYPY) examples/SymEnc_CPADollar/SE.py
+	$(MYPY) examples/EncryptThenMAC/EncryptThenMAC.py
 
 test_examples:
 	env PYTHONPATH=. $(PYTEST) -v tests/examples
