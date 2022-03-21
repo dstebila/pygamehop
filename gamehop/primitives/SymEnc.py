@@ -1,4 +1,4 @@
-from typing import Annotated, Callable, Generic, Optional, Type, TypeVar
+from typing import Annotated, Callable, Generic, Type, TypeVar
 
 from . import Crypto
 from .. import lists
@@ -15,7 +15,7 @@ class SymEncScheme(Crypto.Scheme, Generic[Key, Message, Ciphertext]):
     @staticmethod
     def Encrypt(key: Key, msg: Message) -> Ciphertext: pass
     @staticmethod
-    def Decrypt(key: Key, ctxt: Ciphertext) -> Optional[Message]: pass
+    def Decrypt(key: Key, ctxt: Ciphertext) -> Message: pass
 
 class INDCPA_Adversary(Crypto.Adversary, Generic[Key, Message, Ciphertext]):
     def run(self, o_eavesdrop: Callable[[Message, Message], Ciphertext]) -> Crypto.Bit: pass
@@ -74,44 +74,3 @@ class INDCPADollar_Random(Crypto.Game, Generic[Key, Message, Ciphertext]):
         return c
 
 INDCPADollar = Crypto.DistinguishingExperimentRealOrRandom("SymEnc", "INDCPADollar", INDCPADollar_Real, INDCPADollar_Random, INDCPADollar_Adversary)
-
-class INDCCA_Adversary(Crypto.Adversary, Generic[Key, Message, Ciphertext]):
-    def run(self, o_eavesdrop: Callable[[Message, Message], Ciphertext], o_decrypt: Callable[[Ciphertext], Optional[Message]]) -> Crypto.Bit: pass
-
-class INDCCA_Left(Crypto.Game, Generic[Key, Message, Ciphertext]):
-    def __init__(self, Scheme: Type[SymEncScheme[Key, Message, Ciphertext]], Adversary: Type[INDCCA_Adversary[Key, Message, Ciphertext]]):
-        self.Scheme = Scheme
-        self.adversary = Adversary(Scheme)
-    def main(self) -> Crypto.Bit:
-        self.k = self.Scheme.uniformKey()
-        self.challenges = lists.new_empty_list()
-        r = self.adversary.run(self.o_eavesdrop, self.o_decrypt)
-        return r
-    def o_eavesdrop(self, msg_L: Message, msg_R: Message) -> Ciphertext:
-        c = self.Scheme.Encrypt(self.k, msg_L)
-        self.challenges = lists.append_item(self.challenges, c)
-        return c
-    def o_decrypt(self, ctxt: Ciphertext) -> Optional[Message]:
-        if ctxt in self.challenges: ret = None
-        else: ret = self.Scheme.Decrypt(self.k, ctxt)
-        return ret
-
-class INDCCA_Right(Crypto.Game, Generic[Key, Message, Ciphertext]):
-    def __init__(self, Scheme: Type[SymEncScheme[Key, Message, Ciphertext]], Adversary: Type[INDCCA_Adversary[Key, Message, Ciphertext]]):
-        self.Scheme = Scheme
-        self.adversary = Adversary(Scheme)
-    def main(self) -> Crypto.Bit:
-        self.k = self.Scheme.uniformKey()
-        self.challenges = lists.new_empty_list()
-        r = self.adversary.run(self.o_eavesdrop, self.o_decrypt)
-        return r
-    def o_eavesdrop(self, msg_L: Message, msg_R: Message) -> Ciphertext:
-        c = self.Scheme.Encrypt(self.k, msg_R)
-        self.challenges = lists.append_item(self.challenges, c)
-        return c
-    def o_decrypt(self, ctxt: Ciphertext) -> Optional[Message]:
-        if ctxt in self.challenges: ret = None
-        else: ret = self.Scheme.Decrypt(self.k, ctxt)
-        return ret
-
-INDCCA = Crypto.DistinguishingExperimentLeftOrRight("SymEnc", "INDCCA", INDCCA_Left, INDCCA_Right, INDCCA_Adversary)

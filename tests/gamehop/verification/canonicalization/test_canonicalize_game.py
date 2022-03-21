@@ -1,12 +1,8 @@
-from typing import Annotated, Callable, Generic, Optional, Type, TypeVar
-
 import ast
 import inspect
 import unittest
 
-from gamehop import lists
 from gamehop.primitives import Crypto
-from gamehop.primitives.SymEnc import SymEncScheme, Key, Message, Ciphertext, INDCCA_Adversary
 import gamehop
 import gamehop.verification
 import gamehop.verification.canonicalization as canonicalization
