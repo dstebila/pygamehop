@@ -122,7 +122,7 @@ class TestInlineReductionIntoGameWithOracle(unittest.TestCase):
             gamehop.inlining.inline_scheme_into_game(P2fromP1, G2),
             expected_result(G2_expected_result))
 
-    def disabledtest_R_into_G1(self):
+    def test_R_into_G1(self):
         self.maxDiff = None
         class G2_expected_result(Crypto.Game, Generic[PK, CT]):
             def __init__(self, Adversary: Type[G2_Adversary[PK, CT]]):
@@ -133,6 +133,7 @@ class TestInlineReductionIntoGameWithOracle(unittest.TestCase):
                 b = random.choice([0, 1])
                 msge = 'hi!' if b == 0 else 'bye'
                 ct = P1Instance.Encrypt(self.pk, msge)
+                self.io_encrypter = self.o_encrypter
                 R_hi_or_byeᴠ1ⴰg = self.adversary.hi_or_not(self.pk, ct, self.o_encconcat)
                 R_hi_or_byeᴠ1ⴰret = 0 if R_hi_or_byeᴠ1ⴰg else 1
                 bstar = R_hi_or_byeᴠ1ⴰret

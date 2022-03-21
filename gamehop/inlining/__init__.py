@@ -510,18 +510,21 @@ def inline_reduction_into_game(R: Type[Crypto.Reduction], GameForR: Type[Crypto.
     main = utils.AttributeNodeReplacer(['self', 'inner_adversary'], 'self.adversary').visit(main)
     # main = utils.AttributeNodeReplacer(['self', 'adversary'], R.__name__).visit(main)
 
-    # # 2. Copy oracles added by R
-    # for fdef in utils.get_class_def(R).body:
-    #     if not isinstance(fdef, ast.FunctionDef): continue
-    #     if not(fdef.name.startswith("o_")): continue
-    #     OutputGame.body.append(fdef)
-
     # 3. Inline oracles that R uses from the original game
     # The original game is GameForR, with self.Scheme bound to SchemeForR
     original_game = utils.get_class_def(GameForR)
     original_game = utils.AttributeNodeReplacer(['self', 'Scheme'], SchemeForRName).visit(original_game)
     main = utils.get_function_def(inline_all_nonstatic_method_calls("self", original_game, cast(ast.FunctionDef, main)))
     OutputGame.body.append(main)
+
+    # 2. Copy oracles added by R
+    for fdef in utils.get_class_def(R).body:
+        if not isinstance(fdef, ast.FunctionDef): continue
+        if not(fdef.name.startswith("o_")): continue
+        # rename all calls to self.io_ to self.o_
+        fdef = utils.AttributeNodeReplacer(['self', 'io_*'], 'self.o_').visit(fdef)
+        fdef = utils.get_function_def(inline_all_nonstatic_method_calls("self", original_game, cast(ast.FunctionDef, fdef)))
+        OutputGame.body.append(fdef)
 
     # bind the typevars in the new game to the values by the reduction
     # set the new game to use the typevars used by the reduction
