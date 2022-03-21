@@ -1,87 +1,76 @@
-from abc import ABC
-from typing import Callable, List, Sized, Type, Union
+from typing import Annotated, Callable, Generic, Type, TypeVar
 
 from . import Crypto
 from .. import lists
 
-class SymEncScheme(Crypto.Scheme, ABC):
-    class SecretKey(): pass
-    class Ciphertext(): pass
-    class Message(Sized): pass
+Key = TypeVar('Key')
+Message = TypeVar('Message')
+Ciphertext = TypeVar('Ciphertext')
+
+class SymEncScheme(Crypto.Scheme, Generic[Key, Message, Ciphertext]):
     @staticmethod
-    def KeyGen() -> SecretKey: pass
+    def uniformKey() -> Annotated[Key, Crypto.UniformlyRandom]: pass
     @staticmethod
-    def Encrypt(k: SecretKey, msg: Message) -> Ciphertext: pass
+    def uniformCiphertext() -> Annotated[Ciphertext, Crypto.UniformlyRandom]: pass
     @staticmethod
-    def Decrypt(k: SecretKey, ct: Ciphertext) -> Union[Message, Crypto.Reject]: pass
+    def Encrypt(key: Key, msg: Message) -> Ciphertext: pass
+    @staticmethod
+    def Decrypt(key: Key, ctxt: Ciphertext) -> Message: pass
 
-# the following definitions are based on https://eprint.iacr.org/2000/025.pdf
+class INDCPA_Adversary(Crypto.Adversary, Generic[Key, Message, Ciphertext]):
+    def run(self, o_eavesdrop: Callable[[Message, Message], Ciphertext]) -> Crypto.Bit: pass
 
-class INDCPA_LOR_Adversary(Crypto.Adversary):
-    def run(self, o_LR: Callable[[SymEncScheme.Message, SymEncScheme.Message], SymEncScheme.Ciphertext]) -> Crypto.Bit: pass
-
-class INDCPA_LOR_Game(Crypto.GameParameterizedByBit):
-    def __init__(self, Scheme: Type[SymEncScheme], Adversary: Type[INDCPA_LOR_Adversary], b: Crypto.Bit):
-        self.Scheme = Scheme
-        self.adversary = Adversary(Scheme)
-        self.b = b
-    def main(self) -> Crypto.Bit:
-        self.k = self.Scheme.KeyGen()
-        bprime = self.adversary.run(self.o_LR)
-        return bprime
-    def o_LR(self, m0: SymEncScheme.Message, m1: SymEncScheme.Message) -> SymEncScheme.Ciphertext:
-        m = m0 if self.b == 0 else m1
-        c = self.Scheme.Encrypt(self.k, m)
-        return c
-
-INDCPA_LOR = Crypto.DistinguishingExperimentHiddenBit("SymEnc", "INDCPA_LOR", INDCPA_LOR_Game, INDCPA_LOR_Adversary)
-
-class INDCCA_LOR_Adversary(Crypto.Adversary):
-    def run(self, o_LR: Callable[[SymEncScheme.Message, SymEncScheme.Message], SymEncScheme.Ciphertext], o_Dec: Callable[[SymEncScheme.Ciphertext], Union[SymEncScheme.Message, Crypto.Reject]]) -> Crypto.Bit: pass
-
-class INDCCA_LOR_Game(Crypto.GameParameterizedByBit):
-    def __init__(self, Scheme: Type[SymEncScheme], Adversary: Type[INDCCA_LOR_Adversary], b: Crypto.Bit):
-        self.Scheme = Scheme
-        self.adversary = Adversary(Scheme)
-        self.b = b
-    def main(self) -> Crypto.Bit:
-        self.k = self.Scheme.KeyGen()
-        self.ciphertexts = lists.new_empty_list()
-        bprime = self.adversary.run(self.o_LR, self.o_Dec)
-        return bprime
-    def o_LR(self, m0: SymEncScheme.Message, m1: SymEncScheme.Message) -> SymEncScheme.Ciphertext:
-        m = m0 if self.b == 0 else m1
-        c = self.Scheme.Encrypt(self.k, m)
-        self.ciphertexts = lists.append_item(self.ciphertexts, c)
-        return c
-    def o_Dec(self, c: SymEncScheme.Ciphertext) -> Union[SymEncScheme.Message, Crypto.Reject]:
-        if not(c in self.ciphertexts): m = self.Scheme.Decrypt(self.k, c)
-        else: m = Crypto.Reject()
-        return m
-
-INDCCA_LOR = Crypto.DistinguishingExperimentHiddenBit("SymEnc", "INDCCA_LOR", INDCCA_LOR_Game, INDCCA_LOR_Adversary)
-
-class INT_PTXT_Adversary(Crypto.Adversary):
-    def run(self, o_Enc: Callable[[SymEncScheme.Message], SymEncScheme.Ciphertext], o_VF: Callable[[SymEncScheme.Ciphertext], bool]) -> Crypto.Bit: pass
-
-class INT_PTXT_Game(Crypto.Game):
-    def __init__(self, Scheme: Type[SymEncScheme], Adversary: Type[INT_PTXT_Adversary], b: Crypto.Bit):
+class INDCPA_Left(Crypto.Game, Generic[Key, Message, Ciphertext]):
+    def __init__(self, Scheme: Type[SymEncScheme[Key, Message, Ciphertext]], Adversary: Type[INDCPA_Adversary[Key, Message, Ciphertext]]):
         self.Scheme = Scheme
         self.adversary = Adversary(Scheme)
     def main(self) -> Crypto.Bit:
-        self.win = Crypto.Bit(0)
-        self.k = self.Scheme.KeyGen()
-        self.messages = lists.new_empty_list()
-        self.adversary.run(self.o_Enc, self.o_VF)
-        return self.win
-    def o_Enc(self, m: SymEncScheme.Message) -> SymEncScheme.Ciphertext:
-        c = self.Scheme.Encrypt(self.k, m)
-        self.messages = lists.append_item(self.messages, m)
+        self.k = self.Scheme.uniformKey()
+        r = self.adversary.run(self.o_eavesdrop)
+        return r
+    def o_eavesdrop(self, msg_L: Message, msg_R: Message) -> Ciphertext:
+        c = self.Scheme.Encrypt(self.k, msg_L)
         return c
-    def o_VF(self, c: SymEncScheme.Ciphertext) -> bool:
-        m = self.Scheme.Decrypt(self.k, c)
-        if not(isinstance(m, Crypto.Reject)) and not(m in self.messages): self.win = Crypto.Bit(1)
-        ret = not(isinstance(m, Crypto.Reject))
-        return ret
 
-INT_PTXT = Crypto.WinLoseExperiment("SymEnc", "INT_PTXT", INT_PTXT_Game, INT_PTXT_Adversary)
+class INDCPA_Right(Crypto.Game, Generic[Key, Message, Ciphertext]):
+    def __init__(self, Scheme: Type[SymEncScheme[Key, Message, Ciphertext]], Adversary: Type[INDCPA_Adversary[Key, Message, Ciphertext]]):
+        self.Scheme = Scheme
+        self.adversary = Adversary(Scheme)
+    def main(self) -> Crypto.Bit:
+        self.k = self.Scheme.uniformKey()
+        r = self.adversary.run(self.o_eavesdrop)
+        return r
+    def o_eavesdrop(self, msg_L: Message, msg_R: Message) -> Ciphertext:
+        c = self.Scheme.Encrypt(self.k, msg_R)
+        return c
+
+INDCPA = Crypto.DistinguishingExperimentLeftOrRight("SymEnc", "INDCPA", INDCPA_Left, INDCPA_Right, INDCPA_Adversary)
+
+class INDCPADollar_Adversary(Crypto.Adversary, Generic[Key, Message, Ciphertext]):
+    def run(self, o_ctxt: Callable[[Message], Ciphertext]) -> Crypto.Bit: pass
+
+class INDCPADollar_Real(Crypto.Game, Generic[Key, Message, Ciphertext]):
+    def __init__(self, Scheme: Type[SymEncScheme[Key, Message, Ciphertext]], Adversary: Type[INDCPADollar_Adversary[Key, Message, Ciphertext]]):
+        self.Scheme = Scheme
+        self.adversary = Adversary(Scheme)
+    def main(self) -> Crypto.Bit:
+        self.k = self.Scheme.uniformKey()
+        r = self.adversary.run(self.o_ctxt)
+        return r
+    def o_ctxt(self, msg: Message) -> Ciphertext:
+        c = self.Scheme.Encrypt(self.k, msg)
+        return c
+
+class INDCPADollar_Random(Crypto.Game, Generic[Key, Message, Ciphertext]):
+    def __init__(self, Scheme: Type[SymEncScheme[Key, Message, Ciphertext]], Adversary: Type[INDCPADollar_Adversary[Key, Message, Ciphertext]]):
+        self.Scheme = Scheme
+        self.adversary = Adversary(Scheme)
+    def main(self) -> Crypto.Bit:
+        self.k = self.Scheme.uniformKey()
+        r = self.adversary.run(self.o_ctxt)
+        return r
+    def o_ctxt(self, msg: Message) -> Ciphertext:
+        c = self.Scheme.uniformCiphertext()
+        return c
+
+INDCPADollar = Crypto.DistinguishingExperimentRealOrRandom("SymEnc", "INDCPADollar", INDCPADollar_Real, INDCPADollar_Random, INDCPADollar_Adversary)

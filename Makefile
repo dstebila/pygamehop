@@ -22,6 +22,7 @@ typecheck_examples:
 	$(MYPY) examples/parallelPKE/parallelPKE.py
 	$(MYPY) examples/KEMfromPKE/KEMfromPKE.py
 	$(MYPY) examples/PKEfromKEM/PKEfromKEM.py
+	$(MYPY) examples/SymEnc_CPADollar/SE.py
 
 test_examples:
 	env PYTHONPATH=. $(PYTEST) -v tests/examples
@@ -40,5 +41,7 @@ example_figures:
 	cd examples/nestedPKE && pdflatex nestedPKE_is_INDCPA_proof2.tex
 	convert -density 144 examples/nestedPKE/nestedPKE_is_INDCPA_proof1.pdf docs/images/nestedPKE_is_INDCPA_proof1.png
 	convert -density 144 examples/nestedPKE/nestedPKE_is_INDCPA_proof2.pdf docs/images/nestedPKE_is_INDCPA_proof2.png
+	cd examples/SymEnc_CPADollar && pdflatex SymEnc_CPADollar_is_INDCPA.tex
+	convert -density 144 examples/SymEnc_CPADollar/SymEnc_CPADollar_is_INDCPA.pdf docs/images/SymEnc_CPADollar_is_INDCPA.png
 	rm -f examples/*/*.aux
 	rm -f examples/*/*.log
