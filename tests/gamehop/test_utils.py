@@ -45,3 +45,22 @@ class TestAttributeNodeReplacer(unittest.TestCase):
             ast.unparse(x),
             expected_result(f_expected_result)
         )
+
+    def test_two_level_wildcard(self):
+        def f(a, y):
+            v1 = a.b(y) # should not be replaced
+            v2 = a.b.charlie(y) # should be replaced
+            v3 = a.b.christof.d(y) # should be replaced
+            v4 = a.a.b.chuck(y) # should not be replaced
+            return v1 + v2 + v3 + v4
+        def f_expected_result(a, y):
+            v1 = a.b(y)
+            v2 = xx.yyarlie(y)
+            v3 = xx.yyristof.d(y)
+            v4 = a.a.b.chuck(y)
+            return v1 + v2 + v3 + v4
+        x = gamehop.utils.AttributeNodeReplacer(['a', 'b', 'ch*'], 'xx.yy').visit(gamehop.utils.get_function_def(f))
+        self.assertEqual(
+            ast.unparse(x),
+            expected_result(f_expected_result)
+        )

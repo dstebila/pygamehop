@@ -92,22 +92,16 @@ class AttributeNodeReplacer(nt.NodeTraverser):
         self.replacement = replacement
         super().__init__()
     def visit_Attribute(self, node):
-        # work backward from the end of the attribute and see if it matches the thing we're looking for
-        curr_a = node
-        for i, n in enumerate(reversed(self.needle)):
-            if isinstance(curr_a, ast.Attribute):
-                if curr_a.attr == n:
-                    # so far so good... advance to the next part of the node
-                    curr_a = curr_a.value
-                    continue
-                else: break
-            elif isinstance(curr_a, ast.Name):
-                if i == len(self.needle) - 1 and curr_a.id == n:
-                    # we found an exact match! do the replacement
-                    return ast.Name(id=self.replacement, ctx=node.ctx)
-                else: break
-        # we didn't find an exact match... but recurse on the inner part of this attribute in case it's a match
-        return ast.Attribute(value=self.visit(node.value), attr=node.attr, ctx=node.ctx)
+        name = ast.unparse(node)
+        needle = ".".join(self.needle)
+        if needle.endswith("*"):
+            if name.startswith(needle[:-1]): return ast.Name(id=self.replacement + name[len(needle)-1:], ctx=node.ctx)
+        else:
+            if name == needle: return ast.Name(id=self.replacement, ctx=node.ctx)
+            if name.startswith(needle + "."): return ast.Name(id=self.replacement + name[len(needle):], ctx=node.ctx)
+        if name.startswith(needle):
+            return ast.Name(id=self.replacement, ctx=node.ctx)
+        return node
 
 def stored_vars(node):
     # TODO: this is probably not what we want if there are inner scopes.
