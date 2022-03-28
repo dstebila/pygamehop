@@ -129,11 +129,13 @@ class Proof():
         def print_hop(game_src, game_src_canonicalized):
             if print_hops:
                 print(game_src)
+                # print("---- textified ----")
+                # print(textify(game_src))
                 if print_canonicalizations:
                     print("---- canonicalization ----")
                     print(game_src_canonicalized)
-                    print("---- textified ----")
-                    print(textify(game_src_canonicalized))
+                    # print("---- textified ----")
+                    # print(textify(game_src_canonicalized))
                 if show_call_graphs: verification.canonicalization.show_call_graph(utils.get_function_def(game_src_canonicalized))
 
         for gamenum in range(len(self.proof_steps) + 1):
