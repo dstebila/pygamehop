@@ -115,6 +115,8 @@ def vars_depends_on(node: Optional[ast.AST]) -> List[str]:
     def node_deps(node):
         if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Load):
             return node.id
+        if isinstance(node, ast.Attribute) and isinstance(node.ctx, ast.Load):
+            return node_deps(node.value) + "." + node.attr
         if isinstance(node, ast.arg):
             return node.arg
         return None

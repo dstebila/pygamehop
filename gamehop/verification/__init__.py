@@ -4,7 +4,7 @@ import inspect
 import random
 import re
 
-from typing import Any, Callable, List, Set, Type, Union
+from typing import Any, Callable, Dict, List, Set, Type, Union
 from types import FunctionType
 
 from . import canonicalization
@@ -65,6 +65,17 @@ def canonicalize_game(c: Union[Type[Any], str, ast.ClassDef]) -> str:
     str_current = ast.unparse(ast.fix_missing_locations(cdef))
     while str_previous != str_current:
         str_previous = str_current
+        # determine which members are used within each function, so that we can pass that
+        # list of dependencies to canonicalize_line_order
+        members_in_scope: Dict[str, List[str]] = dict()
+        for f in cdef.body:
+            if not isinstance(f, ast.FunctionDef):
+                raise ValueError(f"Cannot canonicalize games containing anything other than functions; {cdef.name} contains a node of type {type(f).__name__}")
+            selfname = f.args.args[0].arg
+            members_in_scope[selfname + "." + f.name] = list()
+            for v in utils.vars_depends_on(f):
+                if v.startswith(selfname + "."):
+                    members_in_scope[selfname + "." + f.name].append(v)
         for i, f in enumerate(cdef.body):
             if not isinstance(f, ast.FunctionDef):
                 raise ValueError(f"Cannot canonicalize games containing anything other than functions; {cdef.name} contains a node of type {type(f).__name__}")
@@ -77,7 +88,7 @@ def canonicalize_game(c: Union[Type[Any], str, ast.ClassDef]) -> str:
             canonicalization.simplify.simplify(f)
             debug_helper(f, "canonicalization.simplify.simplify")
             if f.name != "__init__":
-                canonicalization.canonicalize_line_order(f)
+                canonicalization.canonicalize_line_order(f, members_in_scope)
                 debug_helper(f, "canonicalization.canonicalize_line_order")
             canonicalization.canonicalize_variable_names(f)
             debug_helper(f, "canonicalization.canonicalize_variable_names")
