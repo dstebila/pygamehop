@@ -14,18 +14,18 @@ jobs:
       matrix:
         python-version: [3.9]
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
     - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v2
+      uses: actions/setup-python@v3
       with:
         python-version: ${{ matrix.python-version }}
     - name: Cache pip install
-      uses: actions/cache@v2
+      uses: actions/cache@v3
       id: cache-venv
       with:
         path: ./.venv/
-        key: ${{ runner.os }}-venv-1-${{ hashFiles('requirements.txt') }}
-        restore-keys: ${{ runner.os }}-venv-1-
+        key: ${{ runner.os }}-venv-1a-${{ hashFiles('requirements.txt') }}
+        restore-keys: ${{ runner.os }}-venv-1a-
     - name: Build virtual environment with dependencies
       if: steps.cache-venv.outputs.cache-hit != 'true'
       run: |

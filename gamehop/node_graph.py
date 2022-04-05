@@ -24,11 +24,11 @@ class Graph():
         self.values_loaded: List[str] = list()
 
     @staticmethod
-    def from_stmts(stmts: List[ast.stmt]):
+    def from_stmts(stmts: List[ast.stmt], extra_dependencies: Dict[str, List[str]] = {}):
         '''Create a node graph from a list of statements.  Creates edges based on the relationship
         between nodes that store variables and those that load them.  Recurses to create inner
         graphs on any statements that have bodies (eg. if body).  For now, does not do anything with function or class bodies.'''
-        g_maker = GraphMaker()
+        g_maker = GraphMaker(extra_dependencies)
         g_maker.visit_statements(stmts)
         return g_maker.graphs[0]
 
@@ -206,9 +206,10 @@ class Graph():
                 bodygraph.print()
 
 class GraphMaker(nt.NodeTraverser):
-    def __init__(self):
+    def __init__(self, extra_dependencies: Dict[str, List[str]] = {}):
         # We keep a stack of graphs to store inner graphs as we create them
         self.graphs = [ Graph() ]
+        self.extra_dependencies = extra_dependencies
         super().__init__()
 
     def visit_stmt(self, stmt):
@@ -220,6 +221,10 @@ class GraphMaker(nt.NodeTraverser):
 
         # Create edges from this statement for every variable it loaded
         stmt_scope = self.stmt_scopes[-1]
+        # Add edges for any extra dependencies passed in
+        for v in stmt_scope.external_vars:
+            if v in self.extra_dependencies:
+                stmt_scope.external_vars.extend(self.extra_dependencies[v])
         for var in stmt_scope.external_vars:
             # TODO: if referencing a variable that was never defined, this next line will fail, exception instead?
             # At this point, if this statement both loads and assigns to the same variable then the var_assigner points to this statement!  

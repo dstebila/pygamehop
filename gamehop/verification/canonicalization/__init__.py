@@ -1,7 +1,7 @@
 import ast
 import copy
 import secrets
-from typing import List, Union
+from typing import Dict, List, Union
 
 from ...inlining import internal
 from ... import utils
@@ -87,12 +87,12 @@ def assignee_vars(stmt: ast.Assign) -> List[str]:
         return ret
     else: raise NotImplementedError("Cannot handle assignments with left sides of the type " + str(type(stmt.targets[0]).__name__))
 
-def canonicalize_line_order(f: ast.FunctionDef) -> None:
+def canonicalize_line_order(f: ast.FunctionDef, extra_dependencies: Dict[str, List[str]] = {}) -> None:
     """Modify (in place) the given function definition to canonicalize the order of lines
     based on the order in which the returned variable depends on previous lines. Lines
     that do not affect the return variable are removed.  Assumes that the return statement
     is the last statement in the function body"""
-    G = ng.Graph.from_stmts(f.body)
+    G = ng.Graph.from_stmts(f.body, extra_dependencies)
     assert isinstance(f.body[-1], ast.Return)
     return_stmt = f.body[-1]
     G = G.reachable_subgraph([ return_stmt ], True)

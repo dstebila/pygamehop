@@ -12,11 +12,11 @@ class TestDependsOn(unittest.TestCase):
 
     def test_Attribute(self):
         s = 'a = x.y(z)'
-        self.assertEqual(gamehop.utils.vars_depends_on(ast.parse(s).body[0]), ['x', 'z'])
+        self.assertEqual(gamehop.utils.vars_depends_on(ast.parse(s).body[0]), ['x.y', 'x', 'z'])
 
     def test_Attribute2(self):
         s = 'a.b = x.y(z)'
-        self.assertEqual(gamehop.utils.vars_depends_on(ast.parse(s).body[0]), ['a', 'x', 'z'])
+        self.assertEqual(gamehop.utils.vars_depends_on(ast.parse(s).body[0]), ['a', 'x.y', 'x', 'z'])
 
     def test_BinOp(self):
         s = 'a = x + y'
@@ -28,7 +28,7 @@ class TestDependsOn(unittest.TestCase):
 
     def test_CallAttribute(self):
         s = 'a = b.x(y, z)'
-        self.assertEqual(gamehop.utils.vars_depends_on(ast.parse(s).body[0]), ['b', 'y', 'z'])
+        self.assertEqual(gamehop.utils.vars_depends_on(ast.parse(s).body[0]), ['b.x', 'b', 'y', 'z'])
 
     def test_Compare(self):
         s = 'r = a == b'
@@ -110,16 +110,16 @@ class TestAssignsTo(unittest.TestCase):
 
     def test_cryptoexample1(self):
         s = '(v2, v3) = v1.KeyGen()'
-        self.assertEqual(gamehop.utils.vars_depends_on(ast.parse(s).body[0]), ['v1'])
+        self.assertEqual(gamehop.utils.vars_depends_on(ast.parse(s).body[0]), ['v1.KeyGen', 'v1'])
         self.assertEqual(gamehop.utils.vars_assigns_to(ast.parse(s).body[0]), ['v2', 'v3'])
         s = 'v4 = v1.Encrypt(v2, v5)'
-        self.assertEqual(gamehop.utils.vars_depends_on(ast.parse(s).body[0]), ['v1', 'v2', 'v5'])
+        self.assertEqual(gamehop.utils.vars_depends_on(ast.parse(s).body[0]), ['v1.Encrypt', 'v1', 'v2', 'v5'])
         self.assertEqual(gamehop.utils.vars_assigns_to(ast.parse(s).body[0]), ['v4'])
         s = 'v5 = Crypto.UniformlySample(SharedSecret)'
-        self.assertEqual(gamehop.utils.vars_depends_on(ast.parse(s).body[0]), ['Crypto', 'SharedSecret'])
+        self.assertEqual(gamehop.utils.vars_depends_on(ast.parse(s).body[0]), ['Crypto.UniformlySample', 'Crypto', 'SharedSecret'])
         self.assertEqual(gamehop.utils.vars_assigns_to(ast.parse(s).body[0]), ['v5'])
         s = 'v6 = v0.guess(v2, v4, v5)'
-        self.assertEqual(gamehop.utils.vars_depends_on(ast.parse(s).body[0]), ['v0', 'v2', 'v4', 'v5'])
+        self.assertEqual(gamehop.utils.vars_depends_on(ast.parse(s).body[0]), ['v0.guess', 'v0', 'v2', 'v4', 'v5'])
         self.assertEqual(gamehop.utils.vars_assigns_to(ast.parse(s).body[0]), ['v6'])
         s = 'return v6'
         self.assertEqual(gamehop.utils.vars_depends_on(ast.parse(s).body[0]), ['v6'])
