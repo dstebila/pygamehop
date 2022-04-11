@@ -1,3 +1,5 @@
+*WARNING: THIS FILE IS CURRENTLY OUT OF DATE; THE MAIN IDEAS ARE STILL HERE BUT SOME DETAILS MAY HAVE CHANGED*
+
 # Canonicalization
 
 To compare two pieces of code and see if they are equivalent, pygamehop first applies a series of transformations that we call "canonicalization", with the aim that two equivalent programs should canonicalize to the same string of source code.

@@ -1,3 +1,5 @@
+*WARNING: THIS FILE IS CURRENTLY OUT OF DATE; THE MAIN IDEAS ARE STILL HERE BUT SOME DETAILS MAY HAVE CHANGED*
+
 # Cryptographic primitives and security experiments
 
 pygamehop has a variety of generic cryptographic primitives and corresponding security experiments defined.  These are contained in the `gamehop/primitives` directory.

@@ -1,3 +1,5 @@
+*WARNING: THIS FILE IS CURRENTLY OUT OF DATE; THE MAIN IDEAS ARE STILL HERE BUT SOME DETAILS MAY HAVE CHANGED*
+
 # Examples
 
 The `examples` directory contains several examples of constructions and corresponding proofs.
