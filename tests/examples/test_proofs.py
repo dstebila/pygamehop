@@ -14,3 +14,4 @@ class TestProofs(unittest.TestCase):
     def test_nestedPKE_is_INDCPA(self): run_example("nestedPKE", "INDCPA")
     def test_PKEfromKEM_is_INDCPA(self): run_example("PKEfromKEM", "INDCPA")
     def test_SymEnc_CPADollar_is_INDCPA(self): run_example("SymEnc_CPADollar", "INDCPA")
+    def test_DoubleOTP_is_ROR(self): run_example("DoubleOTP", "ROR")

@@ -23,6 +23,7 @@ typecheck_examples:
 	$(MYPY) examples/KEMfromPKE/KEMfromPKE.py
 	$(MYPY) examples/PKEfromKEM/PKEfromKEM.py
 	$(MYPY) examples/SymEnc_CPADollar/SE.py
+	$(MYPY) examples/DoubleOTP/DoubleOTP.py
 
 test_examples:
 	env PYTHONPATH=. $(PYTEST) -v tests/examples
@@ -43,5 +44,7 @@ example_figures:
 	convert -density 144 examples/nestedPKE/nestedPKE_is_INDCPA_proof2.pdf docs/images/nestedPKE_is_INDCPA_proof2.png
 	cd examples/SymEnc_CPADollar && pdflatex SymEnc_CPADollar_is_INDCPA.tex
 	convert -density 144 examples/SymEnc_CPADollar/SymEnc_CPADollar_is_INDCPA.pdf docs/images/SymEnc_CPADollar_is_INDCPA.png
+	cd examples/DoubleOTP && pdflatex DoubleOTP_is_ROR.tex
+	convert -density 144 examples/DoubleOTP/DoubleOTP_is_ROR.pdf docs/images/DoubleOTP_is_ROR.png
 	rm -f examples/*/*.aux
 	rm -f examples/*/*.log
