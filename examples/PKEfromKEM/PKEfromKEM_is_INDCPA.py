@@ -68,7 +68,7 @@ proof.add_distinguishing_proof_step(R2, KDF.ROR1, InnerKDF, "InnerKDF")
 # Game 4 is a rewriting step that tells the prover that the uniform output of a KDF
 # is good as a uniform key for the OTP.
 proof.insert_simple_rewriting_proof_step_after({
-    "InnerKDF.uniformOutput": "Crypto.BitString.uniformly_random"
+    "InnerKDF.uniformOutput": "InnerOTP.KeyGen"
 })
 
 # Game 5 encrypts message m1 rather than m0 using the OTP.
@@ -98,7 +98,7 @@ proof.add_distinguishing_proof_step(R3, OTP.IND, InnerOTP, "InnerOTP")
 # Game 6 is a rewriting step that tells the prover that the uniform output of a KDF
 # is good as a uniform key for the OTP.
 proof.insert_simple_rewriting_proof_step_after({
-    "Crypto.BitString.uniformly_random": "InnerKDF.uniformOutput"
+    "InnerOTP.KeyGen": "InnerKDF.uniformOutput"
 })
 
 # Game 7 uses a real value for the output of the KDF rather than random.
