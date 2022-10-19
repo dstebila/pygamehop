@@ -49,6 +49,13 @@ class RW1Right(Crypto.Game, Generic[SK1, SK2, CT1, CT2, PT1]):
 
 proof.add_rewriting_proof_step(RW1Left, RW1Right)
 
+# Would like to be able to use the "simple" rewriting step rather than have to write 
+# it out in full above, but this fails because one of the variables used in the rewrite
+# isn't defined yet and the line re-ordering won't put them into the right order, it seems.
+# proof.insert_simple_rewriting_proof_step_after({
+    # "DoubleOTP_KeyGenᴠ1ⴰsk2 = OuterOTP.KeyGen(len(m))": "DoubleOTP_KeyGenᴠ1ⴰsk2 = OuterOTP.KeyGen(len(DoubleOTP_Encryptᴠ1ⴰct1))"
+# })
+
 # Now we do a reduction to the ROR security of the outer OTP scheme.
 # The reduction acts as an adversary against the ROR security of the outer OTP scheme.
 # The reduction must simulate the previous game (which is the slightly rewritten ROR.Real
